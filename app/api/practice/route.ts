@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     if (body.action === "feedback") {
       const transcript = body.turns.map((t) => `${t.role.toUpperCase()}: ${t.text}`).join("\n");
       const feedback = await askJson<Feedback>({
-        system: `You are an experienced writing-center trainer giving feedback to a tutor after a practice role-play. Judge it against writing-center practice: build rapport, set an agenda, higher-order concerns first, ask open non-directive questions, the student keeps ownership and the pen, check understanding, end with next steps. Quote short moments from the transcript. Return {"worked": ["2-4 points"], "missed": ["2-4 points"], "tryNext": ["2 concrete things to try, with an example line the tutor could say"]}.\n\nScenario: ${scenarioBrief(body.scenario)}`,
+        system: `You are an experienced writing-center trainer giving feedback to a tutor after a practice role-play. Judge it against writing-center practice: build rapport, set an agenda, higher-order concerns first, ask open non-directive questions, the student keeps ownership and the pen, check understanding, end with next steps. Quote short moments from the transcript. Be kind and specific. Name what went well first. Then give exactly ONE thing to try next time, with an example line the tutor could say. Do not list mistakes. Return {"worked": ["2-4 points"], "missed": [], "tryNext": ["the one thing to try"]}.\n\nScenario: ${scenarioBrief(body.scenario)}`,
         messages: [{ role: "user", content: transcript || "(The tutor ended without saying anything.)" }],
       });
       return { feedback };
