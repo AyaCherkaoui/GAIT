@@ -61,7 +61,8 @@ async function askXai(opts: AskOpts): Promise<string> {
       reason = typeof j.error === "string" ? j.error : j.error?.message ?? "";
     } catch {}
     reason = reason.slice(0, 200);
-    if (res.status === 401) throw new UserFacingError("xAI rejected the key (401). Check XAI_API_KEY in .env.local.");
+    if (res.status === 401 || res.status === 403 || (res.status === 400 && /api key/i.test(reason)))
+      throw new UserFacingError(`xAI rejected the key (${res.status === 400 ? 401 : res.status}). Check XAI_API_KEY in .env.local.`);
     if (res.status === 429 || res.status === 402)
       throw new UserFacingError(`xAI says you are out of credits or rate limited (${res.status}). Wait a bit or check your xAI account.`);
     throw new UserFacingError(`xAI returned an error (${res.status})${reason ? `: ${reason}` : ""}.`);
