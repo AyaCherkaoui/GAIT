@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import "./globals.css";
+import ProviderStatus from "@/components/ProviderStatus";
 
 export const metadata: Metadata = {
   title: "GAIT",
@@ -29,6 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {NAV.map(([href, label]) => (
               <Link key={href} href={href} className="text-slate-600 hover:text-slate-900">{label}</Link>
             ))}
+            <ProviderStatus />
           </nav>
         </header>
         <main className="mx-auto max-w-4xl px-4 py-6">{children}</main>
