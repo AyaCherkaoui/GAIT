@@ -82,9 +82,13 @@ function RolePlay() {
           <div className="space-y-2">
             <p className="font-medium">What worked</p>
             <ul className="list-disc pl-5">{feedback.worked.map((x, i) => <li key={i}>{x}</li>)}</ul>
-            <p className="font-medium">What you missed</p>
-            <ul className="list-disc pl-5">{feedback.missed.map((x, i) => <li key={i}>{x}</li>)}</ul>
-            <p className="font-medium">Try next time</p>
+            {(feedback.missed?.length ?? 0) > 0 && (
+              <>
+                <p className="font-medium">What you missed</p>
+                <ul className="list-disc pl-5">{feedback.missed.map((x, i) => <li key={i}>{x}</li>)}</ul>
+              </>
+            )}
+            <p className="font-medium">One thing to try next time</p>
             <ul className="list-disc pl-5">{feedback.tryNext.map((x, i) => <li key={i}>{x}</li>)}</ul>
           </div>
         )}

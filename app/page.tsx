@@ -5,6 +5,11 @@ const TOOLS = [
   ["/search", "ARIA search", "Ask for what you need in plain words and find it in the ARIA folder."],
   ["/taskforce", "Task force", "Paste a task force assignment and get a plan, an outline and related ARIA files."],
   ["/practice", "Practice", "No appointment? Role-play a tricky session or take a 5-question refresher."],
+  ["/ai-talk", "Talking about AI", "Curious, non-accusing scripts for AI conversations, and ownership questions for a paragraph."],
+  ["/policies", "Course AI policies", "Look up and save what each course's syllabus says about AI."],
+  ["/debrief", "30-second debrief", "A private end-of-shift check-in, just for you."],
+  ["/voice", "Voice-first writing", "Why GAIT has no AI detector, and how to protect writers' own voices."],
+  ["/impact", "Impact snapshot", "Anonymous weekly counts, with a CSV download."],
 ];
 
 export default function Home() {

@@ -6,8 +6,29 @@ export type SessionOutputs = {
   focusAreas: FocusArea[];
   aiPrompts: AiPrompt[];
   dontAskAi: string[];
+  sessionNote?: string;
+  voiceFlags?: string[];
 };
-export type SessionNotes = { workedOn: string; struggles: string; wentWell: string };
+export type AiPolicy = "allowed" | "limited" | "banned" | "unknown";
+export const AI_POLICIES: AiPolicy[] = ["allowed", "limited", "banned", "unknown"];
+export type CoursePolicy = {
+  course_code: string;
+  professor: string;
+  policy: AiPolicy;
+  details: string;
+  source: string;
+  updated_at: string;
+};
+/** aiPolicy, aiUse and privateConcern are missing on rows saved before the AI-era fields. */
+export type SessionNotes = {
+  workedOn: string;
+  struggles: string;
+  wentWell: string;
+  courseCode?: string;
+  aiPolicy?: AiPolicy;
+  aiUse?: string;
+  privateConcern?: string;
+};
 export type SessionSummary = { id: number; created_at: string; student_name: string; course: string };
 export type SessionRecord = SessionSummary & { notes: SessionNotes; outputs: SessionOutputs };
 
