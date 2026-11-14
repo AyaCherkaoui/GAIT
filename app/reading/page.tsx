@@ -32,7 +32,12 @@ export default function ReadingPage() {
         <ul className="space-y-3 text-sm">
           {books.map((b) => (
             <li key={b.title}>
-              <span className="font-medium">{b.title}</span> <span className="text-stone-500">by {b.author}</span>
+              {b.url ? (
+                <a className="font-medium text-indigo-700 hover:underline" href={b.url} target="_blank" rel="noreferrer">{b.title}</a>
+              ) : (
+                <span className="font-medium">{b.title}</span>
+              )}{" "}
+              <span className="text-stone-500">by {b.author}</span>
               <p className="text-stone-600">{b.why}</p>
             </li>
           ))}
