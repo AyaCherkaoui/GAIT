@@ -70,7 +70,9 @@ export async function POST(req: Request) {
     body.course = str(body.course, 300);
     // The tutor's choice wins; otherwise use the saved policy for the course code.
     const saved = notes.courseCode ? getPolicy(notes.courseCode, user.id) : null;
-    const policy: AiPolicy = AI_POLICIES.includes(raw.aiPolicy as AiPolicy) ? (raw.aiPolicy as AiPolicy) : (saved?.policy ?? "unknown");
+    const chosen = AI_POLICIES.includes(raw.aiPolicy as AiPolicy) ? (raw.aiPolicy as AiPolicy) : "unknown";
+    // "unknown" means the tutor made no choice, so a saved policy for the course wins (the lookup may not have finished yet).
+    const policy: AiPolicy = chosen !== "unknown" ? chosen : (saved?.policy ?? "unknown");
     notes.aiPolicy = policy;
     if (!notes.workedOn.trim() && !notes.struggles.trim()) {
       throw new UserFacingError("Add at least what you worked on or what the student struggled with.");

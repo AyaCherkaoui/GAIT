@@ -1,4 +1,4 @@
-import { handle, readJson, str } from "@/lib/api";
+import { handle, HttpError, rateLimit, readJson, str } from "@/lib/api";
 import { askJson, UserFacingError } from "@/lib/claude";
 import { TALK_SCENARIOS, onlyQuestions } from "@/lib/ai-talk";
 import { logUsage } from "@/lib/usage";
@@ -20,9 +20,12 @@ export async function POST(req: Request) {
     };
 
     if (action === "used") {
-      logUsage("script", user.id);
+      // A separate cap keeps a script-happy client from inflating the Scripts count on /impact.
+      if (rateLimit(`script:${user.id}`, 30, 3600_000)) logUsage("script", user.id);
       return { ok: true };
     }
+    // Only the model calls below count against the AI rate limit; the "used" ping above does not.
+    if (!rateLimit(`ai:${user.id}`)) throw new HttpError(429, "Too many requests. Wait a minute and try again.");
 
     if (action === "tailor") {
       const s = TALK_SCENARIOS.find((x) => x.id === body.scenario);
@@ -53,5 +56,5 @@ export async function POST(req: Request) {
     }
 
     throw new UserFacingError("Unknown action.");
-  }, { ai: true });
+  });
 }
