@@ -1,11 +1,14 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { getUser } from "@/lib/auth";
 import { getSession } from "@/lib/sessions";
 import PrintButton from "./PrintButton";
 
 export const dynamic = "force-dynamic";
 
 export default async function PrintPage({ params }: { params: Promise<{ id: string }> }) {
-  const s = getSession(Number((await params).id));
+  const user = await getUser();
+  if (!user) redirect("/login");
+  const s = getSession(Number((await params).id), user.id);
   if (!s) notFound();
   const o = s.outputs;
   return (
@@ -13,7 +16,7 @@ export default async function PrintPage({ params }: { params: Promise<{ id: stri
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-xl font-bold">Your next steps{s.student_name ? `, ${s.student_name}` : ""}</h1>
-          <p className="text-slate-600">Reading/Writing Center · {s.course} · {s.created_at.slice(0, 10)}</p>
+          <p className="text-stone-600">Reading/Writing Center · {s.course} · {s.created_at.slice(0, 10)}</p>
         </div>
         <PrintButton />
       </div>
@@ -37,7 +40,7 @@ export default async function PrintPage({ params }: { params: Promise<{ id: stri
           {o.aiPrompts.map((p, i) => (
             <li key={i}>
               <p className="font-mono text-xs">{p.prompt}</p>
-              <p className="text-slate-600">{p.whyItHelps}</p>
+              <p className="text-stone-600">{p.whyItHelps}</p>
             </li>
           ))}
         </ol>
@@ -46,7 +49,7 @@ export default async function PrintPage({ params }: { params: Promise<{ id: stri
         <h2 className="font-semibold">Don&apos;t ask AI to…</h2>
         <ul className="list-disc pl-5">{o.dontAskAi.map((d, i) => <li key={i}>{d}</li>)}</ul>
       </section>
-      <p className="border-t pt-3 text-slate-600">Come back to the RWC any time. Bring your next draft!</p>
+      <p className="border-t pt-3 text-stone-600">Come back to the RWC any time. Bring your next draft!</p>
     </article>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import CopyButton from "@/components/CopyButton";
-import { Card, ErrorBox, btnCls, inputCls } from "@/components/ui";
+import { Card, ErrorBox, PageHeader, Working, btnCls, inputCls } from "@/components/ui";
 import { get, post } from "@/lib/client";
 import type { TaskRecord } from "@/lib/types";
 
@@ -35,12 +35,13 @@ export default function TaskForcePage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Task force</h1>
+      <PageHeader title="Task force">Turn an assignment into steps, an outline and questions to ask.</PageHeader>
       <form onSubmit={plan} className="space-y-3">
         <input className={inputCls} placeholder="Task title (e.g. Plan a citation workshop for first-years)" value={title} onChange={(e) => setTitle(e.target.value)} />
         <textarea className={inputCls} rows={4} placeholder="Paste the task details: goal, audience, deadline…" value={description} onChange={(e) => setDescription(e.target.value)} />
-        <button className={btnCls} disabled={loading}>{loading ? "Planning…" : "Help me plan it"}</button>
+        <button className={btnCls} disabled={loading}>Help me plan it</button>
       </form>
+      {loading && <Working label="Planning your task" />}
       <ErrorBox error={error} />
       <div className="space-y-3">
         {tasks.map((t) => (
@@ -55,7 +56,7 @@ export default function TaskForcePage() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2"><p className="font-medium">Starting outline</p><CopyButton text={t.plan.outline} /></div>
-                  <pre className="whitespace-pre-wrap rounded bg-slate-50 p-2 font-sans">{t.plan.outline}</pre>
+                  <pre className="whitespace-pre-wrap rounded bg-stone-50 p-2 font-sans">{t.plan.outline}</pre>
                 </div>
                 <div>
                   <p className="font-medium">Questions to ask the lead</p>

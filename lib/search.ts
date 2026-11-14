@@ -21,7 +21,7 @@ function ftsQuery(terms: string[]): string {
 }
 
 /** Plain keyword search over the ARIA index. */
-export function keywordSearch(terms: string[], limit = 20): Hit[] {
+export function keywordSearch(terms: string[], limit = 25): Hit[] {
   const q = ftsQuery(terms);
   if (!q) return [];
   const rows = getDb()
@@ -36,15 +36,18 @@ export function keywordSearch(terms: string[], limit = 20): Hit[] {
 /** Claude expands the question, the index finds candidates, Claude picks the best few. */
 export async function smartSearch(question: string): Promise<{ hits: Hit[]; terms: string[]; indexEmpty: boolean }> {
   if (docCount() === 0) return { hits: [], terms: [], indexEmpty: true };
-  const { terms } = await askJson<{ terms: string[] }>({
+  const expanded = await askJson<{ terms?: unknown }>({
     model: "fast",
     system:
       'A writing-center tutor is searching the center\'s shared folder of handouts, training material, templates and reports. Turn their question into 6-12 short keywords or phrases (include synonyms and related terms). Return {"terms": [...]}.',
     messages: [{ role: "user", content: question }],
-  });
-  const candidates = keywordSearch([question, ...(terms ?? [])]);
+  }).catch(() => ({ terms: [] }));
+  // The model's JSON is not trusted: keep only string terms.
+  const terms = Array.isArray(expanded?.terms) ? expanded.terms.filter((t): t is string => typeof t === "string").slice(0, 12) : [];
+  const candidates = keywordSearch([question, ...terms]);
   if (!candidates.length) return { hits: [], terms, indexEmpty: false };
-  const { picks } = await askJson<{ picks: { i: number; reason: string }[] }>({
+  const fallback = () => candidates.slice(0, 5);
+  const picked = await askJson<{ picks?: unknown }>({
     model: "fast",
     system:
       'Pick up to 5 documents that best answer the tutor\'s question, best first. Skip ones that do not fit. Return {"picks": [{"i": <index>, "reason": "<one short line on why it fits>"}]}.',
@@ -54,7 +57,15 @@ export async function smartSearch(question: string): Promise<{ hits: Hit[]; term
         content: `Question: ${question}\n\n${candidates.map((c, i) => `[${i}] ${c.name}: ${c.snippet}`).join("\n")}`,
       },
     ],
-  });
-  const hits = (picks ?? []).filter((p) => candidates[p.i]).map((p) => ({ ...candidates[p.i], reason: p.reason }));
-  return { hits, terms, indexEmpty: false };
+  }).catch(() => null);
+  const picks = Array.isArray(picked?.picks) ? (picked.picks as { i?: unknown; reason?: unknown }[]) : [];
+  const hits: Hit[] = [];
+  const seen = new Set<number>();
+  for (const p of picks) {
+    const i = p?.i;
+    if (typeof i !== "number" || !candidates[i] || seen.has(i)) continue;
+    seen.add(i);
+    hits.push({ ...candidates[i], reason: typeof p.reason === "string" ? p.reason : undefined });
+  }
+  return { hits: hits.length ? hits.slice(0, 5) : fallback(), terms, indexEmpty: false };
 }
