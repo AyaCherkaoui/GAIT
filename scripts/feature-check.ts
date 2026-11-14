@@ -21,6 +21,7 @@ const SECRET = randomBytes(32).toString("base64url");
 
 // Stand-in for Ollama's POST /api/chat. The reply depends on the system prompt.
 let picksMode: "empty" | "outOfRange" = "empty";
+let badTerms = false;
 let modelCalls = 0;
 let lastUserPrompt = "";
 const fake = http.createServer((req, res) => {
@@ -32,7 +33,7 @@ const fake = http.createServer((req, res) => {
     const system = body.messages?.find((m) => m.role === "system")?.content ?? "";
     lastUserPrompt = body.messages?.filter((m) => m.role === "user").map((m) => m.content).join("\n") ?? "";
     let content = "COACHING-REPLY";
-    if (system.includes("Turn their question into")) content = JSON.stringify({ terms: ["thesis"] });
+    if (system.includes("Turn their question into")) content = JSON.stringify({ terms: badTerms ? [1, null, { x: 1 }, "thesis"] : ["thesis"] });
     else if (system.includes("Pick up to 5")) content = JSON.stringify({ picks: picksMode === "empty" ? [] : [{ i: 99, reason: "x" }] });
     res.setHeader("content-type", "application/json");
     res.end(JSON.stringify({ message: { role: "assistant", content } }));
@@ -86,11 +87,15 @@ async function main() {
   allow.run("director@example.test", "Director", "director");
   allow.run("tutor1@example.test", "Tutor One", "tutor");
   allow.run("tutor2@example.test", "Tutor Two", "tutor");
+  // A session saved before sign-in existed: the director takes it over on sign-in.
+  const legacy = Number(db.prepare("INSERT INTO sessions (student_name, course, notes, outputs) VALUES ('Old', 'X', '{}', '{}')").run().lastInsertRowid);
   const login = (n: number, email: string) => signInFromGoogle({ sub: `f-${n}`, email, email_verified: true, name: email.split("@")[0] });
   const director = login(1, "director@example.test");
   const tutor1 = login(2, "tutor1@example.test");
   const tutor2 = login(3, "tutor2@example.test");
   const directorC = sessionCookieValue(director);
+  const owner = (db.prepare("SELECT user_id FROM sessions WHERE id = ?").get(legacy) as { user_id: number | null }).user_id;
+  check("sign-in: the director takes over sessions saved before sign-in", owner === director.id, `owner ${owner}`);
   const t1 = sessionCookieValue(tutor1);
   const t2 = sessionCookieValue(tutor2);
 
@@ -137,6 +142,10 @@ async function main() {
     r = await post("/api/search", { q: "thesis" }, t2);
     let got = await ids(r);
     check("search: empty picks give the 3 keyword hits in order", r.status === 200 && expected.length === 3 && got.join() === expected.join(), `${r.status} ${got} vs ${expected}`);
+    badTerms = true;
+    r = await post("/api/search", { q: "thesis" }, t2);
+    check("search: non-string terms from the model do not break search", r.status === 200, String(r.status));
+    badTerms = false;
     picksMode = "outOfRange";
     r = await post("/api/search", { q: "thesis" }, t2);
     got = await ids(r);

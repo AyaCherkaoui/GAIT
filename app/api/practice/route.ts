@@ -83,7 +83,10 @@ export async function POST(req: Request) {
           system: `Write a ${need}-question multiple-choice refresher quiz for a college writing-center tutor on the topic below. Mix knowledge and "what would you do" tutoring situations. Each question has 4 choices; "answer" is the 0-based index of the correct choice; "why" explains it in 1-2 sentences. Return exactly this shape: {"questions": [{"q": "the question", "choices": ["choice 1", "choice 2", "choice 3", "choice 4"], "answer": 0, "why": "the explanation"}]} with ${need} items.${context ? `\n\nWhere it fits, use the center's own material:\n${context}` : ""}${have}`,
           messages: [{ role: "user", content: `Topic: ${body.topic}` }],
         }).catch(() => ({ questions: [] }));
-        for (const q of r.questions ?? []) if (validQuestion(q) && questions.length < 5) questions.push(q);
+        const got = Array.isArray(r?.questions) ? r.questions : [];
+        for (const q of got) {
+          if (questions.length < 5 && validQuestion(q) && !questions.some((x) => x.q === q.q)) questions.push(q);
+        }
       }
       if (questions.length < 5) throw new UserFacingError("The quiz could not be built this time. Please try again.");
       return { questions };
@@ -91,6 +94,7 @@ export async function POST(req: Request) {
 
     if (body.action === "saveQuiz") {
       const { topic, score, total } = body;
+      if (typeof topic !== "string" || !topic.trim() || topic.length > 200) throw new UserFacingError("Pick a topic.");
       if (!Number.isInteger(score) || !Number.isInteger(total) || total < 1 || score < 0 || score > total) {
         throw new UserFacingError("That quiz score does not look right.");
       }

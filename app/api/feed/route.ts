@@ -30,7 +30,7 @@ async function readFeed(name: string, url: string): Promise<FeedItem[]> {
     const res = await fetch(url, { signal: AbortSignal.timeout(6000), headers: { "user-agent": "Mozilla/5.0 GAIT" } });
     if (!res.ok) return [];
     const xml = await res.text();
-    const items = xml.split("<item>").slice(1, 6);
+    const items = xml.split(/<item[\s>]/).slice(1, 6);
     return items
       .map((b) => ({ title: text(b, "title"), url: text(b, "link"), source: name, date: text(b, "pubDate") || undefined }))
       .filter((i) => i.title && /^https?:\/\//.test(i.url));
@@ -44,8 +44,8 @@ export async function GET(req: Request) {
     if (!cache || Date.now() - cache.at > 3600_000) {
       const lists = await Promise.all(SOURCES.map((s) => readFeed(s.name, s.url)));
       const items = lists.flat();
-      // Only cache a real result, so a failed fetch is retried on the next visit.
-      if (items.length) cache = { at: Date.now(), items };
+      // Only cache when every source answered, so a failed source is retried on the next visit.
+      if (lists.every((l) => l.length)) cache = { at: Date.now(), items };
       return { items, books: BOOKS };
     }
     return { items: cache.items, books: BOOKS };

@@ -45,7 +45,7 @@ export function getDb(): DatabaseSync {
   const hasColumn = (table: string, column: string) =>
     (db!.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).some((c) => c.name === column);
   if (!hasColumn("sessions", "reflection")) db.exec("ALTER TABLE sessions ADD COLUMN reflection TEXT");
-  // Each tutor sees only their own rows. Rows from before sign-in existed keep user_id NULL and stay hidden from everyone.
+  // Each tutor sees only their own rows. Rows from before sign-in existed keep user_id NULL until the director signs in and takes them over (lib/auth.ts).
   for (const table of ["sessions", "tasks", "quiz_results"]) {
     if (!hasColumn(table, "user_id")) db.exec(`ALTER TABLE ${table} ADD COLUMN user_id INTEGER REFERENCES users(id)`);
   }

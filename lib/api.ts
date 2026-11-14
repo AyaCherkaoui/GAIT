@@ -35,12 +35,12 @@ export function rateLimit(key: string, max = AI_LIMIT, windowMs = AI_WINDOW_MS):
  * `ai: true` also rate-limits the route (429).
  */
 export async function handle(req: Request, fn: (user: User) => Promise<unknown>, opts: { ai?: boolean } = {}) {
-  const user = getUserFromRequest(req);
-  if (!user) return NextResponse.json({ error: "Please sign in to continue." }, { status: 401 });
-  if (opts.ai && !rateLimit(`ai:${user.id}`)) {
-    return NextResponse.json({ error: "Too many requests. Wait a minute and try again." }, { status: 429 });
-  }
   try {
+    const user = getUserFromRequest(req);
+    if (!user) return NextResponse.json({ error: "Please sign in to continue." }, { status: 401 });
+    if (opts.ai && !rateLimit(`ai:${user.id}`)) {
+      return NextResponse.json({ error: "Too many requests. Wait a minute and try again." }, { status: 429 });
+    }
     return NextResponse.json(await fn(user));
   } catch (e) {
     console.error(e);

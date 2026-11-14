@@ -63,9 +63,15 @@ export function signInFromGoogle(claims: { sub?: string; email?: string; email_v
   const allowed = process.env.ALLOWED_EMAIL_DOMAIN?.trim().toLowerCase().replace(/^@/, "");
   if (allowed && email.split("@")[1] !== allowed) throw new SignInRefused("domain");
   seedDirector();
-  const row = getDb().prepare("SELECT active FROM allowed_users WHERE email = ?").get(email) as { active: number } | undefined;
+  const db = getDb();
+  const row = db.prepare("SELECT active, role FROM allowed_users WHERE email = ?").get(email) as { active: number; role: string } | undefined;
   if (!row?.active) throw new SignInRefused("not_allowed");
-  return upsertUser(claims.sub, email, claims.name ?? null, claims.picture ?? null);
+  const user = upsertUser(claims.sub, email, claims.name ?? null, claims.picture ?? null);
+  // Rows saved before sign-in existed have no owner. The director takes them over, so they are not lost.
+  if (row.role === "director") {
+    for (const table of ["sessions", "tasks", "quiz_results"]) db.prepare(`UPDATE ${table} SET user_id = ? WHERE user_id IS NULL`).run(user.id);
+  }
+  return user;
 }
 
 export function sessionCookieValue(user: User): string {
