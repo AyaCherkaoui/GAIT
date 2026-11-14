@@ -37,7 +37,8 @@ export async function POST(req: Request) {
         messages: [{ role: "user", content: body.context.trim() || "(no extra context)" }],
       });
       logUsage("script", user.id);
-      return { openers: r.openers ?? [], steps: r.steps ?? [] };
+      const strings = (x: unknown) => (Array.isArray(x) ? x.filter((v): v is string => typeof v === "string" && !!v.trim()) : []);
+      return { openers: strings(r.openers), steps: strings(r.steps) };
     }
 
     if (action === "ownership") {

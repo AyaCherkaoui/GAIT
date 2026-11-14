@@ -1,4 +1,4 @@
-import { handle, readJson, str } from "@/lib/api";
+import { handle, HttpError, rateLimit, readJson, str } from "@/lib/api";
 import { UserFacingError } from "@/lib/claude";
 import { getDb } from "@/lib/db";
 
@@ -28,6 +28,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   return handle(req, async (user) => {
+    if (!rateLimit(`debrief:${user.id}`, 10, 3600_000)) throw new HttpError(429, "Too many check-ins. Try again later.");
     const body = await readJson(req);
     const drain = Number(body.drain);
     if (!Number.isInteger(drain) || drain < 1 || drain > 5) throw new UserFacingError("Pick a rating from 1 to 5.");

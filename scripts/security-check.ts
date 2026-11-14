@@ -163,6 +163,8 @@ async function main() {
     check("owner can print it", (await call(`/session/${sid}/print`, {}, alice)).status === 200);
     const put = (c: string) => call(`/api/session/${sid}/reflection`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ learned: "x" }) }, c);
     check("another user cannot write a reflection", (await put(bobC)).status === 404);
+    const note = (c: string) => call(`/api/session/${sid}/director-note`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }, c);
+    check("another user cannot draft a director note", (await note(bobC)).status === 404);
     check("owner can write a reflection", (await put(alice)).status === 200);
     check("another user does not see it in their list", !(await (await call("/api/session", {}, bobC)).text()).includes('"S"'));
     check("rows with no owner are hidden", (await call(`/api/session/${orphan}`, {}, alice)).status === 404);

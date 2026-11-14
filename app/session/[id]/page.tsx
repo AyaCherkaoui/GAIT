@@ -103,12 +103,6 @@ export default function SessionDetail({ params }: { params: Promise<{ id: string
         </Card>
       )}
 
-      {session.notes.privateConcern?.trim() && (
-        <Card title="Private, tutor only">
-          <p className="whitespace-pre-wrap text-sm">{session.notes.privateConcern}</p>
-        </Card>
-      )}
-
       <Card title="Email draft" actions={<CopyButton text={o.email} />}>
         <p className="whitespace-pre-wrap text-sm">{o.email}</p>
       </Card>

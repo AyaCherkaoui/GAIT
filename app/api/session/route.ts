@@ -80,7 +80,7 @@ export async function POST(req: Request) {
     const policyText = `${policy}${saved && saved.policy === policy && saved.details ? ` (${saved.details})` : ""}`;
     // privateConcern is deliberately left out of the prompt.
     const generated = await askJson<SessionOutputs>({
-      system: SYSTEM + (body.voice ? VOICE_RULES : ""),
+      system: SYSTEM + (body.voice === true ? VOICE_RULES : ""),
       messages: [
         {
           role: "user",
