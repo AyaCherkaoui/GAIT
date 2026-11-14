@@ -34,8 +34,8 @@ async function readFeed(name: string, url: string): Promise<FeedItem[]> {
   }
 }
 
-export async function GET() {
-  return handle(async () => {
+export async function GET(req: Request) {
+  return handle(req, async () => {
     if (!cache || Date.now() - cache.at > 3600_000) {
       const lists = await Promise.all(SOURCES.map((s) => readFeed(s.name, s.url)));
       const items = lists.flat();

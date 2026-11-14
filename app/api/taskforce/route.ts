@@ -1,4 +1,4 @@
-import { handle } from "@/lib/api";
+import { handle, readJson, str } from "@/lib/api";
 import { askJson, UserFacingError } from "@/lib/claude";
 import { getDb } from "@/lib/db";
 import { docCount, smartSearch } from "@/lib/search";
@@ -9,9 +9,9 @@ export const dynamic = "force-dynamic";
 const SYSTEM = `A writing-center tutor is working on a task force assignment (a project for the center, such as a workshop, a handout, outreach, or a report). This output is for the tutor. Help them get started. Return:
 {"steps": ["5-8 concrete steps in order"], "outline": "a starting outline in plain text with short headings and bullets", "questionsToClarify": ["2-4 questions to ask the task force lead or director"]}`;
 
-export async function GET() {
-  return handle(async () => {
-    const rows = getDb().prepare("SELECT * FROM tasks ORDER BY id DESC LIMIT 50").all() as {
+export async function GET(req: Request) {
+  return handle(req, async (user) => {
+    const rows = getDb().prepare("SELECT id, created_at, title, description, plan, related FROM tasks WHERE user_id = ? ORDER BY id DESC LIMIT 50").all(user.id) as {
       id: number; created_at: string; title: string; description: string; plan: string; related: string;
     }[];
     return { tasks: rows.map((r) => ({ ...r, plan: JSON.parse(r.plan), related: JSON.parse(r.related || "[]") })) };
@@ -19,8 +19,10 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  return handle(async () => {
-    const { title = "", description = "" } = (await req.json()) as { title?: string; description?: string };
+  return handle(req, async (user) => {
+    const body = await readJson(req);
+    const title = str(body.title, 300);
+    const description = str(body.description, 8000);
     if (!title.trim() && !description.trim()) throw new UserFacingError("Describe the task first.");
     const plan = await askJson<TaskPlan>({
       system: SYSTEM,
@@ -31,8 +33,8 @@ export async function POST(req: Request) {
       related = (await smartSearch(`${title}. ${description}`.slice(0, 500)).catch(() => ({ hits: [] }))).hits;
     }
     const info = getDb()
-      .prepare("INSERT INTO tasks (title, description, plan, related) VALUES (?, ?, ?, ?)")
-      .run(title, description, JSON.stringify(plan), JSON.stringify(related));
+      .prepare("INSERT INTO tasks (title, description, plan, related, user_id) VALUES (?, ?, ?, ?, ?)")
+      .run(title, description, JSON.stringify(plan), JSON.stringify(related), user.id);
     return { id: Number(info.lastInsertRowid), plan, related };
-  });
+  }, { ai: true });
 }

@@ -3,7 +3,7 @@
 GAIT is an assistant for tutors at the Augustana College Reading/Writing Center (RWC).
 Its goal: help tutors grow students into independent writers who use AI as a coach, never as a ghostwriter, and help tutors keep improving.
 
-This is v0, a rough first draft that runs on one computer. No logins, no hosting, no session recording.
+This is v0, a rough first draft that runs on one computer. Tutors sign in with Google; there is no hosting and no session recording.
 
 ## What it does
 - **After session** (`/session`): the tutor's notes become an email draft, printable next steps (`/session/<id>/print`), and AI prompts the student can use that coach rather than write.
@@ -18,12 +18,16 @@ This is v0, a rough first draft that runs on one computer. No logins, no hosting
    - `GAIT_PROVIDER`: `ollama` (default, free, local: install Ollama and `ollama pull llama3.1:8b`), `grok` (needs `XAI_API_KEY`) or `anthropic` (needs `ANTHROPIC_API_KEY`). Switching later only changes `.env.local`. Small models are slow and weaker: on a low-memory Mac use `GAIT_MODEL_SMART=llama3.2:3b`.
    - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`: in Google Cloud Console, enable the Google Drive API, then create an OAuth client of type **Desktop app**.
    - `ARIA_FOLDER_ID`: the last part of the ARIA folder's Drive URL.
+   - `AUTH_SECRET`: at least 32 random characters that sign the login cookie (`openssl rand -base64 32`). The app refuses requests without it.
+   - `APP_URL`: where you open the app (default `http://localhost:3100`). In Google Cloud Console add `<APP_URL>/api/auth/callback` as an authorized redirect URI of the same OAuth client. If Google refuses a Desktop-type client for this redirect, create a Web application client instead.
+   - `ALLOWED_EMAIL_DOMAIN` (optional): only this email domain may sign in, for example `augustana.edu`. Empty means any Google account.
 4. `npm run sync-aria`: the first run opens a Google sign-in (read-only Drive access) and saves the token to `.google-token.json`. Re-run it whenever ARIA changes.
-5. `npm run dev` and open http://localhost:3000
+5. `npm run dev -- -p 3100` and open http://localhost:3100 (the port must match `APP_URL`). You sign in with Google first.
 
 ## Checks
 - `npm run typecheck`
 - `npm run build`
+- `npm run security-check`: starts a private server on port 3101 with a throwaway database and probes sign-in, headers, size limits and rate limits (no AI calls).
 
 ## Layout
 - `app/`: pages and API routes (`app/api/*/route.ts`). Pages: `/`, `/session`, `/session/[id]` (reflection and coaching help), `/history`, `/search`, `/taskforce`, `/practice`, `/reading`.
@@ -31,7 +35,8 @@ This is v0, a rough first draft that runs on one computer. No logins, no hosting
 - `lib/books.ts`: the curated book list. Article feeds (read in `app/api/feed`, 6 s timeout, cached 1 h): writing.wisc.edu/blog/feed and insidehighered.com/rss.xml.
 - `components/ui.tsx`: shared UI (Card, PageHeader, ErrorBox, and `Working`, the loader every AI wait uses).
 - `lib/claude.ts`: the only place that calls Claude. It always adds `lib/prompts/coaching-rules.md` to the system prompt.
-- `lib/db.ts`: SQLite file `gait.db` (tables `sessions`, `tasks`, and the full-text index `aria_docs`).
+- `lib/db.ts`: SQLite file `gait.db` (override the path with `GAIT_DB`; tables `users`, `sessions`, `tasks`, `quiz_results`, and the full-text index `aria_docs`). Sessions, tasks and quiz results belong to one user; rows from before sign-in existed have no owner and are hidden from everyone.
+- `proxy.ts`: first gate (login required except `/login` and `/api/auth/*`) and security headers. `lib/auth.ts` and `lib/session-token.ts`: Google sign-in and the signed session cookie. `lib/api.ts`: `handle(req, fn)` wraps every API route (401 when signed out, size-checked JSON body, rate limit on AI routes, no internal error text).
 - `lib/search.ts`: ARIA search.
 - `scripts/sync-aria.ts`: the Drive indexer.
 

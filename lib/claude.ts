@@ -43,7 +43,10 @@ async function askOllama(opts: AskOpts, system: string): Promise<string> {
   } catch {
     throw new UserFacingError("Could not reach Ollama. Is it running (ollama serve)?");
   }
-  if (!res.ok) throw new UserFacingError(`Ollama returned an error (${res.status}). ${(await res.text()).slice(0, 200)}`);
+  if (!res.ok) {
+    console.error(`Ollama error ${res.status}: ${(await res.text()).slice(0, 500)}`);
+    throw new UserFacingError("The AI service had a problem. Please try again.");
+  }
   const data = (await res.json()) as { message?: { content?: string } };
   return data.message?.content ?? "";
 }
@@ -52,7 +55,10 @@ async function askOpenAICompatible(opts: AskOpts, system: string): Promise<strin
   const isGrok = PROVIDER === "grok";
   const base = (process.env.GAIT_API_BASE || (isGrok ? "https://api.x.ai/v1" : "http://localhost:11434/v1")).replace(/\/$/, "");
   const key = isGrok ? process.env.XAI_API_KEY : process.env.OLLAMA_API_KEY || "ollama";
-  if (!key) throw new UserFacingError("Add XAI_API_KEY to .env.local, then restart npm run dev.");
+  if (!key) {
+    console.error("XAI_API_KEY is not set.");
+    throw new UserFacingError("The AI service is not set up. Ask the person who runs GAIT.");
+  }
   let res: Response;
   try {
     res = await fetch(`${base}/chat/completions`, {
@@ -67,7 +73,10 @@ async function askOpenAICompatible(opts: AskOpts, system: string): Promise<strin
   } catch {
     throw new UserFacingError(isGrok ? "Could not reach the Grok API." : "Could not reach Ollama. Is it running (ollama serve)?");
   }
-  if (!res.ok) throw new UserFacingError(`The AI service returned an error (${res.status}). ${(await res.text()).slice(0, 200)}`);
+  if (!res.ok) {
+    console.error(`AI service error ${res.status}: ${(await res.text()).slice(0, 500)}`);
+    throw new UserFacingError("The AI service had a problem. Please try again.");
+  }
   const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
   return data.choices?.[0]?.message?.content ?? "";
 }
@@ -86,7 +95,10 @@ export async function ask(opts: AskOpts): Promise<string> {
   if (PROVIDER === "ollama") return askOllama(opts, system);
   if (PROVIDER === "grok") return askOpenAICompatible(opts, system);
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new UserFacingError("Add ANTHROPIC_API_KEY to .env.local, then restart npm run dev.");
+  if (!apiKey) {
+    console.error("ANTHROPIC_API_KEY is not set.");
+    throw new UserFacingError("The AI service is not set up. Ask the person who runs GAIT.");
+  }
   const client = new Anthropic({ apiKey });
   const res = await client.messages.create({
     model: MODELS[opts.model ?? "smart"],
