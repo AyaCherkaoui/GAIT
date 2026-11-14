@@ -27,6 +27,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             {user && NAV.map(([href, label]) => (
               <Link key={href} href={href} className="text-stone-600 hover:text-stone-900">{label}</Link>
             ))}
+            {user?.role === "director" && (
+              <Link href="/admin/tutors" className="text-stone-600 hover:text-stone-900">Admin</Link>
+            )}
             {user && (
               <form method="post" action="/api/auth/logout" className="ml-auto flex items-center gap-3 text-stone-600">
                 <span>{user.name || user.email}</span>

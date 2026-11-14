@@ -6,6 +6,7 @@ export const dynamic = "force-dynamic";
 
 const MESSAGES: Record<string, string> = {
   domain: "That Google account is not allowed to use GAIT. Sign in with your Augustana account.",
+  not_allowed: "Your account isn't on the tutor list yet. Ask the Reading/Writing Center director.",
   denied: "Sign-in did not finish. Please try again.",
   failed: "Sign-in failed. Please try again.",
   config: "Sign-in is not set up yet. Ask the person who runs GAIT.",
