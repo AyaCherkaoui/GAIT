@@ -4,15 +4,16 @@ import { impactByWeek, toCsv } from "@/lib/impact";
 
 export const dynamic = "force-dynamic";
 
+/** A tutor sees their own numbers; the director sees everyone's. */
 export async function GET(req: Request) {
-  if (new URL(req.url).searchParams.get("format") === "csv") {
-    try {
-      return new NextResponse(toCsv(impactByWeek()), {
-        headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": 'attachment; filename="gait-impact.csv"' },
-      });
-    } catch (e) {
-      return NextResponse.json({ error: `Something went wrong: ${(e as Error).message}` }, { status: 500 });
-    }
-  }
-  return handle(async () => ({ weeks: impactByWeek() }));
+  const csv = new URL(req.url).searchParams.get("format") === "csv";
+  const res = await handle(req, async (user) => {
+    const rows = impactByWeek(user.role === "director" ? null : user.id);
+    return csv ? { csv: toCsv(rows) } : { weeks: rows };
+  });
+  if (!csv || !res.ok) return res;
+  const { csv: body } = (await res.json()) as { csv: string };
+  return new NextResponse(body, {
+    headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": 'attachment; filename="gait-impact.csv"' },
+  });
 }

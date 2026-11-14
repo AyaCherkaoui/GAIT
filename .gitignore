@@ -1,5 +1,6 @@
 node_modules/
 .next/
+.next-security/
 next-env.d.ts
 *.tsbuildinfo
 .env*.local
@@ -7,3 +8,5 @@ gait.db*
 .google-token.json
 .worktrees/
 .DS_Store
+.next-feature/
+.feature-shots/

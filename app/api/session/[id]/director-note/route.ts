@@ -1,5 +1,5 @@
 import { handle } from "@/lib/api";
-import { ask, UserFacingError } from "@/lib/claude";
+import { ask, NotFoundError } from "@/lib/claude";
 import { getSession } from "@/lib/sessions";
 
 export const dynamic = "force-dynamic";
@@ -11,10 +11,10 @@ const SYSTEM = `You help a writing-center tutor write a short, neutral, factual 
 - Plain text, under 200 words, signed "An RWC tutor". Do not include the student's full name; use the first name only.`;
 
 /** Drafts a note for the tutor. The result is returned, never stored. */
-export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  return handle(async () => {
-    const s = getSession(Number((await params).id));
-    if (!s) throw new UserFacingError("Session not found.");
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  return handle(req, async (user) => {
+    const s = getSession(Number((await params).id), user.id);
+    if (!s) throw new NotFoundError("Session not found.");
     const n = s.notes;
     const note = await ask({
       model: "fast",
@@ -34,5 +34,5 @@ Tutor's private concern: ${n.privateConcern?.trim() || "(none)"}`,
       ],
     });
     return { note: note.trim() };
-  });
+  }, { ai: true });
 }

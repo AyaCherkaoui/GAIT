@@ -15,7 +15,7 @@ export default function ProviderStatus() {
   if (!s) return null;
   const text = s.model ? `AI: ${s.label} · ${s.model}` : `AI: ${s.note ?? "not set up"}`;
   return (
-    <span className={`ml-auto text-xs ${s.model ? "text-slate-500" : "text-amber-700"}`} title="Set GAIT_PROVIDER in .env.local to change it">
+    <span className={`text-xs ${s.model ? "text-stone-500" : "text-amber-700"}`} title="Set GAIT_PROVIDER in .env.local to change it">
       {text}
     </span>
   );

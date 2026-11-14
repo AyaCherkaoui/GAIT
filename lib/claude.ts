@@ -4,12 +4,14 @@ import path from "node:path";
 
 /** An error whose message is safe and useful to show in the UI. */
 export class UserFacingError extends Error {}
+/** A UserFacingError that the API returns as HTTP 404. */
+export class NotFoundError extends UserFacingError {}
 
-export type ProviderId = "anthropic" | "groq" | "gemini" | "openrouter" | "xai" | "ollama";
+export type ProviderId = "anthropic" | "groq" | "gemini" | "openrouter" | "grok" | "ollama";
 
 type Preset = {
   label: string;
-  /** OpenAI-compatible base URL. Absent for the Anthropic SDK path. */
+  /** OpenAI-compatible base URL. Absent for the Anthropic SDK path and for Ollama (native /api/chat). */
   baseUrl?: string;
   keyEnv?: string;
   smart: string;
@@ -18,7 +20,6 @@ type Preset = {
   json?: boolean;
 };
 
-/** Order matters: with no GAIT_PROVIDER, the first preset with a key wins, then Ollama if it is running. */
 const PRESETS: Record<ProviderId, Preset> = {
   anthropic: { label: "Anthropic", keyEnv: "ANTHROPIC_API_KEY", smart: "claude-sonnet-5-5", fast: "claude-haiku-5-5" },
   groq: {
@@ -45,8 +46,8 @@ const PRESETS: Record<ProviderId, Preset> = {
     fast: "google/gemma-4-26b-a4b-it:free",
     json: true,
   },
-  xai: {
-    label: "xAI",
+  grok: {
+    label: "Grok (xAI)",
     baseUrl: "https://api.x.ai/v1",
     keyEnv: "XAI_API_KEY",
     smart: "grok-4.7",
@@ -55,59 +56,29 @@ const PRESETS: Record<ProviderId, Preset> = {
   },
   ollama: {
     label: "Ollama",
-    baseUrl: process.env.OLLAMA_BASE_URL || "http://localhost:11434/v1",
     smart: "llama3.1:8b",
     fast: "llama3.1:8b",
-    json: true,
   },
 };
-
-const AUTO_ORDER: ProviderId[] = ["anthropic", "groq", "gemini", "openrouter", "xai"];
-
-const NO_KEY =
-  "No AI provider is set up. For a free start, add GROQ_API_KEY (console.groq.com) or run Ollama and set GAIT_PROVIDER=ollama in .env.local, then restart npm run dev.";
 
 const hasKey = (id: ProviderId) => {
   const env = PRESETS[id].keyEnv;
   return env ? !!process.env[env] : true;
 };
 
-/** The provider chosen by GAIT_PROVIDER or by which key is set. Ollama is only picked automatically by `resolveProvider`. */
-function configuredProvider(): ProviderId | null {
-  const chosen = process.env.GAIT_PROVIDER?.trim().toLowerCase();
-  if (chosen) {
-    if (!(chosen in PRESETS))
-      throw new UserFacingError(
-        `GAIT_PROVIDER "${chosen}" is not known. Use one of: ${Object.keys(PRESETS).join(", ")}.`,
-      );
-    return chosen as ProviderId;
-  }
-  return AUTO_ORDER.find(hasKey) ?? null;
+/** The provider chosen by GAIT_PROVIDER. With none set it is Ollama, running locally. "xai" is another name for "grok". */
+function resolveProvider(): ProviderId {
+  let chosen = (process.env.GAIT_PROVIDER?.trim() || "ollama").toLowerCase();
+  if (chosen === "xai") chosen = "grok";
+  if (!(chosen in PRESETS))
+    throw new UserFacingError(`GAIT_PROVIDER "${chosen}" is not known. Use one of: ${Object.keys(PRESETS).join(", ")}, xai.`);
+  return chosen as ProviderId;
 }
 
-let ollamaProbe: { at: number; up: boolean } | undefined;
-async function ollamaUp(): Promise<boolean> {
-  if (ollamaProbe && Date.now() - ollamaProbe.at < 10_000) return ollamaProbe.up;
-  let up = false;
-  try {
-    const res = await fetch(`${PRESETS.ollama.baseUrl}/models`, { signal: AbortSignal.timeout(1000) });
-    up = res.ok;
-  } catch {}
-  ollamaProbe = { at: Date.now(), up };
-  return up;
-}
-
-async function resolveProvider(): Promise<ProviderId | null> {
-  const p = configuredProvider();
-  if (p) return p;
-  return (await ollamaUp()) ? "ollama" : null;
-}
-
-/** True when a provider is configured by name or key (Ollama counts only when GAIT_PROVIDER=ollama). */
+/** True when the chosen provider is usable (has its key; Ollama needs none). */
 export function hasModel(): boolean {
   try {
-    const p = configuredProvider();
-    return p !== null && hasKey(p);
+    return hasKey(resolveProvider());
   } catch {
     return false;
   }
@@ -120,13 +91,12 @@ function modelName(p: ProviderId, tier: "smart" | "fast") {
 
 /** What the nav status line shows. Never throws; never contains a key. */
 export async function providerStatus(): Promise<{ provider: string | null; label?: string; model?: string; note?: string }> {
-  let p: ProviderId | null;
+  let p: ProviderId;
   try {
-    p = await resolveProvider();
+    p = resolveProvider();
   } catch (e) {
     return { provider: null, note: e instanceof Error ? e.message : "Provider error." };
   }
-  if (!p) return { provider: null, note: "No AI provider set up." };
   if (!hasKey(p)) return { provider: p, label: PRESETS[p].label, note: `Missing ${PRESETS[p].keyEnv}.` };
   return { provider: p, label: PRESETS[p].label, model: modelName(p, "smart") };
 }
@@ -156,6 +126,41 @@ async function readReason(res: Response) {
   }
 }
 
+/** Ollama's own chat endpoint: lets us raise the context window and force valid JSON. */
+async function askOllama(opts: Internal): Promise<string> {
+  const base = (process.env.OLLAMA_HOST || "http://localhost:11434").replace(/\/$/, "");
+  const model = modelName("ollama", opts.model ?? "smart");
+  let res: Response;
+  try {
+    res = await fetch(`${base}/api/chat`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      signal: AbortSignal.timeout(300_000),
+      body: JSON.stringify({
+        model,
+        stream: false,
+        keep_alive: "30m",
+        ...(opts.json ? { format: "json" } : {}),
+        options: { num_ctx: 8192, num_predict: opts.maxTokens ?? 4000 },
+        messages: [{ role: "system", content: `${coachingRules()}\n\n${opts.system}` }, ...opts.messages],
+      }),
+    });
+  } catch (e) {
+    if (e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError"))
+      throw new UserFacingError("Ollama took too long to answer. Try again, or pick a smaller model.");
+    throw new UserFacingError("Ollama is not running. Start it with `ollama serve` (or open the Ollama app), then try again.");
+  }
+  if (!res.ok) {
+    if (res.status === 404) throw new UserFacingError(`Ollama does not have the model "${model}". Run \`ollama pull ${model}\` and try again.`);
+    console.error(`Ollama error ${res.status}: ${(await readReason(res)).slice(0, 500)}`);
+    throw new UserFacingError("The AI service had a problem. Please try again.");
+  }
+  const data = (await res.json().catch(() => null)) as { message?: { content?: string } } | null;
+  const text = data?.message?.content;
+  if (typeof text !== "string" || !stripThink(text)) throw new UserFacingError("Ollama sent an empty reply. Try again.");
+  return stripThink(text);
+}
+
 async function askCompat(id: ProviderId, opts: Internal): Promise<string> {
   const preset = PRESETS[id];
   const tier = opts.model ?? "smart";
@@ -167,7 +172,7 @@ async function askCompat(id: ProviderId, opts: Internal): Promise<string> {
     fetch(`${preset.baseUrl}/chat/completions`, {
       method: "POST",
       headers,
-      signal: AbortSignal.timeout(id === "ollama" ? 300_000 : 120_000),
+      signal: AbortSignal.timeout(120_000),
       body: JSON.stringify({
         model,
         max_tokens: opts.maxTokens ?? 4000,
@@ -181,12 +186,10 @@ async function askCompat(id: ProviderId, opts: Internal): Promise<string> {
   try {
     res = await send(wantJson);
     // Some free models reject JSON mode; try once more without it (the prompt still asks for JSON).
-    if (wantJson && res.status === 400 && id !== "ollama") res = await send(false);
+    if (wantJson && res.status === 400) res = await send(false);
   } catch (e) {
     if (e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError"))
       throw new UserFacingError(`${preset.label} took too long to answer. Try again, or pick a smaller model.`);
-    if (id === "ollama")
-      throw new UserFacingError("Ollama is not running. Start it with `ollama serve` (or open the Ollama app), then try again.");
     throw new UserFacingError(`Could not reach ${preset.label}. Check your internet connection and try again.`);
   }
 
@@ -199,8 +202,6 @@ async function askCompat(id: ProviderId, opts: Internal): Promise<string> {
       throw new UserFacingError(
         `${preset.label} says you are out of credits or rate limited (${res.status}). Wait a minute and try again, or switch GAIT_PROVIDER.`,
       );
-    if (res.status === 404 && id === "ollama")
-      throw new UserFacingError(`Ollama does not have the model "${model}". Run \`ollama pull ${model}\` and try again.`);
     if (res.status === 404)
       throw new UserFacingError(`${preset.label} does not know the model "${model}". Set GAIT_MODEL_SMART and GAIT_MODEL_FAST to a model it offers.`);
     throw new UserFacingError(`${preset.label} returned an error (${res.status})${reason ? `: ${reason}` : ""}.`);
@@ -234,11 +235,11 @@ async function askAnthropic(opts: AskOpts): Promise<string> {
 }
 
 async function run(opts: Internal): Promise<string> {
-  const p = await resolveProvider();
-  if (!p) throw new UserFacingError(NO_KEY);
+  const p = resolveProvider();
   const preset = PRESETS[p];
   if (!hasKey(p)) throw new UserFacingError(`Add ${preset.keyEnv} to .env.local, then restart npm run dev.`);
-  return p === "anthropic" ? askAnthropic(opts) : askCompat(p, opts);
+  if (p === "anthropic") return askAnthropic(opts);
+  return p === "ollama" ? askOllama(opts) : askCompat(p, opts);
 }
 
 export async function ask(opts: AskOpts): Promise<string> {
@@ -246,19 +247,18 @@ export async function ask(opts: AskOpts): Promise<string> {
 }
 
 export async function askJson<T>(opts: AskOpts): Promise<T> {
-  const text = stripThink(
-    await run({
-      ...opts,
-      json: true,
-      system: `${opts.system}\n\nReply with one JSON object only: no prose, no code fences.`,
-    }),
-  );
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start < 0 || end <= start) throw new UserFacingError("The AI reply was not in the expected format. Try again.");
-  try {
-    return JSON.parse(text.slice(start, end + 1)) as T;
-  } catch {
-    throw new UserFacingError("The AI reply was not in the expected format. Try again.");
+  const system = `${opts.system}\n\nReply with one JSON object only: no prose, no code fences.`;
+  // Smaller local models sometimes return broken JSON, so try twice before giving up.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const text = stripThink(await run({ ...opts, json: true, system }));
+    const start = text.indexOf("{");
+    const end = text.lastIndexOf("}");
+    if (start < 0 || end <= start) continue;
+    try {
+      return JSON.parse(text.slice(start, end + 1)) as T;
+    } catch {
+      /* try again */
+    }
   }
+  throw new UserFacingError("The AI reply was not in the expected format. Try again.");
 }

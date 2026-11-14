@@ -1,7 +1,8 @@
-import { handle } from "@/lib/api";
+import { handle, readJson, str } from "@/lib/api";
 import { askJson, UserFacingError } from "@/lib/claude";
 import { getDb } from "@/lib/db";
 import { getPolicy } from "@/lib/policies";
+import { listSessions } from "@/lib/sessions";
 import { logUsage } from "@/lib/usage";
 import { AI_POLICIES, type AiPolicy, type SessionNotes, type SessionOutputs } from "@/lib/types";
 
@@ -48,24 +49,30 @@ function sanitizeOutputs(o: SessionOutputs, policy: AiPolicy): SessionOutputs {
   return out;
 }
 
-export async function GET() {
-  return handle(async () => {
-    const sessions = getDb()
-      .prepare("SELECT id, created_at, student_name, course FROM sessions ORDER BY id DESC LIMIT 50")
-      .all();
-    return { sessions };
+export async function GET(req: Request) {
+  return handle(req, async (user) => {
+    return { sessions: listSessions(user.id) };
   });
 }
 
 export async function POST(req: Request) {
-  return handle(async () => {
-    const body = (await req.json()) as { studentName?: string; course?: string; notes?: SessionNotes; voice?: boolean };
-    const notes: SessionNotes = body.notes ?? { workedOn: "", struggles: "", wentWell: "" };
+  return handle(req, async (user) => {
+    const body = await readJson(req);
+    const raw = (body.notes && typeof body.notes === "object" ? body.notes : {}) as Record<string, unknown>;
+    const notes: SessionNotes = { workedOn: str(raw.workedOn, 8000), struggles: str(raw.struggles, 8000), wentWell: str(raw.wentWell, 8000) };
+    const courseCode = str(raw.courseCode, 40);
+    if (courseCode) notes.courseCode = courseCode;
+    const aiUse = str(raw.aiUse, 2000);
+    if (aiUse) notes.aiUse = aiUse;
+    const privateConcern = str(raw.privateConcern, 4000);
+    if (privateConcern) notes.privateConcern = privateConcern;
+    body.studentName = str(body.studentName, 200);
+    body.course = str(body.course, 300);
     // The tutor's choice wins; otherwise use the saved policy for the course code.
-    const saved = notes.courseCode ? getPolicy(notes.courseCode) : null;
-    const policy: AiPolicy = AI_POLICIES.includes(notes.aiPolicy as AiPolicy) ? (notes.aiPolicy as AiPolicy) : (saved?.policy ?? "unknown");
+    const saved = notes.courseCode ? getPolicy(notes.courseCode, user.id) : null;
+    const policy: AiPolicy = AI_POLICIES.includes(raw.aiPolicy as AiPolicy) ? (raw.aiPolicy as AiPolicy) : (saved?.policy ?? "unknown");
     notes.aiPolicy = policy;
-    if (!notes.workedOn?.trim() && !notes.struggles?.trim()) {
+    if (!notes.workedOn.trim() && !notes.struggles.trim()) {
       throw new UserFacingError("Add at least what you worked on or what the student struggled with.");
     }
     const policyText = `${policy}${saved && saved.policy === policy && saved.details ? ` (${saved.details})` : ""}`;
@@ -87,9 +94,9 @@ AI use the student disclosed or the tutor noticed: ${notes.aiUse?.trim() || "(no
     });
     const outputs = sanitizeOutputs(generated, policy);
     const info = getDb()
-      .prepare("INSERT INTO sessions (student_name, course, notes, outputs) VALUES (?, ?, ?, ?)")
-      .run(body.studentName ?? "", body.course ?? "", JSON.stringify(notes), JSON.stringify(outputs));
-    logUsage("session");
+      .prepare("INSERT INTO sessions (student_name, course, notes, outputs, user_id) VALUES (?, ?, ?, ?, ?)")
+      .run(body.studentName as string, body.course as string, JSON.stringify(notes), JSON.stringify(outputs), user.id);
+    logUsage("session", user.id);
     return { id: Number(info.lastInsertRowid), outputs };
-  });
+  }, { ai: true });
 }

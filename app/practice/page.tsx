@@ -1,6 +1,6 @@
 "use client";
-import { useState } from "react";
-import { Card, ErrorBox, btnCls, inputCls } from "@/components/ui";
+import { useEffect, useState } from "react";
+import { Card, ErrorBox, PageHeader, Working, btn2Cls, btnCls, inputCls } from "@/components/ui";
 import { post } from "@/lib/client";
 import { QUIZ_TOPICS, SCENARIOS } from "@/lib/scenarios";
 import type { Feedback, QuizQuestion, Turn } from "@/lib/types";
@@ -48,9 +48,9 @@ function RolePlay() {
             {SCENARIOS.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
           </select>
           {!started ? (
-            <button className={btnCls} disabled={loading} onClick={() => studentReply([])}>{loading ? "…" : "Start"}</button>
+            <button className={btnCls} disabled={loading} onClick={() => studentReply([])}>Start</button>
           ) : (
-            <button className="rounded border px-3 text-sm" onClick={() => { setTurns([]); setFeedback(null); }}>Reset</button>
+            <button className={btn2Cls} onClick={() => { setTurns([]); setFeedback(null); }}>Reset</button>
           )}
         </div>
         <div className="space-y-2">
@@ -74,9 +74,10 @@ function RolePlay() {
           >
             <input className={inputCls} placeholder="What do you say?" value={draft} onChange={(e) => setDraft(e.target.value)} />
             <button className={btnCls} disabled={loading}>Send</button>
-            <button type="button" className="rounded border px-3 text-sm" disabled={loading} onClick={end}>End &amp; get feedback</button>
+            <button type="button" className={btn2Cls} disabled={loading} onClick={end}>End &amp; get feedback</button>
           </form>
         )}
+        {loading && <Working label={started ? "Writing the student's reply or your feedback" : "Starting the role-play"} />}
         <ErrorBox error={error} />
         {feedback && (
           <div className="space-y-2">
@@ -119,6 +120,11 @@ function Quiz() {
   }
 
   const score = questions ? questions.filter((q, i) => picked[i] === q.answer).length : 0;
+  const done = !!questions && Object.keys(picked).length === questions.length;
+  useEffect(() => {
+    if (done && questions) post("/api/practice", { action: "saveQuiz", topic, score, total: questions.length }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [done]);
   return (
     <Card title="Refresher quiz">
       <div className="space-y-3 text-sm">
@@ -126,8 +132,9 @@ function Quiz() {
           <select className={inputCls} value={topic} onChange={(e) => setTopic(e.target.value)}>
             {QUIZ_TOPICS.map((t) => <option key={t}>{t}</option>)}
           </select>
-          <button className={btnCls} disabled={loading} onClick={start}>{loading ? "…" : "New quiz"}</button>
+          <button className={btnCls} disabled={loading} onClick={start}>New quiz</button>
         </div>
+        {loading && <Working label="Writing your quiz" />}
         <ErrorBox error={error} />
         {questions?.map((q, i) => (
           <div key={i} className="space-y-1">
@@ -135,14 +142,14 @@ function Quiz() {
             {q.choices.map((c, j) => {
               const chosen = picked[i] === j;
               const answered = picked[i] !== undefined;
-              const color = answered && j === q.answer ? "bg-green-50 border-green-300" : chosen ? "bg-red-50 border-red-300" : "border-slate-200";
+              const color = answered && j === q.answer ? "bg-green-50 border-green-300" : chosen ? "bg-red-50 border-red-300" : "border-stone-200";
               return (
                 <button key={j} disabled={answered} onClick={() => setPicked({ ...picked, [i]: j })} className={`block w-full rounded border p-2 text-left ${color}`}>
                   {c}
                 </button>
               );
             })}
-            {picked[i] !== undefined && <p className="text-slate-600">{q.why}</p>}
+            {picked[i] !== undefined && <p className="text-stone-600">{q.why}</p>}
           </div>
         ))}
         {questions && Object.keys(picked).length === questions.length && <p className="font-medium">Score: {score}/{questions.length}</p>}
@@ -154,10 +161,7 @@ function Quiz() {
 export default function PracticePage() {
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Practice</h1>
-        <p className="text-sm text-slate-600">No appointment right now? Sharpen your tutoring in 10 minutes.</p>
-      </div>
+      <PageHeader title="Practice">No appointment right now? Sharpen your tutoring in 10 minutes.</PageHeader>
       <RolePlay />
       <Quiz />
     </div>
