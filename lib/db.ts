@@ -6,6 +6,7 @@ let db: DatabaseSync | undefined;
 export function getDb(): DatabaseSync {
   if (db) return db;
   db = new DatabaseSync(process.env.GAIT_DB_PATH || path.join(process.cwd(), "gait.db"));
+  db.exec("PRAGMA busy_timeout = 30000; PRAGMA journal_mode = WAL;");
   db.exec(`
     CREATE TABLE IF NOT EXISTS sessions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -21,6 +22,13 @@ export function getDb(): DatabaseSync {
       drive_id UNINDEXED, name, mime UNINDEXED, url UNINDEXED, modified UNINDEXED, text,
       tokenize = 'porter unicode61'
     );
+    CREATE TABLE IF NOT EXISTS quiz_results (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      created_at TEXT DEFAULT (datetime('now')),
+      score INTEGER, total INTEGER, topic TEXT
+    );
   `);
+  const cols = db.prepare("PRAGMA table_info(sessions)").all() as { name: string }[];
+  if (!cols.some((c) => c.name === "reflection")) db.exec("ALTER TABLE sessions ADD COLUMN reflection TEXT");
   return db;
 }

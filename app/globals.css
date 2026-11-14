@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-body { @apply bg-slate-50 text-slate-900; }
+body { @apply bg-stone-50 text-stone-900 antialiased; }
 
 @media print {
   body { background: white; }

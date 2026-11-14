@@ -9,6 +9,7 @@ export const metadata: Metadata = {
 
 const NAV = [
   ["/session", "After session"],
+  ["/history", "History"],
   ["/search", "ARIA search"],
   ["/taskforce", "Task force"],
   ["/practice", "Practice"],
@@ -18,15 +19,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        <header className="border-b border-slate-200 bg-white print:hidden">
-          <nav className="mx-auto flex max-w-4xl items-center gap-5 px-4 py-3 text-sm">
-            <Link href="/" className="font-bold text-indigo-700">GAIT</Link>
+        <header className="border-b border-stone-200 bg-white print:hidden">
+          <nav className="mx-auto flex max-w-4xl flex-wrap items-center gap-x-5 gap-y-1 px-4 py-3 text-sm">
+            <Link href="/" className="text-lg font-bold text-indigo-700">GAIT</Link>
             {NAV.map(([href, label]) => (
-              <Link key={href} href={href} className="text-slate-600 hover:text-slate-900">{label}</Link>
+              <Link key={href} href={href} className="text-stone-600 hover:text-stone-900">{label}</Link>
             ))}
           </nav>
         </header>
-        <main className="mx-auto max-w-4xl px-4 py-6">{children}</main>
+        <main className="mx-auto max-w-4xl px-4 py-8">{children}</main>
       </body>
     </html>
   );

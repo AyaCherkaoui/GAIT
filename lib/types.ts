@@ -8,7 +8,8 @@ export type SessionOutputs = {
   dontAskAi: string[];
 };
 export type SessionNotes = { workedOn: string; struggles: string; wentWell: string };
-export type SessionSummary = { id: number; created_at: string; student_name: string; course: string };
+export type Reflection = { learned: string; wantToImprove: string; wentWell: string; goalNextTime: string; updatedAt: string };
+export type SessionSummary = { id: number; created_at: string; student_name: string; course: string; reflection: Reflection | null };
 export type SessionRecord = SessionSummary & { notes: SessionNotes; outputs: SessionOutputs };
 
 export type Hit = { driveId: string; name: string; url: string; snippet: string; reason?: string };
@@ -19,3 +20,6 @@ export type TaskRecord = { id: number; created_at: string; title: string; descri
 export type Turn = { role: "student" | "tutor"; text: string };
 export type Feedback = { worked: string[]; missed: string[]; tryNext: string[] };
 export type QuizQuestion = { q: string; choices: string[]; answer: number; why: string };
+export type QuizResult = { id: number; created_at: string; score: number; total: number; topic: string };
+export type FeedItem = { title: string; url: string; source: string; date?: string };
+export type Book = { title: string; author: string; why: string; url?: string };

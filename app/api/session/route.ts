@@ -1,6 +1,7 @@
 import { handle } from "@/lib/api";
 import { askJson, UserFacingError } from "@/lib/claude";
 import { getDb } from "@/lib/db";
+import { listSessions } from "@/lib/sessions";
 import type { SessionNotes, SessionOutputs } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -18,10 +19,7 @@ Give 2-3 focusAreas and 4-6 aiPrompts tied to the focus areas.`;
 
 export async function GET() {
   return handle(async () => {
-    const sessions = getDb()
-      .prepare("SELECT id, created_at, student_name, course FROM sessions ORDER BY id DESC LIMIT 50")
-      .all();
-    return { sessions };
+    return { sessions: listSessions() };
   });
 }
 

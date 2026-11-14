@@ -21,7 +21,7 @@ function ftsQuery(terms: string[]): string {
 }
 
 /** Plain keyword search over the ARIA index. */
-export function keywordSearch(terms: string[], limit = 20): Hit[] {
+export function keywordSearch(terms: string[], limit = 25): Hit[] {
   const q = ftsQuery(terms);
   if (!q) return [];
   const rows = getDb()
@@ -41,10 +41,11 @@ export async function smartSearch(question: string): Promise<{ hits: Hit[]; term
     system:
       'A writing-center tutor is searching the center\'s shared folder of handouts, training material, templates and reports. Turn their question into 6-12 short keywords or phrases (include synonyms and related terms). Return {"terms": [...]}.',
     messages: [{ role: "user", content: question }],
-  });
+  }).catch(() => ({ terms: [] as string[] }));
   const candidates = keywordSearch([question, ...(terms ?? [])]);
   if (!candidates.length) return { hits: [], terms, indexEmpty: false };
-  const { picks } = await askJson<{ picks: { i: number; reason: string }[] }>({
+  const fallback = () => candidates.slice(0, 5);
+  const picked = await askJson<{ picks: { i: number; reason: string }[] }>({
     model: "fast",
     system:
       'Pick up to 5 documents that best answer the tutor\'s question, best first. Skip ones that do not fit. Return {"picks": [{"i": <index>, "reason": "<one short line on why it fits>"}]}.',
@@ -54,7 +55,7 @@ export async function smartSearch(question: string): Promise<{ hits: Hit[]; term
         content: `Question: ${question}\n\n${candidates.map((c, i) => `[${i}] ${c.name}: ${c.snippet}`).join("\n")}`,
       },
     ],
-  });
-  const hits = (picks ?? []).filter((p) => candidates[p.i]).map((p) => ({ ...candidates[p.i], reason: p.reason }));
-  return { hits, terms, indexEmpty: false };
+  }).catch(() => null);
+  const hits = (picked?.picks ?? []).filter((p) => candidates[p.i]).map((p) => ({ ...candidates[p.i], reason: p.reason }));
+  return { hits: hits.length ? hits.slice(0, 5) : fallback(), terms, indexEmpty: false };
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { UserFacingError } from "./claude";
+import { NotFoundError, UserFacingError } from "./claude";
 
 export async function handle(fn: () => Promise<unknown>) {
   try {
@@ -8,6 +8,6 @@ export async function handle(fn: () => Promise<unknown>) {
     console.error(e);
     const known = e instanceof UserFacingError;
     const message = known ? e.message : `Something went wrong: ${e instanceof Error ? e.message : String(e)}`;
-    return NextResponse.json({ error: message }, { status: known ? 400 : 500 });
+    return NextResponse.json({ error: message }, { status: e instanceof NotFoundError ? 404 : known ? 400 : 500 });
   }
 }

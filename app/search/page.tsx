@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Card, ErrorBox, btnCls, inputCls } from "@/components/ui";
+import { Card, ErrorBox, PageHeader, Working, btnCls, inputCls } from "@/components/ui";
 import { get, post } from "@/lib/client";
 import type { Hit } from "@/lib/types";
 
@@ -32,25 +32,23 @@ export default function SearchPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">ARIA search</h1>
-        <p className="text-sm text-slate-600">
-          {docs === null ? "…" : docs === 0 ? "No ARIA files indexed yet: run npm run sync-aria." : `${docs} ARIA files indexed.`}
-        </p>
-      </div>
+      <PageHeader title="ARIA search">
+        {docs === null ? "…" : docs === 0 ? "No ARIA files indexed yet: run npm run sync-aria." : `${docs} ARIA files indexed. Describe what you are looking for in your own words.`}
+      </PageHeader>
       <form onSubmit={search} className="flex gap-2">
-        <input className={inputCls} placeholder="e.g. handouts on integrating quotes for ESL students" value={q} onChange={(e) => setQ(e.target.value)} />
-        <button className={btnCls} disabled={loading}>{loading ? "Searching…" : "Search"}</button>
+        <input className={inputCls} placeholder="Describe it, e.g. a handout on integrating quotes for ESL students" value={q} onChange={(e) => setQ(e.target.value)} />
+        <button className={btnCls} disabled={loading}>Search</button>
       </form>
+      {loading && <Working label="Searching ARIA" />}
       <ErrorBox error={error} />
-      {terms.length > 0 && <p className="text-xs text-slate-500">Searched for: {terms.join(", ")}</p>}
+      {terms.length > 0 && <p className="text-xs text-stone-500">Searched for: {terms.join(", ")}</p>}
       {hits && hits.length === 0 && !error && <p className="text-sm">Nothing matched. Try other words.</p>}
       <div className="space-y-3">
         {hits?.map((h) => (
           <Card key={h.driveId}>
             <a href={h.url} target="_blank" rel="noreferrer" className="font-medium text-indigo-700 hover:underline">{h.name}</a>
             {h.reason && <p className="text-sm">{h.reason}</p>}
-            <p className="mt-1 text-xs text-slate-500">{h.snippet}</p>
+            <p className="mt-1 text-xs text-stone-500">{h.snippet}</p>
           </Card>
         ))}
       </div>
