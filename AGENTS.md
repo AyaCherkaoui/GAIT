@@ -71,7 +71,7 @@ For Ollama, long prompts need a context window of at least 8k tokens; if replies
 ## Conventions
 - Anything a student sees must coach and never write their work. Change behaviour in `lib/prompts/coaching-rules.md`, not in scattered prompts.
 - The repo is public: never commit `.env.local`, `gait.db`, `.google-token.json`, or student data.
-- Session notes gain `courseCode`, `aiPolicy`, `aiUse` and `privateConcern`. `privateConcern` is shown only in the tutor view and never reaches the email, next steps, print page or student outputs.
+- Session notes gain `courseCode`, `aiPolicy`, `aiUse` and `privateConcern`. `privateConcern` is shown only in the tutor view and never reaches the email, next steps, print page or student outputs. The director note sends it to the model only when that model is Ollama on this machine (loopback `OLLAMA_HOST`); with a hosted provider it is left out and the tutor is told.
 - No AI detector, no authorship verdicts, no rewrite or "humanize" feature, no session recording, no tutor monitoring (see `lib/prompts/coaching-rules.md`).
 - Models are set by `GAIT_MODEL_SMART` and `GAIT_MODEL_FAST`.
 

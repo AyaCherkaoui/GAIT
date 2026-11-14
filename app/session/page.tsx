@@ -34,9 +34,11 @@ export default function SessionPage() {
     if (!code) return;
     try {
       const { policy } = await get<{ policy: CoursePolicy | null }>(`/api/policies?code=${encodeURIComponent(code)}`);
+      // A policy picked up from a previous course must not carry over to one with nothing on file.
+      if (policy) setAiPolicy(policy.policy);
+      else if (policyOnFile) setAiPolicy("unknown");
       setPolicyOnFile(policy);
       setPolicyChecked(true);
-      if (policy) setAiPolicy(policy.policy);
     } catch (err) {
       setError((err as Error).message);
     }

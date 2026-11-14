@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import CopyButton from "@/components/CopyButton";
 import VoiceToggle, { useVoiceFirst } from "@/components/VoiceToggle";
 import { Card, ErrorBox, btnCls, inputCls } from "@/components/ui";
@@ -23,9 +23,13 @@ function Scripts() {
   const [error, setError] = useState<string | null>(null);
   const s = TALK_SCENARIOS.find((x) => x.id === id)!;
 
+  // Count each script once per visit, so browsing the list does not inflate the Scripts count on /impact.
+  const counted = useRef(new Set<string>());
   function pick(next: string) {
     setId(next);
     setTailored(null);
+    if (counted.current.has(next)) return;
+    counted.current.add(next);
     post("/api/ai-talk", { action: "used" }).catch(() => {});
   }
 
