@@ -60,7 +60,7 @@ async function main() {
 
   const log = fs.openSync(path.join(dir, "server.log"), "w");
   const server = spawn("npx", ["next", "dev", "-p", String(PORT), ...(process.env.GAIT_DEV_ARGS?.split(" ").filter(Boolean) ?? [])], {
-    stdio: ["ignore", log, log], detached: true, env: process.env,
+    stdio: ["ignore", log, log], detached: true, env: { ...process.env, GAIT_DIST_DIR: ".next-security" },
   });
   const stop = () => {
     try {
