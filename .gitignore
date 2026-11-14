@@ -8,3 +8,5 @@ gait.db*
 .google-token.json
 .worktrees/
 .DS_Store
+.next-feature/
+.feature-shots/

@@ -29,6 +29,7 @@ This is v0, a rough first draft that runs on one computer. Tutors sign in with G
 - `npm run typecheck`
 - `npm run build`
 - `npm run security-check`: starts a private server on port 3101 with a throwaway database and probes sign-in, headers, size limits and rate limits (no AI calls).
+- `npm run feature-check`: starts a private server on port 3102 (it can run beside `npm run dev`) with a stand-in AI server, checks the session help route and the search fallback, then opens every page at 390px and 1280px in Chrome and fails on sideways scroll, a non-200 status or an error overlay. Screenshots go to `.feature-shots/`. Needs Google Chrome installed, or set `CHROME_PATH`.
 
 ## Layout
 - `app/`: pages and API routes (`app/api/*/route.ts`). Pages: `/`, `/session`, `/session/[id]` (reflection and coaching help), `/history`, `/search`, `/taskforce`, `/practice`, `/reading`.
