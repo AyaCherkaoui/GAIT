@@ -1,4 +1,4 @@
-import { handle } from "@/lib/api";
+import { handle, readJson, str } from "@/lib/api";
 import { ask, askJson, UserFacingError, type Msg } from "@/lib/claude";
 import { SCENARIOS } from "@/lib/scenarios";
 import { getDb } from "@/lib/db";
@@ -32,7 +32,18 @@ function scenarioBrief(id: string) {
 
 export async function POST(req: Request) {
   return handle(req, async (user) => {
-    const body = (await req.json()) as Body;
+    const raw = await readJson(req);
+    const action = str(raw.action, 20);
+    if (!["roleplay", "feedback", "quiz", "saveQuiz"].includes(action)) throw new UserFacingError("Unknown action.");
+    const turns: Turn[] = [];
+    if (raw.turns !== undefined) {
+      if (!Array.isArray(raw.turns) || raw.turns.length > 40) throw new UserFacingError("The request was not valid.");
+      for (const t of raw.turns as Record<string, unknown>[]) {
+        if (!t || (t.role !== "student" && t.role !== "tutor")) throw new UserFacingError("The request was not valid.");
+        turns.push({ role: t.role, text: str(t.text, 2000) });
+      }
+    }
+    const body = { ...raw, action, turns, scenario: str(raw.scenario, 100), topic: str(raw.topic, 200) } as Body;
 
     if (body.action === "roleplay") {
       const messages: Msg[] = [
@@ -83,10 +94,10 @@ export async function POST(req: Request) {
       if (!Number.isInteger(score) || !Number.isInteger(total) || total < 1 || score < 0 || score > total) {
         throw new UserFacingError("That quiz score does not look right.");
       }
-      getDb().prepare("INSERT INTO quiz_results (score, total, topic, user_id) VALUES (?, ?, ?, ?)").run(score, total, String(topic ?? ""), user.id);
+      getDb().prepare("INSERT INTO quiz_results (score, total, topic, user_id) VALUES (?, ?, ?, ?)").run(score, total, topic, user.id);
       return { saved: true };
     }
 
     throw new UserFacingError("Unknown action.");
-  });
+  }, { ai: true });
 }

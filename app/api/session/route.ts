@@ -1,4 +1,4 @@
-import { handle } from "@/lib/api";
+import { handle, readJson, str } from "@/lib/api";
 import { askJson, UserFacingError } from "@/lib/claude";
 import { getDb } from "@/lib/db";
 import { listSessions } from "@/lib/sessions";
@@ -25,9 +25,12 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   return handle(req, async (user) => {
-    const body = (await req.json()) as { studentName?: string; course?: string; notes?: SessionNotes };
-    const notes = body.notes ?? { workedOn: "", struggles: "", wentWell: "" };
-    if (!notes.workedOn?.trim() && !notes.struggles?.trim()) {
+    const body = await readJson(req);
+    const raw = (body.notes && typeof body.notes === "object" ? body.notes : {}) as Record<string, unknown>;
+    const notes: SessionNotes = { workedOn: str(raw.workedOn, 8000), struggles: str(raw.struggles, 8000), wentWell: str(raw.wentWell, 8000) };
+    body.studentName = str(body.studentName, 200);
+    body.course = str(body.course, 300);
+    if (!notes.workedOn.trim() && !notes.struggles.trim()) {
       throw new UserFacingError("Add at least what you worked on or what the student struggled with.");
     }
     const outputs = await askJson<SessionOutputs>({
@@ -45,7 +48,7 @@ What went well: ${notes.wentWell}`,
     });
     const info = getDb()
       .prepare("INSERT INTO sessions (student_name, course, notes, outputs, user_id) VALUES (?, ?, ?, ?, ?)")
-      .run(body.studentName ?? "", body.course ?? "", JSON.stringify(notes), JSON.stringify(outputs), user.id);
+      .run(body.studentName as string, body.course as string, JSON.stringify(notes), JSON.stringify(outputs), user.id);
     return { id: Number(info.lastInsertRowid), outputs };
-  });
+  }, { ai: true });
 }

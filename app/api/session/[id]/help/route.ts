@@ -1,4 +1,4 @@
-import { handle } from "@/lib/api";
+import { handle, readJson, str } from "@/lib/api";
 import { ask, NotFoundError, UserFacingError } from "@/lib/claude";
 import { getSession } from "@/lib/sessions";
 
@@ -9,8 +9,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   return handle(req, async (user) => {
     const session = getSession(Number((await params).id), user.id);
     if (!session) throw new NotFoundError("Session not found.");
-    const { question } = (await req.json()) as { question?: string };
-    if (!question?.trim()) throw new UserFacingError("Type what you would like help with.");
+    const question = str((await readJson(req)).question, 2000);
+    if (!question.trim()) throw new UserFacingError("Type what you would like help with.");
     const n = session.notes;
     const answer = await ask({
       model: "fast",
@@ -27,5 +27,5 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       ],
     });
     return { answer: answer.trim() };
-  });
+  }, { ai: true });
 }

@@ -1,4 +1,4 @@
-import { handle } from "@/lib/api";
+import { handle, readJson, str } from "@/lib/api";
 import { askJson, UserFacingError } from "@/lib/claude";
 import { getDb } from "@/lib/db";
 import { docCount, smartSearch } from "@/lib/search";
@@ -20,7 +20,9 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   return handle(req, async (user) => {
-    const { title = "", description = "" } = (await req.json()) as { title?: string; description?: string };
+    const body = await readJson(req);
+    const title = str(body.title, 300);
+    const description = str(body.description, 8000);
     if (!title.trim() && !description.trim()) throw new UserFacingError("Describe the task first.");
     const plan = await askJson<TaskPlan>({
       system: SYSTEM,
@@ -34,5 +36,5 @@ export async function POST(req: Request) {
       .prepare("INSERT INTO tasks (title, description, plan, related, user_id) VALUES (?, ?, ?, ?, ?)")
       .run(title, description, JSON.stringify(plan), JSON.stringify(related), user.id);
     return { id: Number(info.lastInsertRowid), plan, related };
-  });
+  }, { ai: true });
 }
