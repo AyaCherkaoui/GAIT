@@ -16,7 +16,12 @@ function text(block: string, tag: string): string {
   if (!m) return "";
   return m[1]
     .replace(/^\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*$/, "$1")
-    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#0?39;/g, "'")
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"')
+    // Numeric entities (&#038;, &#8217;, &#x2019;), including ones that were double-encoded as &amp;#038;.
+    .replace(/&#(x[0-9a-f]+|\d+);/gi, (_, n: string) => {
+      const code = n[0].toLowerCase() === "x" ? parseInt(n.slice(1), 16) : parseInt(n, 10);
+      return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : "";
+    })
     .trim();
 }
 

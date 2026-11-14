@@ -176,7 +176,12 @@ async function main() {
         const page = await ctx.newPage();
         try {
           const resp = await page.goto(BASE + pg.path, { waitUntil: "load", timeout: 120_000 });
-          await page.waitForTimeout(1000);
+          // Measure the finished page, not the "Loading…" placeholder client pages show first.
+          await page.waitForLoadState("networkidle", { timeout: 60_000 }).catch(() => {});
+          const loaded = await page
+            .waitForFunction(() => !document.body.innerText.includes("Loading…"), undefined, { timeout: 30_000 })
+            .then(() => true, () => false);
+          await page.waitForTimeout(300);
           const m = await page.evaluate(() => {
             const portal = document.querySelector("nextjs-portal") as HTMLElement | null;
             const overlay = !!portal?.shadowRoot?.querySelector("[data-nextjs-dialog], [data-nextjs-dialog-overlay], [role=dialog]");
@@ -186,9 +191,9 @@ async function main() {
           await page.screenshot({ path: path.join(shots, name), fullPage: true });
           const status = resp?.status();
           check(
-            `layout ${w}px: ${pg.path} (status 200, no sideways scroll, no error overlay)`,
-            status === 200 && m.scroll <= m.inner && !m.overlay,
-            `status ${status}, width ${m.scroll} > ${m.inner}, overlay ${m.overlay}`,
+            `layout ${w}px: ${pg.path} (status 200, loaded, no sideways scroll, no error overlay)`,
+            status === 200 && loaded && m.scroll <= m.inner && !m.overlay,
+            `status ${status}, loaded ${loaded}, width ${m.scroll} > ${m.inner}, overlay ${m.overlay}`,
           );
         } catch (e) {
           check(`layout ${w}px: ${pg.path}`, false, (e as Error).message.split("\n")[0]);
