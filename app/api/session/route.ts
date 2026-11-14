@@ -38,6 +38,8 @@ function sanitizeOutputs(o: SessionOutputs, policy: AiPolicy): SessionOutputs {
     aiPrompts: Array.isArray(o.aiPrompts) ? o.aiPrompts : [],
     dontAskAi: Array.isArray(o.dontAskAi) ? o.dontAskAi : [],
     voiceFlags: Array.isArray(o.voiceFlags) ? o.voiceFlags.filter((x) => typeof x === "string" && x.trim()) : [],
+    email: typeof o.email === "string" ? o.email : "",
+    sessionNote: typeof o.sessionNote === "string" ? o.sessionNote : "",
   };
   if (policy === "banned") {
     out.aiPrompts = [];
@@ -67,6 +69,9 @@ export async function POST(req: Request) {
     const privateConcern = str(raw.privateConcern, 4000);
     if (privateConcern) notes.privateConcern = privateConcern;
     body.studentName = str(body.studentName, 200);
+    // Only the first name goes to the model; "Last, First" and "First Last" both work.
+    const fullName = body.studentName as string;
+    const firstName = (fullName.includes(",") ? fullName.split(",")[1] : fullName).trim().split(/\s+/)[0] || "(not given)";
     body.course = str(body.course, 300);
     // The tutor's choice wins; otherwise use the saved policy for the course code.
     const saved = notes.courseCode ? getPolicy(notes.courseCode, user.id) : null;
@@ -84,7 +89,7 @@ export async function POST(req: Request) {
       messages: [
         {
           role: "user",
-          content: `Student first name: ${body.studentName || "(not given)"}
+          content: `Student first name: ${firstName}
 Course / assignment: ${body.course || "(not given)"}
 What we worked on: ${notes.workedOn}
 What they struggled with: ${notes.struggles}
