@@ -75,16 +75,18 @@ function resolveProvider(): ProviderId {
   return chosen as ProviderId;
 }
 
-/** True when the chosen provider is usable (has its key; Ollama needs none). */
-/** True when the model runs on this machine (Ollama), so private notes never leave it. */
+/** True when the model runs on this machine (Ollama on a loopback host), so private notes never leave it. */
 export function isLocalProvider(): boolean {
   try {
-    return resolveProvider() === "ollama";
+    if (resolveProvider() !== "ollama") return false;
+    const host = new URL(process.env.OLLAMA_HOST || "http://localhost:11434").hostname;
+    return ["localhost", "127.0.0.1", "::1", "[::1]"].includes(host);
   } catch {
     return false;
   }
 }
 
+/** True when the chosen provider is usable (has its key; Ollama needs none). */
 export function hasModel(): boolean {
   try {
     return hasKey(resolveProvider());

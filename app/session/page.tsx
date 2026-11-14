@@ -22,6 +22,7 @@ export default function SessionPage() {
   const [voice, setVoice] = useVoiceFirst();
   const [sessionNote, setSessionNote] = useState("");
   const [directorNote, setDirectorNote] = useState("");
+  const [concernWithheld, setConcernWithheld] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,8 +59,9 @@ export default function SessionPage() {
     if (!result) return;
     setError(null);
     try {
-      const r = await post<{ note: string }>(`/api/session/${result.id}/director-note`, {});
+      const r = await post<{ note: string; concernWithheld?: boolean }>(`/api/session/${result.id}/director-note`, {});
       setDirectorNote(r.note);
+      setConcernWithheld(!!r.concernWithheld);
     } catch (err) {
       setError((err as Error).message);
     }
@@ -77,6 +79,7 @@ export default function SessionPage() {
       setResult(r);
       setSessionNote(r.outputs.sessionNote ?? "");
       setDirectorNote("");
+      setConcernWithheld(false);
       setEmail(r.outputs.email);
     } catch (err) {
       setError((err as Error).message);
@@ -188,6 +191,9 @@ export default function SessionPage() {
               <>
                 <textarea className={inputCls} rows={8} value={directorNote} onChange={(e) => setDirectorNote(e.target.value)} />
                 <CopyButton text={directorNote} />
+                {concernWithheld && (
+                  <p className="text-xs text-amber-700">Your private concern was not sent to the hosted AI model, so add it yourself if you want it in the note.</p>
+                )}
                 <p className="text-xs text-slate-500">Not saved anywhere. Copy it if you want to send it.</p>
               </>
             )}

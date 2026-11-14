@@ -16,9 +16,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const s = getSession(Number((await params).id), user.id);
     if (!s) throw new NotFoundError("Session not found.");
     const n = s.notes;
-    const firstName = s.student_name?.trim().split(/\s+/)[0] || "(not given)";
+    // "Jane Smith" and "Smith, Jane" both give "Jane".
+    const raw = s.student_name?.trim() ?? "";
+    const firstName = (raw.includes(",") ? raw.split(",")[1] : raw).trim().split(/\s+/)[0] || "(not given)";
     // The private concern stays on this machine: it is sent only to a local model.
-    const concern = isLocalProvider() ? n.privateConcern?.trim() || "(none)" : "(not shared with a hosted model)";
+    const concernWithheld = !isLocalProvider() && !!n.privateConcern?.trim();
+    const concern = concernWithheld ? "(none)" : n.privateConcern?.trim() || "(none)";
     const note = await ask({
       model: "fast",
       maxTokens: 800,
@@ -36,6 +39,6 @@ Tutor's private concern: ${concern}`,
         },
       ],
     });
-    return { note: note.trim() };
+    return { note: note.trim(), concernWithheld };
   }, { ai: true });
 }
