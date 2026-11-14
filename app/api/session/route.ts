@@ -17,14 +17,14 @@ Use only what is in the tutor's notes; do not invent details. Return:
 }
 Give 2-3 focusAreas and 4-6 aiPrompts tied to the focus areas.`;
 
-export async function GET() {
-  return handle(async () => {
-    return { sessions: listSessions() };
+export async function GET(req: Request) {
+  return handle(req, async (user) => {
+    return { sessions: listSessions(user.id) };
   });
 }
 
 export async function POST(req: Request) {
-  return handle(async () => {
+  return handle(req, async (user) => {
     const body = (await req.json()) as { studentName?: string; course?: string; notes?: SessionNotes };
     const notes = body.notes ?? { workedOn: "", struggles: "", wentWell: "" };
     if (!notes.workedOn?.trim() && !notes.struggles?.trim()) {
@@ -44,8 +44,8 @@ What went well: ${notes.wentWell}`,
       ],
     });
     const info = getDb()
-      .prepare("INSERT INTO sessions (student_name, course, notes, outputs) VALUES (?, ?, ?, ?)")
-      .run(body.studentName ?? "", body.course ?? "", JSON.stringify(notes), JSON.stringify(outputs));
+      .prepare("INSERT INTO sessions (student_name, course, notes, outputs, user_id) VALUES (?, ?, ?, ?, ?)")
+      .run(body.studentName ?? "", body.course ?? "", JSON.stringify(notes), JSON.stringify(outputs), user.id);
     return { id: Number(info.lastInsertRowid), outputs };
   });
 }

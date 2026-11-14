@@ -1,11 +1,14 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { getUser } from "@/lib/auth";
 import { getSession } from "@/lib/sessions";
 import PrintButton from "./PrintButton";
 
 export const dynamic = "force-dynamic";
 
 export default async function PrintPage({ params }: { params: Promise<{ id: string }> }) {
-  const s = getSession(Number((await params).id));
+  const user = await getUser();
+  if (!user) redirect("/login");
+  const s = getSession(Number((await params).id), user.id);
   if (!s) notFound();
   const o = s.outputs;
   return (

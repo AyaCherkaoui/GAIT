@@ -31,7 +31,7 @@ function scenarioBrief(id: string) {
 }
 
 export async function POST(req: Request) {
-  return handle(async () => {
+  return handle(req, async (user) => {
     const body = (await req.json()) as Body;
 
     if (body.action === "roleplay") {
@@ -83,7 +83,7 @@ export async function POST(req: Request) {
       if (!Number.isInteger(score) || !Number.isInteger(total) || total < 1 || score < 0 || score > total) {
         throw new UserFacingError("That quiz score does not look right.");
       }
-      getDb().prepare("INSERT INTO quiz_results (score, total, topic) VALUES (?, ?, ?)").run(score, total, String(topic ?? ""));
+      getDb().prepare("INSERT INTO quiz_results (score, total, topic, user_id) VALUES (?, ?, ?, ?)").run(score, total, String(topic ?? ""), user.id);
       return { saved: true };
     }
 
