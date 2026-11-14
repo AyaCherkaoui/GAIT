@@ -1,5 +1,5 @@
 import { handle } from "@/lib/api";
-import { ask, NotFoundError } from "@/lib/claude";
+import { ask, isLocalProvider, NotFoundError } from "@/lib/claude";
 import { getSession } from "@/lib/sessions";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +16,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const s = getSession(Number((await params).id), user.id);
     if (!s) throw new NotFoundError("Session not found.");
     const n = s.notes;
+    const firstName = s.student_name?.trim().split(/\s+/)[0] || "(not given)";
+    // The private concern stays on this machine: it is sent only to a local model.
+    const concern = isLocalProvider() ? n.privateConcern?.trim() || "(none)" : "(not shared with a hosted model)";
     const note = await ask({
       model: "fast",
       maxTokens: 800,
@@ -23,13 +26,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       messages: [
         {
           role: "user",
-          content: `Student first name: ${s.student_name || "(not given)"}
+          content: `Student first name: ${firstName}
 Course: ${n.courseCode || s.course || "(not given)"}
 AI policy on file: ${n.aiPolicy ?? "unknown"}
 What we worked on: ${n.workedOn}
 What they struggled with: ${n.struggles}
 AI use noted: ${n.aiUse?.trim() || "(none)"}
-Tutor's private concern: ${n.privateConcern?.trim() || "(none)"}`,
+Tutor's private concern: ${concern}`,
         },
       ],
     });

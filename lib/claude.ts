@@ -76,6 +76,15 @@ function resolveProvider(): ProviderId {
 }
 
 /** True when the chosen provider is usable (has its key; Ollama needs none). */
+/** True when the model runs on this machine (Ollama), so private notes never leave it. */
+export function isLocalProvider(): boolean {
+  try {
+    return resolveProvider() === "ollama";
+  } catch {
+    return false;
+  }
+}
+
 export function hasModel(): boolean {
   try {
     return hasKey(resolveProvider());
@@ -186,7 +195,8 @@ async function askCompat(id: ProviderId, opts: Internal): Promise<string> {
   try {
     res = await send(wantJson);
     // Some free models reject JSON mode; try once more without it (the prompt still asks for JSON).
-    if (wantJson && res.status === 400) res = await send(false);
+    // Only when the 400 is about JSON mode, so a bad key or model id is not sent twice.
+    if (wantJson && res.status === 400 && /response_format|json/i.test(await res.clone().text())) res = await send(false);
   } catch (e) {
     if (e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError"))
       throw new UserFacingError(`${preset.label} took too long to answer. Try again, or pick a smaller model.`);
