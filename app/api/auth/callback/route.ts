@@ -26,7 +26,7 @@ export async function GET(req: Request) {
     res.cookies.set(OAUTH_COOKIE, "", { path: "/api/auth", maxAge: 0 });
     return res;
   } catch (e) {
-    if (e instanceof SignInRefused) return fail(e.message === "domain" ? "domain" : "denied");
+    if (e instanceof SignInRefused) return fail(e.message === "domain" || e.message === "not_allowed" ? e.message : "denied");
     console.error(e);
     return fail("failed");
   }

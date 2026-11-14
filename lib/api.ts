@@ -9,6 +9,10 @@ export class HttpError extends UserFacingError {
   }
 }
 
+export function requireDirector(user: User) {
+  if (user.role !== "director") throw new HttpError(403, "Only the director can do that.");
+}
+
 // Rate limit for AI routes: in memory, per user, fine for one v0 server.
 const AI_LIMIT = 20;
 const AI_WINDOW_MS = 60_000;

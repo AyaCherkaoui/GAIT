@@ -15,6 +15,13 @@ export function getDb(): DatabaseSync {
       created_at TEXT DEFAULT (datetime('now')),
       last_login TEXT DEFAULT (datetime('now'))
     );
+    CREATE TABLE IF NOT EXISTS allowed_users (
+      email TEXT PRIMARY KEY,
+      name TEXT,
+      role TEXT NOT NULL DEFAULT 'tutor' CHECK (role IN ('tutor', 'director')),
+      active INTEGER NOT NULL DEFAULT 1,
+      added_at TEXT DEFAULT (datetime('now'))
+    );
     CREATE TABLE IF NOT EXISTS sessions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       created_at TEXT DEFAULT (datetime('now')),

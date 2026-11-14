@@ -7,7 +7,8 @@ import {
   appUrl, readCookie, SESSION_COOKIE, SESSION_SECONDS, signToken, verifyToken,
 } from "./session-token";
 
-export type User = { id: number; email: string; name: string | null; picture: string | null };
+export type Role = "tutor" | "director";
+export type User = { id: number; email: string; name: string | null; picture: string | null; role: Role };
 
 /** The signed-in user for a route handler (reads the Cookie header), or null. */
 export function getUserFromRequest(req: Request): User | null {
@@ -22,8 +23,26 @@ export async function getUser(): Promise<User | null> {
 function userFromToken(token: string | undefined): User | null {
   const payload = verifyToken<{ uid: number }>(token);
   if (!payload || !Number.isInteger(payload.uid)) return null;
-  const row = getDb().prepare("SELECT id, email, name, picture FROM users WHERE id = ?").get(payload.uid) as User | undefined;
+  // Checked on every request: deactivating a tutor in allowed_users ends their access at once.
+  return userWhere("u.id = ?", payload.uid);
+}
+
+function userWhere(where: string, param: string | number): User | null {
+  const row = getDb().prepare(
+    `SELECT u.id, u.email, u.name, u.picture, a.role FROM users u
+     JOIN allowed_users a ON a.email = lower(u.email) AND a.active = 1 WHERE ${where}`,
+  ).get(param) as User | undefined;
   return row ?? null;
+}
+
+/** DIRECTOR_EMAIL is always an active director, so the director can never be locked out. */
+export function seedDirector() {
+  const email = process.env.DIRECTOR_EMAIL?.trim().toLowerCase();
+  if (!email) return;
+  getDb().prepare(
+    `INSERT INTO allowed_users (email, role, active) VALUES (?, 'director', 1)
+     ON CONFLICT(email) DO UPDATE SET role = 'director', active = 1`,
+  ).run(email);
 }
 
 export function upsertUser(googleSub: string, email: string, name: string | null, picture: string | null): User {
@@ -32,7 +51,7 @@ export function upsertUser(googleSub: string, email: string, name: string | null
     `INSERT INTO users (google_sub, email, name, picture) VALUES (?, ?, ?, ?)
      ON CONFLICT(google_sub) DO UPDATE SET email = excluded.email, name = excluded.name, picture = excluded.picture, last_login = datetime('now')`,
   ).run(googleSub, email, name, picture);
-  return db.prepare("SELECT id, email, name, picture FROM users WHERE google_sub = ?").get(googleSub) as User;
+  return userWhere("u.google_sub = ?", googleSub)!;
 }
 
 export class SignInRefused extends Error {}
@@ -43,6 +62,9 @@ export function signInFromGoogle(claims: { sub?: string; email?: string; email_v
   if (!claims.sub || !email || claims.email_verified !== true) throw new SignInRefused("unverified");
   const allowed = process.env.ALLOWED_EMAIL_DOMAIN?.trim().toLowerCase().replace(/^@/, "");
   if (allowed && email.split("@")[1] !== allowed) throw new SignInRefused("domain");
+  seedDirector();
+  const row = getDb().prepare("SELECT active FROM allowed_users WHERE email = ?").get(email) as { active: number } | undefined;
+  if (!row?.active) throw new SignInRefused("not_allowed");
   return upsertUser(claims.sub, email, claims.name ?? null, claims.picture ?? null);
 }
 
