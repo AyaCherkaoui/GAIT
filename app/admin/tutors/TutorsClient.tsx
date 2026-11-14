@@ -79,16 +79,16 @@ export default function TutorsClient({ myEmail }: { myEmail: string }) {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="text-stone-500">
-                <tr><th className="py-2 pr-4">Email</th><th className="pr-4">Name</th><th className="pr-4">Role</th><th className="pr-4">Active</th><th className="pr-4">Added</th><th /></tr>
+                <tr><th className="py-2 pr-4">Email</th><th className="hidden pr-4 sm:table-cell">Name</th><th className="pr-4">Role</th><th className="pr-4">Active</th><th className="hidden pr-4 sm:table-cell">Added</th><th /></tr>
               </thead>
               <tbody className="divide-y divide-stone-100">
                 {tutors.map((t) => (
                   <tr key={t.email}>
                     <td className="py-2 pr-4">{t.email}</td>
-                    <td className="pr-4">{t.name ?? ""}</td>
+                    <td className="hidden pr-4 sm:table-cell">{t.name ?? ""}</td>
                     <td className="pr-4">{t.role}</td>
                     <td className="pr-4">{t.active ? "Yes" : "No"}</td>
-                    <td className="pr-4 whitespace-nowrap">{t.added_at}</td>
+                    <td className="hidden pr-4 whitespace-nowrap sm:table-cell">{t.added_at}</td>
                     <td className="text-right">
                       {!!t.active && t.email !== myEmail && (
                         <button type="button" className={btn2Cls} disabled={busy} onClick={() => deactivate(t.email)}>Deactivate</button>
