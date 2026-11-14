@@ -119,10 +119,14 @@ async function main() {
       const b = await call("/history", {}, cookie);
       check(`forged cookie (${label}) is rejected`, a.status === 401 && b.status !== 200, `${a.status}/${b.status}`);
     }
-    const ghost = sessionCookieValue({ id: 9999, email: "x@augustana.edu", name: null, picture: null });
+    const ghost = sessionCookieValue({ id: 9999, email: "x@augustana.edu", name: null, picture: null, role: "tutor" });
     check("valid signature for a user that does not exist is rejected", (await call("/api/session", {}, ghost)).status === 401);
 
     // 5. Stubbed sign-in: upsert and policy
+    const allow = getDb().prepare("INSERT INTO allowed_users (email, name, role) VALUES (?, ?, ?)");
+    allow.run("alice@augustana.edu", "Alice", "tutor");
+    allow.run("bob@augustana.edu", "Bob", "tutor");
+    allow.run("carol@augustana.edu", "Carol", "director");
     const a = signInFromGoogle({ sub: "g-1", email: "Alice@Augustana.edu", email_verified: true, name: "Alice", picture: "https://x/p.png" });
     const a2 = signInFromGoogle({ sub: "g-1", email: "alice@augustana.edu", email_verified: true, name: "Alice B" });
     const rows = getDb().prepare("SELECT id, email, name FROM users WHERE google_sub = 'g-1'").all() as { id: number; email: string; name: string }[];
@@ -163,6 +167,52 @@ async function main() {
     check("another user does not see it in their list", !(await (await call("/api/session", {}, bobC)).text()).includes('"S"'));
     check("rows with no owner are hidden", (await call(`/api/session/${orphan}`, {}, alice)).status === 404);
 
+    // 6b. Tutor allowlist
+    let refused = "";
+    try {
+      signInFromGoogle({ sub: "g-7", email: "dave@augustana.edu", email_verified: true });
+    } catch (e) {
+      refused = e instanceof SignInRefused ? e.message : "other";
+    }
+    check("sign-in for an email not on the list is refused with not_allowed", refused === "not_allowed", refused);
+    check("an email not on the list gets no users row", (db.prepare("SELECT COUNT(*) AS n FROM users WHERE google_sub = 'g-7'").get() as { n: number }).n === 0);
+    db.prepare("INSERT INTO allowed_users (email, role) VALUES ('erin@augustana.edu', 'tutor')").run();
+    const erinC = sessionCookieValue(signInFromGoogle({ sub: "g-8", email: "erin@augustana.edu", email_verified: true }));
+    check("a listed tutor is accepted", (await call("/api/session", {}, erinC)).status === 200);
+    db.prepare("UPDATE allowed_users SET active = 0 WHERE email = 'erin@augustana.edu'").run();
+    check("a deactivated tutor gets 401 on the next request", (await call("/api/session", {}, erinC)).status === 401);
+    let refusedAgain = "";
+    try {
+      signInFromGoogle({ sub: "g-8", email: "erin@augustana.edu", email_verified: true });
+    } catch (e) {
+      refusedAgain = e instanceof SignInRefused ? e.message : "other";
+    }
+    check("a deactivated tutor cannot sign in again", refusedAgain === "not_allowed", refusedAgain);
+    const carolUser = signInFromGoogle({ sub: "g-6", email: "carol@augustana.edu", email_verified: true, name: "Carol" });
+    const carolC = sessionCookieValue(carolUser);
+    check("a tutor gets 403 from GET /api/admin/tutors", (await call("/api/admin/tutors", {}, alice)).status === 403);
+    check("a tutor gets 403 from POST /api/admin/tutors", (await post("/api/admin/tutors", { email: "z@augustana.edu", role: "tutor" }, alice)).status === 403);
+    check("a tutor gets 403 from DELETE /api/admin/tutors", (await call("/api/admin/tutors?email=bob@augustana.edu", { method: "DELETE" }, alice)).status === 403);
+    check("signed out: GET /api/admin/tutors is 401", (await call("/api/admin/tutors")).status === 401);
+    r = await call("/api/admin/tutors", {}, carolC);
+    check("a director gets 200 from GET /api/admin/tutors", r.status === 200 && (await r.text()).includes("bob@augustana.edu"));
+    check("a director can add a tutor", (await post("/api/admin/tutors", { email: " Frank@Augustana.edu ", name: "Frank", role: "tutor" }, carolC)).status === 200);
+    check("the added email is stored lower-cased and active", (db.prepare("SELECT COUNT(*) AS n FROM allowed_users WHERE email = 'frank@augustana.edu' AND active = 1").get() as { n: number }).n === 1);
+    check("an invalid email is 400", (await post("/api/admin/tutors", { email: "not-an-email", role: "tutor" }, carolC)).status === 400);
+    check("an email over 254 characters is 400", (await post("/api/admin/tutors", { email: "a".repeat(250) + "@b.co", role: "tutor" }, carolC)).status === 400);
+    check("a name over 100 characters is 400", (await post("/api/admin/tutors", { email: "g@augustana.edu", name: "n".repeat(101), role: "tutor" }, carolC)).status === 400);
+    check("an unknown role is 400", (await post("/api/admin/tutors", { email: "g@augustana.edu", role: "boss" }, carolC)).status === 400);
+    check("a director cannot deactivate themselves (400)", (await call("/api/admin/tutors?email=carol@augustana.edu", { method: "DELETE" }, carolC)).status === 400);
+    check("a director cannot demote their own role (400)", (await post("/api/admin/tutors", { email: "carol@augustana.edu", role: "tutor" }, carolC)).status === 400);
+    check("the director row is unchanged", (db.prepare("SELECT role, active FROM allowed_users WHERE email = 'carol@augustana.edu'").get() as { role: string; active: number }).role === "director");
+    check("a director can deactivate another tutor", (await call("/api/admin/tutors?email=frank@augustana.edu", { method: "DELETE" }, carolC)).status === 200);
+    check("the deactivated row is kept with active = 0", (db.prepare("SELECT active FROM allowed_users WHERE email = 'frank@augustana.edu'").get() as { active: number }).active === 0);
+    r = await call("/admin/tutors", {}, alice);
+    check("a tutor opening /admin/tutors is redirected to /", [302, 303, 307, 308].includes(r.status) && (r.headers.get("location") ?? "").replace(BASE, "") === "/", `${r.status} ${r.headers.get("location")}`);
+    check("a director can open /admin/tutors", (await call("/admin/tutors", {}, carolC)).status === 200);
+    check("the Admin link is shown to a director", (await (await call("/history", {}, carolC)).text()).includes('href="/admin/tutors"'));
+    check("the Admin link is not shown to a tutor", !(await (await call("/history", {}, alice)).text()).includes('href="/admin/tutors"'));
+
     // 7. Headers
     const h = (await call("/login")).headers;
     check("CSP header (frame-ancestors none)", (h.get("content-security-policy") ?? "").includes("frame-ancestors 'none'"));
@@ -189,7 +239,7 @@ async function main() {
     check("unexpected failure is a plain 500 message", r.status === 500 && body.includes("Something went wrong") && !/ECONN|127\.0\.0\.1|fetch|node_modules|\bat \w|Error:/.test(body), `${r.status} ${body}`);
 
     // 10. Rate limit (empty questions fail validation before any AI call)
-    const carol = sessionCookieValue(signInFromGoogle({ sub: "g-6", email: "carol@augustana.edu", email_verified: true, name: "Carol" }));
+    const carol = carolC;
     const codes: number[] = [];
     for (let i = 0; i < 25; i++) codes.push((await post("/api/search", { q: "" }, carol)).status);
     check("rate limit returns 429 after 20 requests", codes.slice(0, 20).every((c) => c === 400) && codes.slice(20).every((c) => c === 429), codes.join(","));

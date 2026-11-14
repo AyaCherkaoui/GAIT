@@ -21,6 +21,7 @@ This is v0, a rough first draft that runs on one computer. Tutors sign in with G
    - `AUTH_SECRET`: at least 32 random characters that sign the login cookie (`openssl rand -base64 32`). The app refuses requests without it.
    - `APP_URL`: where you open the app (default `http://localhost:3100`). In Google Cloud Console add `<APP_URL>/api/auth/callback` as an authorized redirect URI of the same OAuth client. If Google refuses a Desktop-type client for this redirect, create a Web application client instead.
    - `ALLOWED_EMAIL_DOMAIN` (optional): only this email domain may sign in, for example `augustana.edu`. Empty means any Google account.
+   - `DIRECTOR_EMAIL`: the director's email. It is always an active director, so the director can never be locked out. The director opens Admin in the nav (`/admin/tutors`) to add tutors and deactivate them. Only people on that list can sign in, and deactivating someone ends their access on their next request.
 4. `npm run sync-aria`: the first run opens a Google sign-in (read-only Drive access) and saves the token to `.google-token.json`. Re-run it whenever ARIA changes.
 5. `npm run dev -- -p 3100` and open http://localhost:3100 (the port must match `APP_URL`). You sign in with Google first.
 
