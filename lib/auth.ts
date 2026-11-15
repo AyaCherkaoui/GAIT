@@ -21,19 +21,42 @@ export async function getUser(): Promise<User | null> {
 }
 
 function userFromToken(token: string | undefined): User | null {
-  const payload = verifyToken<{ uid: number }>(token);
+  const payload = verifyToken<{ uid: number; sv?: number }>(token);
   if (!payload || !Number.isInteger(payload.uid)) return null;
   // Checked on every request: deactivating a tutor in allowed_users ends their access at once.
-  return userWhere("u.id = ?", payload.uid);
+  const row = userRow("u.id = ?", payload.uid);
+  // Signing out bumps session_version, so every cookie issued before that stops working (tokens without sv count as 0).
+  if (!row || (payload.sv ?? 0) !== row.sv) return null;
+  return toUser(row);
+}
+
+/** Ends every session of this user on the server (sign-out). */
+export function endSessions(userId: number) {
+  getDb().prepare("UPDATE users SET session_version = session_version + 1 WHERE id = ?").run(userId);
+}
+
+/** The user a (still valid) cookie belongs to, for sign-out. */
+export function userIdFromCookie(token: string | undefined): number | null {
+  const payload = verifyToken<{ uid: number }>(token);
+  return payload && Number.isInteger(payload.uid) ? payload.uid : null;
+}
+
+type UserRow = Omit<User, "onboarded"> & { onboarded: number; sv: number };
+function toUser({ sv: _sv, onboarded, ...rest }: UserRow): User {
+  return { ...rest, onboarded: !!onboarded };
 }
 
 function userWhere(where: string, param: string | number): User | null {
-  const row = getDb().prepare(
+  const row = userRow(where, param);
+  return row ? toUser(row) : null;
+}
+
+function userRow(where: string, param: string | number): UserRow | null {
+  return (getDb().prepare(
     `SELECT u.id, u.email, u.name, u.picture, CASE WHEN a.active = 1 THEN a.role ELSE 'tutee' END AS role,
-       (u.onboarded = 1 OR a.active = 1) AS onboarded, u.requested_role AS requestedRole
+       (u.onboarded = 1 OR a.active = 1) AS onboarded, u.requested_role AS requestedRole, u.session_version AS sv
      FROM users u LEFT JOIN allowed_users a ON a.email = lower(u.email) WHERE ${where}`,
-  ).get(param) as (Omit<User, "onboarded"> & { onboarded: number }) | undefined;
-  return row ? { ...row, onboarded: !!row.onboarded } : null;
+  ).get(param) as UserRow | undefined) ?? null;
 }
 
 /** DIRECTOR_EMAIL is always an active director, so the director can never be locked out. */
@@ -82,7 +105,8 @@ export function signInFromGoogle(claims: { sub?: string; email?: string; email_v
 
 export function sessionCookieValue(user: User): string {
   // The role is only a hint for the proxy (to keep tutees off tutor pages); every page and route re-reads the real role.
-  return signToken({ uid: user.id, role: user.role }, SESSION_SECONDS);
+  const sv = (getDb().prepare("SELECT session_version AS sv FROM users WHERE id = ?").get(user.id) as { sv: number } | undefined)?.sv ?? 0;
+  return signToken({ uid: user.id, role: user.role, sv }, SESSION_SECONDS);
 }
 
 function oauthClient() {

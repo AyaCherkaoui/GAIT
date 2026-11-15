@@ -55,5 +55,13 @@ export function getDb(): DatabaseSync {
     db.exec("UPDATE users SET onboarded = 1");
   }
   if (!hasColumn("users", "requested_role")) db.exec("ALTER TABLE users ADD COLUMN requested_role TEXT CHECK (requested_role IN ('tutor', 'director'))");
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS rate_hits (key TEXT NOT NULL, at INTEGER NOT NULL);
+    CREATE INDEX IF NOT EXISTS rate_hits_key_at ON rate_hits (key, at);
+    CREATE INDEX IF NOT EXISTS sessions_user ON sessions (user_id, id);
+    CREATE INDEX IF NOT EXISTS tasks_user ON tasks (user_id, id);
+    CREATE INDEX IF NOT EXISTS quiz_results_user ON quiz_results (user_id, id);
+  `);
+  if (!hasColumn("users", "session_version")) db.exec("ALTER TABLE users ADD COLUMN session_version INTEGER NOT NULL DEFAULT 0");
   return db;
 }

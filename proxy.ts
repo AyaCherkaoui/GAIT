@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { getDb } from "@/lib/db";
 import { requireAuthSecret, SESSION_COOKIE, verifyToken } from "@/lib/session-token";
 
 const dev = process.env.NODE_ENV !== "production";
@@ -33,7 +34,12 @@ export function proxy(req: NextRequest) {
   requireAuthSecret();
   const { pathname, search } = req.nextUrl;
   const open = pathname === "/login" || pathname.startsWith("/api/auth/");
-  const token = verifyToken<{ role?: string }>(req.cookies.get(SESSION_COOKIE)?.value);
+  let token = verifyToken<{ role?: string; uid?: number; sv?: number }>(req.cookies.get(SESSION_COOKIE)?.value);
+  // A cookie from before the user signed out is no longer valid (the version in users moves on at sign-out).
+  if (token) {
+    const row = getDb().prepare("SELECT session_version AS sv FROM users WHERE id = ?").get(token.uid ?? -1) as { sv: number } | undefined;
+    if (!row || row.sv !== (token.sv ?? 0)) token = null;
+  }
   if (!open && !token) {
     if (pathname.startsWith("/api/")) return secure(NextResponse.json({ error: "Please sign in to continue." }, { status: 401 }));
     const url = new URL("/login", req.url);
