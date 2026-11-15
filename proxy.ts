@@ -47,7 +47,7 @@ export function proxy(req: NextRequest) {
     return secure(NextResponse.redirect(url));
   }
   // Tutees get the home page and the role chooser only; every API route also refuses them (lib/api.ts).
-  if (!open && token?.role === "tutee" && pathname !== "/" && pathname !== "/welcome" && !pathname.startsWith("/api/")) return secure(NextResponse.redirect(new URL("/", req.url)));
+  if (!open && token?.role === "tutee" && pathname !== "/" && pathname !== "/welcome" && pathname !== "/coach" && !pathname.startsWith("/api/")) return secure(NextResponse.redirect(new URL("/", req.url)));
   return secure(NextResponse.next());
 }
 

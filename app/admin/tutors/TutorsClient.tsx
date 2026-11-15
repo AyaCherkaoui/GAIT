@@ -16,12 +16,16 @@ export default function TutorsClient({ myEmail }: { myEmail: string }) {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [role, setRole] = useState<"tutor" | "director">("tutor");
+  const [query, setQuery] = useState("");
 
   const load = useCallback(
     () => get<{ tutors: Tutor[]; requests: Req[] }>("/api/admin/tutors").then((j) => { setTutors(j.tutors); setRequests(j.requests); }).catch((e: Error) => { setError(e.message); setTutors([]); }),
     [],
   );
   useEffect(() => { load(); }, [load]);
+
+  const q = query.trim().toLowerCase();
+  const shown = (tutors ?? []).filter((t) => !q || t.email.toLowerCase().includes(q) || (t.name ?? "").toLowerCase().includes(q));
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
@@ -55,7 +59,22 @@ export default function TutorsClient({ myEmail }: { myEmail: string }) {
     }
   }
 
+  async function reactivate(t: Tutor) {
+    if (!window.confirm(`Let ${t.email} sign in again?`)) return;
+    setError(null);
+    setBusy(true);
+    try {
+      await post("/api/admin/tutors", { email: t.email, name: t.name ?? "", role: t.role });
+      await load();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function deactivate(target: string) {
+    if (!window.confirm(`Deactivate ${target}? They lose access on their next request.`)) return;
     setError(null);
     setBusy(true);
     try {
@@ -75,7 +94,7 @@ export default function TutorsClient({ myEmail }: { myEmail: string }) {
       <PageHeader title="Tutors">Only people on this list can sign in. Deactivating someone ends their access at once.</PageHeader>
       <ErrorBox error={error} />
       {requests.length > 0 && (
-        <Card title="Requests" tone="note">
+        <Card title={`Requests (${requests.length})`} tone="note">
           <ul className="divide-y divide-gold-300/70">
             {requests.map((r) => (
               <li key={r.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3 first:pt-0 last:pb-0">
@@ -116,9 +135,14 @@ export default function TutorsClient({ myEmail }: { myEmail: string }) {
         </form>
       </Card>
       <Card title="Tutors">
+        <div className="mb-4 max-w-sm">
+          <label htmlFor="tutor-search" className={labelCls}>Search by name or email</label>
+          <input id="tutor-search" type="search" className={inputCls} value={query} onChange={(e) => setQuery(e.target.value)} />
+        </div>
         {tutors === null && <Working label="Loading" />}
         {tutors?.length === 0 && <Empty title="No tutors yet">Add the first one with the form above.</Empty>}
-        {!!tutors?.length && (
+        {!!tutors?.length && shown.length === 0 && <Empty title="No match">No one on the list matches that search.</Empty>}
+        {shown.length > 0 && (
           <table className="block w-full text-left text-sm sm:table">
             <thead className="hidden border-b border-stone-200 text-stone-600 sm:table-header-group">
               <tr>
@@ -131,7 +155,7 @@ export default function TutorsClient({ myEmail }: { myEmail: string }) {
               </tr>
             </thead>
             <tbody className="block divide-y divide-stone-200 sm:table-row-group">
-              {tutors.map((t) => (
+              {shown.map((t) => (
                 <tr key={t.email} className={`flex flex-wrap items-center gap-x-3 gap-y-2 py-3 sm:table-row ${t.active ? "text-stone-900" : "bg-stone-50 text-stone-600"}`}>
                   <td className="w-full break-all font-medium sm:table-cell sm:w-auto sm:py-3 sm:pr-4">{t.email}</td>
                   <td className="sm:table-cell sm:pr-4">{t.name ?? ""}</td>
@@ -139,8 +163,8 @@ export default function TutorsClient({ myEmail }: { myEmail: string }) {
                   <td className="sm:table-cell sm:pr-4">{t.active ? "Active" : <span className="font-semibold">Inactive</span>}</td>
                   <td className="hidden whitespace-nowrap sm:table-cell sm:pr-4">{t.added_at}</td>
                   <td className="ml-auto sm:table-cell sm:text-right">
-                    {!!t.active && t.email !== myEmail && (
-                      <button type="button" className={`${btn2Cls} min-h-10`} disabled={busy} onClick={() => deactivate(t.email)}>Deactivate</button>
+                    {t.email !== myEmail && (
+                      <button type="button" className={`${btn2Cls} min-h-10`} disabled={busy} onClick={() => (t.active ? deactivate(t.email) : reactivate(t))}>{t.active ? "Deactivate" : "Reactivate"}</button>
                     )}
                   </td>
                 </tr>

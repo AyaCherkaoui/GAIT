@@ -5,10 +5,11 @@ import { safeNext } from "@/lib/session-token";
 export const dynamic = "force-dynamic";
 
 const MESSAGES: Record<string, string> = {
-  domain: "That Google account can't use Ink. Sign in with your Augustana account.",
-  denied: "Sign-in didn't finish. Try again.",
-  failed: "Sign-in failed. Try again in a moment.",
-  config: "Sign-in isn't set up yet. Ask the person who runs Ink.",
+  domain: "That Google account can't be used here. Choose your Augustana account (the one that ends in augustana.edu) and try again.",
+  denied: "Sign-in wasn't finished, so nothing was changed. Press the button to try again.",
+  failed: "Something went wrong while signing in. Wait a moment and try again.",
+  config: "Sign-in isn't set up yet. Please tell the Reading/Writing Center director.",
+  not_allowed: "That account isn't on the list yet. Ask the Reading/Writing Center director to add you.",
 };
 
 function GoogleG() {
@@ -44,7 +45,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <section className="flex items-center px-6 py-12 sm:px-12">
         <div className="mx-auto w-full max-w-sm">
           <h2 className="font-display text-3xl font-semibold tracking-tight text-ink">Sign in</h2>
-          <p className="mt-2 text-stone-600">Use your Augustana Google account. Ink shows tutors, directors and students what each of them needs.</p>
+          <p className="mt-2 text-stone-600">Use your Augustana account. Students, tutors and the director each see what they need.</p>
           {error && MESSAGES[error] && (
             <p role="alert" className="mt-5 rounded-md border-l-4 border-margin bg-red-50 px-4 py-3 text-sm text-red-900">{MESSAGES[error]}</p>
           )}
@@ -55,6 +56,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             <GoogleG />
             Continue with Google
           </a>
+          <p className="mt-3 text-sm text-stone-700">Tip: if Google shows a personal account first, choose &quot;Use another account&quot; and pick your Augustana one.</p>
           <p className="mt-5 text-sm text-stone-700">We only read your name and email. Nothing is posted to your account.</p>
         </div>
       </section>

@@ -15,21 +15,35 @@ export default function ImpactPage() {
   useEffect(() => {
     get<{ weeks: ImpactWeek[] }>("/api/impact").then((j) => setWeeks(j.weeks)).catch((e) => setError((e as Error).message));
   }, []);
+  const sum = (k: keyof ImpactWeek) => (weeks ?? []).reduce((t, w) => t + Number(w[k]), 0);
   return (
     <div className="space-y-6">
       <PageHeader
         title="Impact snapshot"
         actions={<a className={btn2Cls} href="/api/impact?format=csv" download>Download CSV</a>}
       >
-        Anonymous weekly counts for the whole center. No names and no text, and nothing about individual tutors.
+        A plain count of what is happening across the center. It has no student names, no tutor names and no notes.
       </PageHeader>
       <ErrorBox error={error} />
       {!error && weeks === null && <p className="text-sm text-stone-600">Loading…</p>}
-      {weeks && (
-        <Card title="By week">
-          {weeks.length === 0 ? (
-            <Empty title="Nothing counted yet">Counts appear here as tutors log sessions.</Empty>
-          ) : (
+      {weeks && weeks.length === 0 && <Empty title="Nothing counted yet">Counts appear here once tutors write up sessions. Nothing here ever shows a student or tutor name.</Empty>}
+      {weeks && weeks.length > 0 && (
+        <>
+          <section aria-label="Totals" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              [sum("sessions"), "Sessions written up", "All weeks together."],
+              [sum("aiDisclosed"), "Sessions where AI use came up", "The student said how they used AI."],
+              [sum("banned") + sum("limited"), "Sessions in classes that limit or ban AI", "A good moment for the AI talk."],
+              [sum("ownership") + sum("scripts"), "Times tutors used the AI talk tools", "Ownership questions and the script bank."],
+            ].map(([n, label, hint]) => (
+              <div key={label as string} className="rounded-lg border border-stone-200 bg-white p-5">
+                <p className="font-display text-4xl font-semibold tabular-nums text-ink">{n}</p>
+                <p className="mt-1 font-semibold text-stone-900">{label}</p>
+                <p className="text-sm text-stone-600">{hint}</p>
+              </div>
+            ))}
+          </section>
+          <Card title="Week by week">
             <div className="-mx-1 overflow-x-auto px-1">
               <table className="w-full min-w-[40rem] text-left text-sm">
                 <thead>
@@ -46,8 +60,8 @@ export default function ImpactPage() {
                 </tbody>
               </table>
             </div>
-          )}
-        </Card>
+          </Card>
+        </>
       )}
     </div>
   );

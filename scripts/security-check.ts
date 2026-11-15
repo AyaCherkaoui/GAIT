@@ -340,6 +340,39 @@ async function main() {
     r = await call("/api/impact?format=csv", {}, carolC);
     check("the director downloads impact CSV", r.status === 200 && (r.headers.get("content-type") ?? "").includes("text/csv") && (await r.text()).startsWith("week,sessions"));
 
+    // Coach route (#18)
+    check("signed out: POST /api/coach is 401", (await post("/api/coach", {})).status === 401);
+    check("coach: no messages is 400", (await post("/api/coach", {}, tuteeC)).status === 400);
+    check("coach: last turn from the assistant is 400", (await post("/api/coach", { messages: [{ role: "user", content: "a" }, { role: "assistant", content: "b" }] }, tuteeC)).status === 400);
+    check("coach: unknown role is 400", (await post("/api/coach", { messages: [{ role: "system", content: "a" }] }, tuteeC)).status === 400);
+    check("coach: 2001 characters is 400", (await post("/api/coach", { messages: [{ role: "user", content: "a".repeat(2001) }] }, tuteeC)).status === 400);
+    check("coach: 13 turns is 400", (await post("/api/coach", { messages: Array.from({ length: 13 }, () => ({ role: "user", content: "a" })) }, tuteeC)).status === 400);
+    check("coach: a body over 100 KB is 413", (await post("/api/coach", { messages: [{ role: "user", content: "a".repeat(120_000) }] }, tuteeC)).status === 413);
+    {
+      const coachCodes: number[] = [];
+      for (let i = 0; i < 24; i++) coachCodes.push((await post("/api/coach", { messages: [] }, ginaC)).status);
+      check("coach is rate limited (429 after 20)", coachCodes.slice(0, 20).every((c) => c === 400) && coachCodes.slice(20).every((c) => c === 429), coachCodes.join(","));
+    }
+
+    // Director read-only access to sessions (#18)
+    const secretSid = Number(ins.run("Pat Jones", "HIST 1", JSON.stringify({ workedOn: "a", struggles: "b", wentWell: "c", privateConcern: "PRIVATE-CONCERN-MARKER" }), outputs, a.id).lastInsertRowid);
+    check("a tutor gets 404 reading another tutor's session", (await call(`/api/session/${secretSid}`, {}, bobC)).status === 404);
+    r = await call(`/api/session/${secretSid}`, {}, carolC);
+    const dirBody = await r.text();
+    check("the director reads any tutor's session, read-only", r.status === 200 && dirBody.includes('"readOnly":true') && dirBody.includes('"tutor"'), `${r.status}`);
+    check("the director never gets the private concern", !dirBody.includes("PRIVATE-CONCERN-MARKER"));
+    check("the director sees only the student's first name", dirBody.includes('"Pat"') && !dirBody.includes("Pat Jones"));
+    check("a tutee gets 403 from /api/session/[id]", (await call(`/api/session/${secretSid}`, {}, tuteeC)).status === 403);
+    check("the director cannot write the tutor's reflection (404)", (await call(`/api/session/${secretSid}/reflection`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ learned: "x" }) }, carolC)).status === 404);
+    check("signed out: /api/admin/sessions is 401", (await call("/api/admin/sessions")).status === 401);
+    check("a tutor gets 403 from /api/admin/sessions", (await call("/api/admin/sessions", {}, alice)).status === 403);
+    check("a tutee gets 403 from /api/admin/sessions", (await call("/api/admin/sessions", {}, tuteeC)).status === 403);
+    r = await call("/api/admin/sessions", {}, carolC);
+    const listBody = await r.text();
+    check("the director lists sessions with first names only", r.status === 200 && listBody.includes('"student":"Pat"') && !listBody.includes("Pat Jones") && !listBody.includes("PRIVATE-CONCERN-MARKER"), `${r.status}`);
+    check("a tutor is sent away from /admin/sessions", [302, 303, 307, 308].includes((await call("/admin/sessions", {}, alice)).status));
+    check("the director opens /admin/sessions", (await call("/admin/sessions", {}, carolC)).status === 200);
+
     // 9. No internal text in server errors (the AI service is unreachable, so the handler fails)
     r = await post("/api/taskforce", { title: "t" }, alice);
     const body = await r.text();
@@ -351,6 +384,10 @@ async function main() {
     for (let i = 0; i < 25; i++) codes.push((await post("/api/search", { q: "" }, carol)).status);
     check("rate limit returns 429 after 20 requests", codes.slice(0, 20).every((c) => c === 400) && codes.slice(20).every((c) => c === 429), codes.join(","));
     check("rate limit is per user", (await post("/api/search", { q: "" }, bobC)).status === 400);
+    db.prepare("INSERT INTO allowed_users (email, name, role, active) VALUES (?, ?, 'director', 1) ON CONFLICT(email) DO UPDATE SET role = 'director', active = 1").run("frank@augustana.edu", "Frank");
+    const frankC = sessionCookieValue(signInFromGoogle({ sub: "g-frank", email: "frank@augustana.edu", email_verified: true, name: "Frank" }));
+    const helpAsDirector = await post(`/api/session/${secretSid}/help`, { question: "hi" }, frankC);
+    check("the director cannot use the tutor's help route (404)", helpAsDirector.status === 404);
 
     // 11. Logout ends the session on the server (#16)
     r = await call("/api/auth/logout", { method: "POST" });
