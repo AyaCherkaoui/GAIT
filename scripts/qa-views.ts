@@ -155,6 +155,23 @@ async function main() {
     await page.waitForTimeout(3500);
     await snap("result");
   };
+  const policies: Step = async (page, snap) => {
+    await page.getByLabel("Course code", { exact: true }).fill("ENGL 101");
+    await page.getByLabel("Professor", { exact: true }).fill("Dr. Rivera");
+    await page.getByLabel("AI policy", { exact: true }).selectOption("limited");
+    await page.getByLabel("Details", { exact: true }).fill("OK for brainstorming, must be disclosed");
+    await page.getByRole("button", { name: "Save policy" }).click();
+    await page.getByText("OK for brainstorming").first().waitFor({ timeout: 30_000 });
+    await snap("saved");
+  };
+  const aiTalk: Step = async (page, snap) => {
+    await page.getByRole("button", { name: "Tailor it" }).click();
+    await page.getByRole("button", { name: "Tailor it" }).waitFor({ timeout: 30_000 });
+    await page.waitForTimeout(2500);
+    await snap("tailored");
+    await page.getByRole("button", { name: "Ownership questions" }).click();
+    await snap("ownership");
+  };
   const practice: Step = async (page, snap) => {
     await page.getByRole("button", { name: "Start role-play" }).click();
     await page.getByText("mostly need help").waitFor({ timeout: 30_000 });
@@ -195,6 +212,8 @@ async function main() {
     { path: "/reading" },
     { path: "/debrief", steps: debrief },
     { path: "/voice" },
+    { path: "/policies", steps: policies },
+    { path: "/ai-talk", steps: aiTalk },
   ].map((v) => ({ ...v, path: v.path.replace(String(sid), c === "director" ? String(dsid) : String(sid)) }));
 
   const roles: Role[] = [
