@@ -187,6 +187,20 @@ async function main() {
     for (const li of await page.locator("ol > li").all()) await li.getByRole("button").first().click().catch(() => {});
     await snap("quiz");
   };
+  const news: Step = async (page, snap) => {
+    await page.getByRole("link", { name: /Coaching with AI/ }).waitFor({ timeout: 30_000 });
+    await page.getByText("Could not load: Fixture Broken Source").waitFor();
+    await snap("list");
+    await page.getByRole("button", { name: "AI and writing" }).click();
+    await page.getByText("Non-directive tutoring").waitFor({ state: "hidden" });
+    await page.getByRole("button", { name: "All", exact: true }).click();
+    await page.getByRole("searchbox", { name: "Search articles" }).fill("revise");
+    await page.getByText("Non-directive tutoring").waitFor({ state: "hidden" });
+    await page.getByRole("searchbox", { name: "Search articles" }).fill("");
+    await page.getByRole("button", { name: "Try this with a student" }).first().click();
+    await page.getByText("One move to try").waitFor({ timeout: 30_000 });
+    await snap("try-this");
+  };
   const welcome: Step = async (page, snap) => {
     await page.getByText("Tutor", { exact: true }).first().click();
     await snap("tutor-chosen");
@@ -210,6 +224,7 @@ async function main() {
     { path: "/taskforce", steps: taskforce },
     { path: "/practice", steps: practice },
     { path: "/reading" },
+    { path: "/news", steps: news },
     { path: "/debrief", steps: debrief },
     { path: "/voice" },
     { path: "/policies", steps: policies },
@@ -227,7 +242,7 @@ async function main() {
 
   const log = fs.openSync(path.join(dir, "server.log"), "w");
   const server = spawn("npx", ["next", "dev", "-p", String(PORT), ...(process.env.GAIT_DEV_ARGS?.split(" ").filter(Boolean) ?? [])], {
-    stdio: ["ignore", log, log], detached: true, env: { ...process.env, GAIT_DIST_DIR: ".next-qa", GAIT_TEST_TOOLS: "0" },
+    stdio: ["ignore", log, log], detached: true, env: { ...process.env, GAIT_DIST_DIR: ".next-qa", GAIT_TEST_TOOLS: "0", NEWS_FIXTURE: "1" },
   });
   const stop = () => {
     try {
