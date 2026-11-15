@@ -34,22 +34,40 @@ export default async function PrintPage({ params }: { params: Promise<{ id: stri
           </div>
         ))}
       </section>
-      <section className="space-y-2">
-        <h2 className="font-display text-lg font-semibold">Use AI like a coach, not a ghostwriter</h2>
-        <p>Paste one of these into an AI tool. Each one keeps you doing the writing.</p>
-        <ol className="list-decimal space-y-2 pl-5">
-          {o.aiPrompts.map((p, i) => (
-            <li key={i}>
-              <p className="font-mono text-xs">{p.prompt}</p>
-              <p className="text-stone-700">{p.whyItHelps}</p>
-            </li>
-          ))}
-        </ol>
-      </section>
+      {o.aiPrompts.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="font-display text-lg font-semibold">Use AI like a coach, not a ghostwriter</h2>
+          <p>Paste one of these into an AI tool. Each one keeps you doing the writing.</p>
+          <ol className="list-decimal space-y-2 pl-5">
+            {o.aiPrompts.map((p, i) => (
+              <li key={i}>
+                <p className="font-mono text-xs">{p.prompt}</p>
+                <p className="text-stone-700">{p.whyItHelps}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
       <section>
         <h2 className="font-display text-lg font-semibold">Don&apos;t ask AI to…</h2>
         <ul className="list-disc pl-5">{o.dontAskAi.map((d, i) => <li key={i}>{d}</li>)}</ul>
       </section>
+      {s.notes.aiPolicy === "banned" ? (
+        <section className="rounded-lg border border-stone-400 p-3">
+          <h2 className="font-display text-lg font-semibold">Check your syllabus first</h2>
+          <p>Your course&apos;s rules say not to use AI on this work. Read the syllabus and ask your professor if you are unsure.</p>
+        </section>
+      ) : (
+        <section className="space-y-2 break-inside-avoid rounded-lg border border-stone-400 p-3">
+          <h2 className="font-display text-lg font-semibold">My AI reflection (fill this in if you used an AI tool)</h2>
+          {["Tool I used", "What I asked it", "What I kept", "What I changed, and why", "How I will cite or disclose it"].map((l) => (
+            <div key={l}>
+              <p className="text-stone-700">{l}</p>
+              <div className="h-8 border-b border-stone-500" />
+            </div>
+          ))}
+        </section>
+      )}
       <p className="border-t border-black pt-3 text-stone-700">Come back to the RWC any time. Bring your next draft!</p>
     </article>
   );

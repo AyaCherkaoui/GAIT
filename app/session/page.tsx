@@ -3,8 +3,9 @@ import Link from "next/link";
 import { useState } from "react";
 import CopyButton from "@/components/CopyButton";
 import { ErrorBox, PageHeader, Working, btnCls, inputCls, labelCls } from "@/components/ui";
-import { post } from "@/lib/client";
-import type { SessionOutputs } from "@/lib/types";
+import VoiceToggle, { useVoiceFirst } from "@/components/VoiceToggle";
+import { get, post } from "@/lib/client";
+import { AI_POLICIES, type AiPolicy, type SessionOutputs } from "@/lib/types";
 
 export default function SessionPage() {
   const [studentName, setStudentName] = useState("");
@@ -12,6 +13,26 @@ export default function SessionPage() {
   const [workedOn, setWorkedOn] = useState("");
   const [struggles, setStruggles] = useState("");
   const [wentWell, setWentWell] = useState("");
+  const [courseCode, setCourseCode] = useState("");
+  const [aiPolicy, setAiPolicy] = useState<AiPolicy>("unknown");
+  const [aiUse, setAiUse] = useState("");
+  const [privateConcern, setPrivateConcern] = useState("");
+  const [sessionNote, setSessionNote] = useState("");
+  const [voice, setVoice] = useVoiceFirst();
+  const [onFile, setOnFile] = useState<string | null>(null);
+
+  // A policy saved for this course code (on the Policies page) fills in the choice.
+  async function lookupPolicy() {
+    const code = courseCode.trim();
+    if (!code) return setOnFile(null);
+    try {
+      const { policy } = await get<{ policy: { course_code: string; policy: AiPolicy } | null }>(`/api/policies?code=${encodeURIComponent(code)}`);
+      if (policy) setAiPolicy(policy.policy);
+      setOnFile(policy ? `${policy.course_code}: ${policy.policy}` : null);
+    } catch {
+      setOnFile(null);
+    }
+  }
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ id: number; outputs: SessionOutputs } | null>(null);
@@ -23,10 +44,11 @@ export default function SessionPage() {
     setError(null);
     try {
       const r = await post<{ id: number; outputs: SessionOutputs }>("/api/session", {
-        studentName, course, notes: { workedOn, struggles, wentWell },
+        studentName, course, voice, notes: { workedOn, struggles, wentWell, courseCode, aiPolicy, aiUse, privateConcern },
       });
       setResult(r);
       setEmail(r.outputs.email);
+      setSessionNote(r.outputs.sessionNote ?? "");
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -61,6 +83,32 @@ export default function SessionPage() {
           <label htmlFor="wentWell" className={labelCls}>What went well?</label>
           <textarea id="wentWell" className={inputCls} rows={2} value={wentWell} onChange={(e) => setWentWell(e.target.value)} />
         </div>
+        <fieldset className="space-y-4 rounded-md border border-stone-200 p-4">
+          <legend className="px-1 text-sm font-semibold text-ink">AI in this course</legend>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="courseCode" className={labelCls}>Course code (optional)</label>
+              <input id="courseCode" className={inputCls} placeholder="ENGL 101" value={courseCode} onChange={(e) => setCourseCode(e.target.value)} onBlur={lookupPolicy} />
+            </div>
+            <div>
+              <label htmlFor="aiPolicy" className={labelCls}>The course&apos;s AI policy</label>
+              <select id="aiPolicy" className={inputCls} value={aiPolicy} onChange={(e) => setAiPolicy(e.target.value as AiPolicy)}>
+                {AI_POLICIES.map((p) => <option key={p} value={p}>{p === "unknown" ? "Not sure yet" : p[0].toUpperCase() + p.slice(1)}</option>)}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label htmlFor="aiUse" className={labelCls}>AI use that came up (optional)</label>
+            <input id="aiUse" className={inputCls} placeholder="What the student said they used it for" value={aiUse} onChange={(e) => setAiUse(e.target.value)} />
+          </div>
+          {onFile && <p className="text-sm text-stone-600">Saved policy on file for {onFile}. You can change it above.</p>}
+          <p className="text-sm text-stone-600">Not sure? The follow-up will suggest asking the professor. Nothing here judges the student&apos;s work.</p>
+        </fieldset>
+        <div>
+          <label htmlFor="privateConcern" className={labelCls}>Private concern (optional)</label>
+          <textarea id="privateConcern" className={inputCls} rows={2} placeholder="Only you see this. It never goes in the email, the printout or the AI request." value={privateConcern} onChange={(e) => setPrivateConcern(e.target.value)} />
+        </div>
+        <VoiceToggle on={voice} set={setVoice} />
         <button className={`${btnCls} min-h-10`} disabled={loading}>Write the follow-up</button>
       </form>
       {loading && <Working label="Writing the follow-up" />}
@@ -81,6 +129,25 @@ export default function SessionPage() {
             <textarea id="emailDraft" className={inputCls} rows={12} value={email} onChange={(e) => setEmail(e.target.value)} />
             <p className="text-sm text-stone-600">Edit it, copy it, and send it from your own email.</p>
           </section>
+
+          {o.voiceFlags && o.voiceFlags.length > 0 && (
+            <section aria-label="Voice flags" className="rounded-lg border-l-4 border-gold-400 bg-gold-50 px-4 py-3">
+              <p className="text-sm font-semibold text-ink">Check these against the student&apos;s own voice</p>
+              <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-stone-800">{o.voiceFlags.map((f, i) => <li key={i}>{f}</li>)}</ul>
+            </section>
+          )}
+
+          {o.sessionNote?.trim() && (
+            <section aria-labelledby="out-note" className="space-y-3 border-t border-stone-200 pt-6">
+              <div className="flex items-center justify-between gap-2">
+                <h2 id="out-note" className="font-display text-2xl font-semibold text-ink">Session note for the center&apos;s records</h2>
+                <CopyButton text={sessionNote} />
+              </div>
+              <label htmlFor="sessionNote" className="sr-only">Session note</label>
+              <textarea id="sessionNote" className={inputCls} rows={8} value={sessionNote} onChange={(e) => setSessionNote(e.target.value)} />
+              <p className="text-sm text-stone-600">Organized by the RWC rubric. Edit it, then copy it into your records.</p>
+            </section>
+          )}
 
           <section aria-labelledby="out-steps" className="space-y-3 border-t border-stone-200 pt-6">
             <div className="flex items-center justify-between gap-2">
@@ -105,8 +172,12 @@ export default function SessionPage() {
 
           <section aria-labelledby="out-ai" className="space-y-3 border-t border-stone-200 pt-6">
             <div>
-              <h2 id="out-ai" className="font-display text-2xl font-semibold text-ink">Use AI like a coach</h2>
-              <p className="mt-1 text-sm text-stone-600">Prompts the student can paste into an AI tool. Each one keeps them doing the writing.</p>
+              <h2 id="out-ai" className="font-display text-2xl font-semibold text-ink">{o.aiPrompts.length ? "Use AI like a coach" : "AI and this course"}</h2>
+              <p className="mt-1 text-sm text-stone-600">
+                {o.aiPrompts.length
+                  ? "Prompts the student can paste into an AI tool. Each one keeps them doing the writing."
+                  : "No AI prompts this time. The student should check the syllabus and ask the professor before using any AI tool on this work."}
+              </p>
             </div>
             <ul className="space-y-3">
               {o.aiPrompts.map((p, i) => (

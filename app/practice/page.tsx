@@ -98,12 +98,12 @@ function RolePlay() {
           </form>
         )}
         {feedback && (
-          <div className="grid gap-4 border-t border-stone-200 pt-5 md:grid-cols-3">
+          <div className="grid gap-4 border-t border-stone-200 pt-5 md:grid-cols-2">
             {([
-              ["What worked", feedback.worked, "border-gold-300/70 bg-gold-50"],
-              ["What you missed", feedback.missed, "border-stone-200 bg-white"],
-              ["Try next time", feedback.tryNext, "border-stone-200 bg-white"],
-            ] as const).map(([title, items, tone]) => (
+              ["What worked", feedback.worked ?? [], "border-gold-300/70 bg-gold-50"],
+              ["What you missed", feedback.missed ?? [], "border-stone-200 bg-white"],
+              ["One thing to try next time", feedback.tryNext ?? [], "border-stone-200 bg-white"],
+            ] as const).filter(([, items]) => items.length > 0).map(([title, items, tone]) => (
               <section key={title} className={`rounded-lg border p-4 ${tone}`}>
                 <h3 className="font-display text-lg font-semibold text-ink">{title}</h3>
                 <ul className="mt-2 list-disc space-y-1.5 pl-5 text-[15px]">{items.map((x, i) => <li key={i}>{x}</li>)}</ul>

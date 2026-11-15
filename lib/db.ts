@@ -62,6 +62,15 @@ export function getDb(): DatabaseSync {
     CREATE INDEX IF NOT EXISTS tasks_user ON tasks (user_id, id);
     CREATE INDEX IF NOT EXISTS quiz_results_user ON quiz_results (user_id, id);
   `);
+  // Counts of feature use: kind, time and who. No names, no text.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS usage_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      kind TEXT NOT NULL,
+      at TEXT DEFAULT (datetime('now')),
+      user_id INTEGER REFERENCES users(id)
+    );
+  `);
   // Debrief: a private shift check-in, read only by its owner. Director note: what the director wrote on a session, shown to its tutor.
   db.exec(`
     CREATE TABLE IF NOT EXISTS debriefs (
@@ -75,6 +84,20 @@ export function getDb(): DatabaseSync {
   `);
   if (!hasColumn("sessions", "director_note")) db.exec("ALTER TABLE sessions ADD COLUMN director_note TEXT");
   if (!hasColumn("sessions", "director_note_at")) db.exec("ALTER TABLE sessions ADD COLUMN director_note_at TEXT");
+  // Course AI policies: each tutor keeps their own.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS course_policies (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER REFERENCES users(id),
+      course_code TEXT NOT NULL,
+      professor TEXT DEFAULT '',
+      policy TEXT NOT NULL DEFAULT 'unknown',
+      details TEXT DEFAULT '',
+      source TEXT DEFAULT '',
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE (user_id, course_code)
+    );
+  `);
   if (!hasColumn("users", "session_version")) db.exec("ALTER TABLE users ADD COLUMN session_version INTEGER NOT NULL DEFAULT 0");
   return db;
 }

@@ -179,6 +179,13 @@ async function main() {
     check("an email not on the list signs in as a tutee", daveUser?.role === "tutee", refused);
     const daveC = daveUser ? sessionCookieValue(daveUser) : "";
     check("a tutee gets 403 from GET /api/session", (await call("/api/session", {}, daveC)).status === 403);
+    // Provider chip and the extra session fields
+    check("signed out: GET /api/provider is 401", (await call("/api/provider")).status === 401);
+    check("a tutee gets 403 from GET /api/provider", (await call("/api/provider", {}, daveC)).status === 403);
+    const prov = await call("/api/provider", {}, alice);
+    check("a tutor sees the provider and no key", prov.status === 200 && !/sk-|key"|api_key/i.test(await prov.text()));
+    check("a tutee gets 403 from POST /api/session", (await post("/api/session", { notes: { workedOn: "x" } }, daveC)).status === 403);
+    check("POST /api/session without notes is 400", (await post("/api/session", { notes: { aiPolicy: "banned", privateConcern: "x" } }, alice)).status === 400);
     check("a tutee is sent home from /history", (await call("/history", {}, daveC)).status !== 200);
     check("a new user is not onboarded", daveUser?.onboarded === false);
     r = await call("/", {}, daveC);
@@ -269,6 +276,19 @@ async function main() {
     check("practice: bad turns is 400", (await post("/api/practice", { action: "roleplay", scenario: "x", turns: "zzz" }, alice)).status === 400);
     check("practice: unknown action is 400", (await post("/api/practice", { action: "nope" }, alice)).status === 400);
     check("taskforce: wrong type is 400", (await post("/api/taskforce", { title: 123 }, alice)).status === 400);
+    // Course AI policies and AI talk
+    check("signed out: GET /api/policies is 401", (await call("/api/policies")).status === 401);
+    check("signed out: POST /api/policies is 401", (await post("/api/policies", {})).status === 401);
+    check("signed out: POST /api/ai-talk is 401", (await post("/api/ai-talk", {})).status === 401);
+    check("a tutee gets 403 from /api/policies", (await call("/api/policies", {}, ginaC)).status === 403 && (await post("/api/policies", { courseCode: "ENGL 101" }, ginaC)).status === 403);
+    check("a tutee gets 403 from /api/ai-talk", (await post("/api/ai-talk", { action: "ownership", text: "x" }, ginaC)).status === 403);
+    check("policies: missing course code is 400", (await post("/api/policies", {}, alice)).status === 400);
+    check("policies: wrong type is 400", (await post("/api/policies", { courseCode: 5 }, alice)).status === 400);
+    check("ai-talk: unknown action is 400", (await post("/api/ai-talk", { action: "nope" }, alice)).status === 400);
+    check("ai-talk: empty paragraph is 400", (await post("/api/ai-talk", { action: "ownership", text: "" }, alice)).status === 400);
+    check("ai-talk: unknown situation is 400", (await post("/api/ai-talk", { action: "tailor", scenario: "zzz" }, alice)).status === 400);
+    check("a tutor saves a policy", (await post("/api/policies", { courseCode: "engl  101", policy: "limited" }, alice)).status === 200);
+    check("another tutor does not see it", !(await (await call("/api/policies?q=", {}, bobC)).text()).includes("ENGL 101"));
 
     // Debrief, impact, voice, director note
     const tuteeU = signInFromGoogle({ sub: "g-901", email: "tutee901@augustana.edu", email_verified: true });

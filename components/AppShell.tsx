@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
+import ProviderStatus from "@/components/ProviderStatus";
 
 type Role = "director" | "tutor" | "tutee";
 type ShellUser = { name: string | null; email: string; picture: string | null; role: Role };
@@ -13,6 +14,8 @@ const TUTOR_NAV = [
   ["/search", "ARIA search"],
   ["/taskforce", "Task force"],
   ["/practice", "Practice"],
+  ["/policies", "Policies"],
+  ["/ai-talk", "AI talk"],
   ["/reading", "Reading"],
   ["/debrief", "Debrief"],
   ["/voice", "Voice-first"],
@@ -43,7 +46,7 @@ function NavLinks({ role, path, onGo }: { role: Role; path: string; onGo?: () =>
               href={href}
               onClick={onGo}
               aria-current={active ? "page" : undefined}
-              className={`flex min-h-11 items-center gap-3 rounded-md px-3 py-2 text-[15px] transition ${
+              className={`flex min-h-10 items-center gap-3 rounded-md px-3 py-1.5 text-[15px] transition ${
                 active ? "bg-white/10 font-semibold text-white" : "text-indigo-200 hover:bg-white/5 hover:text-white"
               }`}
             >
@@ -60,6 +63,7 @@ function NavLinks({ role, path, onGo }: { role: Role; path: string; onGo?: () =>
 function Who({ user }: { user: ShellUser }) {
   return (
     <div className="space-y-3">
+      {user.role !== "tutee" && <ProviderStatus />}
       <div className="min-w-0">
         <p className="truncate text-sm font-semibold text-white">{user.name || user.email}</p>
         <p className="text-xs text-gold-300">{ROLE_LABEL[user.role]}</p>
@@ -104,7 +108,7 @@ export default function AppShell({ user, children }: { user: ShellUser; children
         </div>
       )}
       {/* Desktop: a fixed ink sidebar. */}
-      <aside className="hidden bg-ink lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:justify-between lg:px-4 lg:py-6 print:hidden">
+      <aside className="hidden bg-ink lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col lg:justify-between lg:gap-6 lg:overflow-y-auto lg:px-4 lg:py-6 print:hidden">
         <div className="space-y-8">
           <div className="px-3"><Wordmark /></div>
           <nav aria-label="Main"><NavLinks role={user.role} path={path} /></nav>

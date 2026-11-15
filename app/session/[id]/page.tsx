@@ -109,6 +109,14 @@ export default function SessionDetail({ params }: { params: Promise<{ id: string
         </form>
       </section>
 
+      {session.notes.privateConcern?.trim() && (
+        <section aria-labelledby="s-private" className="space-y-3 border-t border-stone-200 pt-6">
+          <h2 id="s-private" className="font-display text-2xl font-semibold text-ink">Private, tutor only</h2>
+          <p className="max-w-prose whitespace-pre-wrap rounded-lg border border-stone-200 bg-stone-50 p-4 text-[15px] text-stone-800">{session.notes.privateConcern}</p>
+          <p className="text-sm text-stone-600">Never in the email, the printout or the AI request.</p>
+        </section>
+      )}
+
       <section aria-labelledby="s-email" className="space-y-3 border-t border-stone-200 pt-6">
         <div className="flex items-center justify-between gap-2">
           <h2 id="s-email" className="font-display text-2xl font-semibold text-ink">Email draft</h2>
