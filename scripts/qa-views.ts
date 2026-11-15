@@ -187,6 +187,13 @@ async function main() {
     for (const li of await page.locator("ol > li").all()) await li.getByRole("button").first().click().catch(() => {});
     await snap("quiz");
   };
+  const coach: Step = async (page, snap) => {
+    await page.getByLabel("Your question").fill("I do not know how to start my paper.");
+    await page.getByRole("button", { name: "Ask the coach" }).click();
+    await page.getByText("That is a fair question").waitFor({ timeout: 30_000 });
+    await snap("coach-answer");
+  };
+
   const welcome: Step = async (page, snap) => {
     await page.getByText("Tutor", { exact: true }).first().click();
     await snap("tutor-chosen");
@@ -218,10 +225,10 @@ async function main() {
 
   const roles: Role[] = [
     { name: "new", cookie: cookie(fresh), views: [{ path: "/welcome", steps: welcome }] },
-    { name: "student", cookie: cookie(tutee), views: [{ path: "/" }] },
-    { name: "student-pending", cookie: cookie(pending), views: [{ path: "/" }] },
+    { name: "student", cookie: cookie(tutee), views: [{ path: "/" }, { path: "/coach", steps: coach }] },
+    { name: "student-pending", cookie: cookie(pending), views: [{ path: "/" }, { path: "/coach" }] },
     { name: "tutor", cookie: cookie(tutor), views: staff("tutor") },
-    { name: "director", cookie: cookie(director), views: [...staff("director"), { path: "/admin/tutors" }, { path: "/impact" }] },
+    { name: "director", cookie: cookie(director), views: [...staff("director"), { path: "/admin/tutors" }, { path: "/impact" }, { path: "/admin/sessions" }, { path: `/admin/sessions/${sid}` }] },
     { name: "out", views: [{ path: "/login" }, { path: "/login?error=domain" }] },
   ];
 
