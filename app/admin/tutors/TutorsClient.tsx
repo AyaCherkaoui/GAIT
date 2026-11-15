@@ -5,8 +5,11 @@ import { get, post } from "@/lib/client";
 
 type Tutor = { email: string; name: string | null; role: "tutor" | "director"; active: number; added_at: string };
 
+type Req = { id: number; email: string; name: string | null; role: "tutor" | "director" };
+
 export default function TutorsClient({ myEmail }: { myEmail: string }) {
   const [tutors, setTutors] = useState<Tutor[] | null>(null);
+  const [requests, setRequests] = useState<Req[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -15,7 +18,7 @@ export default function TutorsClient({ myEmail }: { myEmail: string }) {
   const [role, setRole] = useState<"tutor" | "director">("tutor");
 
   const load = useCallback(
-    () => get<{ tutors: Tutor[] }>("/api/admin/tutors").then((j) => setTutors(j.tutors)).catch((e: Error) => { setError(e.message); setTutors([]); }),
+    () => get<{ tutors: Tutor[]; requests: Req[] }>("/api/admin/tutors").then((j) => { setTutors(j.tutors); setRequests(j.requests); }).catch((e: Error) => { setError(e.message); setTutors([]); }),
     [],
   );
   useEffect(() => { load(); }, [load]);
@@ -31,6 +34,19 @@ export default function TutorsClient({ myEmail }: { myEmail: string }) {
       await post("/api/admin/tutors", { email: value, name, role });
       setEmail("");
       setName("");
+      await load();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function answer(id: number, action: "approve" | "decline") {
+    setError(null);
+    setBusy(true);
+    try {
+      await post("/api/admin/requests", { id, action });
       await load();
     } catch (err) {
       setError((err as Error).message);
@@ -58,6 +74,24 @@ export default function TutorsClient({ myEmail }: { myEmail: string }) {
     <div className="space-y-6">
       <PageHeader title="Tutors">Only people on this list can sign in. Deactivating someone ends their access at once.</PageHeader>
       <ErrorBox error={error} />
+      {requests.length > 0 && (
+        <Card title="Requests" tone="note">
+          <ul className="divide-y divide-gold-300/70">
+            {requests.map((r) => (
+              <li key={r.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3 first:pt-0 last:pb-0">
+                <div className="min-w-0 flex-1 basis-56">
+                  <p className="break-all font-medium text-stone-900">{r.email}</p>
+                  <p className="text-sm text-stone-600">{r.name ? `${r.name} · ` : ""}wants to be a {r.role}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" className={`${btnCls} min-h-10`} disabled={busy} onClick={() => answer(r.id, "approve")}>Approve</button>
+                  <button type="button" className={`${btn2Cls} min-h-10`} disabled={busy} onClick={() => answer(r.id, "decline")}>Decline</button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
       <Card title="Add a tutor">
         <form onSubmit={add} noValidate className="grid gap-4 sm:grid-cols-2">
           <div>

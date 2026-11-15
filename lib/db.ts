@@ -49,5 +49,11 @@ export function getDb(): DatabaseSync {
   for (const table of ["sessions", "tasks", "quiz_results"]) {
     if (!hasColumn(table, "user_id")) db.exec(`ALTER TABLE ${table} ADD COLUMN user_id INTEGER REFERENCES users(id)`);
   }
+  // Role chooser: people who existed before it count as onboarded. requested_role is only a request; access comes from allowed_users.
+  if (!hasColumn("users", "onboarded")) {
+    db.exec("ALTER TABLE users ADD COLUMN onboarded INTEGER NOT NULL DEFAULT 0");
+    db.exec("UPDATE users SET onboarded = 1");
+  }
+  if (!hasColumn("users", "requested_role")) db.exec("ALTER TABLE users ADD COLUMN requested_role TEXT CHECK (requested_role IN ('tutor', 'director'))");
   return db;
 }

@@ -102,9 +102,14 @@ const ASK_INSTEAD = [
   ["Make this sound smarter.", "Which sentences are unclear, and why? I’ll rewrite them myself."],
 ] as const;
 
-function TuteeHome() {
+function TuteeHome({ requestedRole }: { requestedRole: "tutor" | "director" | null }) {
   return (
     <div className="space-y-10 pt-10">
+      {requestedRole && (
+        <p role="status" className="rounded-lg border border-gold-300/70 bg-gold-50 px-5 py-4 text-stone-800">
+          Your {requestedRole} request is waiting for the director.
+        </p>
+      )}
       <section className="max-w-2xl space-y-3">
         <h2 className="font-display text-2xl font-semibold text-ink">AI works best as a writing coach</h2>
         <p className="text-stone-700">
@@ -143,11 +148,12 @@ function TuteeHome() {
 export default async function Home() {
   const user = await getUser();
   if (!user) redirect("/login");
+  if (!user.onboarded) redirect("/welcome");
   const first = (user.name || user.email).split(/[ @]/)[0];
   return (
     <>
       <Hero role={user.role} name={first} />
-      {user.role === "tutee" ? <TuteeHome /> : <StaffHome role={user.role} userId={user.id} />}
+      {user.role === "tutee" ? <TuteeHome requestedRole={user.requestedRole} /> : <StaffHome role={user.role} userId={user.id} />}
     </>
   );
 }

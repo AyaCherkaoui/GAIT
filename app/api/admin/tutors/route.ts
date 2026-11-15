@@ -16,7 +16,14 @@ export async function GET(req: Request) {
   return handle(req, async (user) => {
     requireDirector(user);
     const tutors = getDb().prepare("SELECT email, name, role, active, added_at FROM allowed_users ORDER BY added_at, email").all();
-    return { tutors };
+    const requests = getDb()
+      .prepare(
+        `SELECT u.id, u.email, u.name, u.requested_role AS role FROM users u
+         LEFT JOIN allowed_users a ON a.email = lower(u.email)
+         WHERE u.requested_role IS NOT NULL AND COALESCE(a.active, 0) = 0 ORDER BY u.id`,
+      )
+      .all();
+    return { tutors, requests };
   });
 }
 

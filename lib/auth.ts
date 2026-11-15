@@ -8,7 +8,7 @@ import {
 } from "./session-token";
 
 export type Role = "tutor" | "director" | "tutee";
-export type User = { id: number; email: string; name: string | null; picture: string | null; role: Role };
+export type User = { id: number; email: string; name: string | null; picture: string | null; role: Role; onboarded: boolean; requestedRole: "tutor" | "director" | null };
 
 /** The signed-in user for a route handler (reads the Cookie header), or null. */
 export function getUserFromRequest(req: Request): User | null {
@@ -29,10 +29,11 @@ function userFromToken(token: string | undefined): User | null {
 
 function userWhere(where: string, param: string | number): User | null {
   const row = getDb().prepare(
-    `SELECT u.id, u.email, u.name, u.picture, CASE WHEN a.active = 1 THEN a.role ELSE 'tutee' END AS role
+    `SELECT u.id, u.email, u.name, u.picture, CASE WHEN a.active = 1 THEN a.role ELSE 'tutee' END AS role,
+       (u.onboarded = 1 OR a.active = 1) AS onboarded, u.requested_role AS requestedRole
      FROM users u LEFT JOIN allowed_users a ON a.email = lower(u.email) WHERE ${where}`,
-  ).get(param) as User | undefined;
-  return row ?? null;
+  ).get(param) as (Omit<User, "onboarded"> & { onboarded: number }) | undefined;
+  return row ? { ...row, onboarded: !!row.onboarded } : null;
 }
 
 /** DIRECTOR_EMAIL is always an active director, so the director can never be locked out. */
@@ -66,7 +67,12 @@ export function signInFromGoogle(claims: { sub?: string; email?: string; email_v
   const db = getDb();
   const row = db.prepare("SELECT active, role FROM allowed_users WHERE email = ?").get(email) as { active: number; role: string } | undefined;
   // Anyone else with a verified account (on the allowed domain) is a tutee: no tutor tools, just the student guide.
-  const user = upsertUser(claims.sub, email, claims.name ?? null, claims.picture ?? null);
+  let user = upsertUser(claims.sub, email, claims.name ?? null, claims.picture ?? null);
+  // The director and anyone already on the active list skip the role chooser.
+  if (row?.active && !user.onboarded) {
+    db.prepare("UPDATE users SET onboarded = 1 WHERE id = ?").run(user.id);
+    user = { ...user, onboarded: true };
+  }
   // Rows saved before sign-in existed have no owner. The director takes them over, so they are not lost.
   if (row?.active && row.role === "director") {
     for (const table of ["sessions", "tasks", "quiz_results"]) db.prepare(`UPDATE ${table} SET user_id = ? WHERE user_id IS NULL`).run(user.id);

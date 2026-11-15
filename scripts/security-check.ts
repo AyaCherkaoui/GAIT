@@ -119,7 +119,7 @@ async function main() {
       const b = await call("/history", {}, cookie);
       check(`forged cookie (${label}) is rejected`, a.status === 401 && b.status !== 200, `${a.status}/${b.status}`);
     }
-    const ghost = sessionCookieValue({ id: 9999, email: "x@augustana.edu", name: null, picture: null, role: "tutor" });
+    const ghost = sessionCookieValue({ id: 9999, email: "x@augustana.edu", name: null, picture: null, role: "tutor", onboarded: true, requestedRole: null });
     check("valid signature for a user that does not exist is rejected", (await call("/api/session", {}, ghost)).status === 401);
 
     // 5. Stubbed sign-in: upsert and policy
@@ -179,7 +179,26 @@ async function main() {
     const daveC = daveUser ? sessionCookieValue(daveUser) : "";
     check("a tutee gets 403 from GET /api/session", (await call("/api/session", {}, daveC)).status === 403);
     check("a tutee is sent home from /history", (await call("/history", {}, daveC)).status !== 200);
-    check("a tutee can open the home page", (await call("/", {}, daveC)).status === 200);
+    check("a new user is not onboarded", daveUser?.onboarded === false);
+    r = await call("/", {}, daveC);
+    check("a new user opening / is redirected to /welcome", [302, 303, 307, 308].includes(r.status) && (r.headers.get("location") ?? "").replace(BASE, "") === "/welcome", `${r.status} ${r.headers.get("location")}`);
+    check("a new user can open /welcome", (await call("/welcome", {}, daveC)).status === 200);
+    check("signed out: POST /api/me/role is 401", (await post("/api/me/role", { role: "student" })).status === 401);
+    check("an unknown role is 400", (await post("/api/me/role", { role: "boss" }, daveC)).status === 400);
+    check("choosing director is accepted as a request", (await post("/api/me/role", { role: "director" }, daveC)).status === 200);
+    check("the requester is still a tutee", (db.prepare("SELECT COUNT(*) AS n FROM allowed_users WHERE email = 'dave@augustana.edu'").get() as { n: number }).n === 0);
+    check("the requester gets 403 from /api/session", (await call("/api/session", {}, daveC)).status === 403);
+    check("the requester gets 403 from /api/admin/tutors", (await call("/api/admin/tutors", {}, daveC)).status === 403);
+    r = await call("/admin/tutors", {}, daveC);
+    check("the requester opening /admin/tutors is redirected", [302, 303, 307, 308].includes(r.status), String(r.status));
+    check("a second POST /api/me/role is 409", (await post("/api/me/role", { role: "tutor" }, daveC)).status === 409);
+    check("a tutor cannot approve requests", (await post("/api/admin/requests", { id: daveUser?.id, action: "approve" }, alice)).status === 403);
+    check("a requester cannot approve themselves", (await post("/api/admin/requests", { id: daveUser?.id, action: "approve" }, daveC)).status === 403);
+    r = await call("/", {}, daveC);
+    check("a requester sees the waiting banner on /", r.status === 200 && (await r.text()).includes("request is waiting for the director"));
+    check("a tutee can open the home page after choosing", r.status === 200);
+    const bobStill = signInFromGoogle({ sub: "g-5", email: "bob@augustana.edu", email_verified: true });
+    check("a listed tutor is onboarded without the chooser", bobStill.onboarded === true);
     db.prepare("INSERT INTO allowed_users (email, role) VALUES ('erin@augustana.edu', 'tutor')").run();
     const erinC = sessionCookieValue(signInFromGoogle({ sub: "g-8", email: "erin@augustana.edu", email_verified: true }));
     check("a listed tutor is accepted", (await call("/api/session", {}, erinC)).status === 200);
@@ -194,6 +213,19 @@ async function main() {
     check("a deactivated tutor signs in again only as a tutee", refusedAgain === "" , refusedAgain);
     const carolUser = signInFromGoogle({ sub: "g-6", email: "carol@augustana.edu", email_verified: true, name: "Carol" });
     const carolC = sessionCookieValue(carolUser);
+    r = await call("/api/admin/tutors", {}, carolC);
+    check("the director sees the request", r.status === 200 && (await r.text()).includes("dave@augustana.edu"));
+    check("approving an unknown request is 404", (await post("/api/admin/requests", { id: 99999, action: "approve" }, carolC)).status === 404);
+    check("the director can approve it", (await post("/api/admin/requests", { id: daveUser?.id, action: "approve" }, carolC)).status === 200);
+    check("approval made the user a director", (await call("/api/session", {}, daveC)).status === 200 && (db.prepare("SELECT role, active FROM allowed_users WHERE email = 'dave@augustana.edu'").get() as { role: string; active: number }).role === "director");
+    check("approval cleared the request", (db.prepare("SELECT requested_role AS r FROM users WHERE id = ?").get(daveUser?.id ?? 0) as { r: string | null }).r === null);
+    const gina = signInFromGoogle({ sub: "g-9", email: "gina@augustana.edu", email_verified: true });
+    const ginaC = sessionCookieValue(gina);
+    await post("/api/me/role", { role: "tutor" }, ginaC);
+    check("the director can decline a request", (await post("/api/admin/requests", { id: gina.id, action: "decline" }, carolC)).status === 200);
+    check("decline clears it and grants nothing", (db.prepare("SELECT requested_role AS r FROM users WHERE id = ?").get(gina.id) as { r: string | null }).r === null && (await call("/api/session", {}, ginaC)).status === 403);
+    const hank = signInFromGoogle({ sub: "g-10", email: "hank@augustana.edu", email_verified: true });
+    check("choosing student sets onboarded with no request", (await post("/api/me/role", { role: "student" }, sessionCookieValue(hank))).status === 200 && (db.prepare("SELECT onboarded AS o, requested_role AS r FROM users WHERE id = ?").get(hank.id) as { o: number; r: string | null }).o === 1);
     check("a tutor gets 403 from GET /api/admin/tutors", (await call("/api/admin/tutors", {}, alice)).status === 403);
     check("a tutor gets 403 from POST /api/admin/tutors", (await post("/api/admin/tutors", { email: "z@augustana.edu", role: "tutor" }, alice)).status === 403);
     check("a tutor gets 403 from DELETE /api/admin/tutors", (await call("/api/admin/tutors?email=bob@augustana.edu", { method: "DELETE" }, alice)).status === 403);

@@ -77,6 +77,7 @@ export default function AppShell({ user, children }: { user: ShellUser; children
   useEffect(() => setOpen(false), [path]);
   const printing = path.endsWith("/print");
 
+  if (path === "/welcome") return <main className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-8 sm:py-16">{children}</main>;
   if (printing) return <main className="mx-auto max-w-3xl px-6 py-8">{children}</main>;
 
   return (

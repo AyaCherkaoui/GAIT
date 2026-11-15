@@ -25,6 +25,9 @@ This is v0, a rough first draft that runs on one computer. Tutors sign in with G
 4. `npm run sync-aria`: the first run opens a Google sign-in (read-only Drive access) and saves the token to `.google-token.json`. Re-run it whenever ARIA changes.
 5. `npm run dev -- -p 3100` and open http://localhost:3100 (the port must match `APP_URL`). You sign in with Google first.
 
+## Roles
+On first sign-in a person picks Student, Tutor or Director at `/welcome` (`POST /api/me/role`, once; later calls are 409). That choice is only a request (`users.requested_role`); access always comes from `allowed_users`. Until the director approves it in Admin (`/admin/tutors`, Requests: `POST /api/admin/requests`), the person is a tutee and sees the student guide with a "waiting for the director" note. `DIRECTOR_EMAIL` and anyone already active in `allowed_users` skip the chooser.
+
 ## Checks
 - `npm run typecheck`
 - `npm run build`
