@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getUser } from "@/lib/auth";
 import "./globals.css";
+import ProviderStatus from "@/components/ProviderStatus";
 
 export const metadata: Metadata = {
   title: "GAIT",
@@ -14,6 +15,11 @@ const NAV = [
   ["/search", "ARIA search"],
   ["/taskforce", "Task force"],
   ["/practice", "Practice"],
+  ["/ai-talk", "Talking about AI"],
+  ["/policies", "Policies"],
+  ["/debrief", "Debrief"],
+  ["/voice", "Voice"],
+  ["/impact", "Impact"],
 ];
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -30,6 +36,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             {user?.role === "director" && (
               <Link href="/admin/tutors" className="text-stone-600 hover:text-stone-900">Admin</Link>
             )}
+            {user && <ProviderStatus />}
             {user && (
               <form method="post" action="/api/auth/logout" className="ml-auto flex items-center gap-3 text-stone-600">
                 <span>{user.name || user.email}</span>

@@ -69,7 +69,7 @@ export function signInFromGoogle(claims: { sub?: string; email?: string; email_v
   const user = upsertUser(claims.sub, email, claims.name ?? null, claims.picture ?? null);
   // Rows saved before sign-in existed have no owner. The director takes them over, so they are not lost.
   if (row.role === "director") {
-    for (const table of ["sessions", "tasks", "quiz_results"]) db.prepare(`UPDATE ${table} SET user_id = ? WHERE user_id IS NULL`).run(user.id);
+    for (const table of ["sessions", "tasks", "quiz_results", "course_policies", "debriefs", "usage_events"]) db.prepare(`UPDATE OR IGNORE ${table} SET user_id = ? WHERE user_id IS NULL`).run(user.id);
   }
   return user;
 }

@@ -73,15 +73,15 @@ async function main() {
     await waitForServer();
 
     // 1. Signed-out access
-    for (const p of ["/", "/history", "/session/1/print", "/search", "/practice"]) {
+    for (const p of ["/", "/history", "/session/1/print", "/search", "/practice", "/ai-talk", "/policies", "/debrief", "/voice", "/impact"]) {
       const r = await call(p);
       const loc = r.headers.get("location") ?? "";
       check(`signed out: ${p} redirects to /login`, [302, 303, 307, 308].includes(r.status) && loc.includes("/login?next="), `${r.status} ${loc}`);
     }
-    for (const p of ["/api/session", "/api/session/1", "/api/taskforce", "/api/practice/results", "/api/search", "/api/feed"]) {
+    for (const p of ["/api/session", "/api/session/1", "/api/taskforce", "/api/practice/results", "/api/search", "/api/feed", "/api/debrief", "/api/impact", "/api/impact?format=csv", "/api/policies", "/api/provider"]) {
       check(`signed out: GET ${p} is 401`, (await call(p)).status === 401);
     }
-    for (const p of ["/api/session", "/api/taskforce", "/api/practice", "/api/search", "/api/session/1/help"]) {
+    for (const p of ["/api/session", "/api/taskforce", "/api/practice", "/api/search", "/api/session/1/help", "/api/ai-talk", "/api/debrief", "/api/policies", "/api/session/1/director-note"]) {
       check(`signed out: POST ${p} is 401`, (await post(p, {})).status === 401);
     }
 
@@ -163,6 +163,8 @@ async function main() {
     check("owner can print it", (await call(`/session/${sid}/print`, {}, alice)).status === 200);
     const put = (c: string) => call(`/api/session/${sid}/reflection`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ learned: "x" }) }, c);
     check("another user cannot write a reflection", (await put(bobC)).status === 404);
+    const note = (c: string) => call(`/api/session/${sid}/director-note`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }, c);
+    check("another user cannot draft a director note", (await note(bobC)).status === 404);
     check("owner can write a reflection", (await put(alice)).status === 200);
     check("another user does not see it in their list", !(await (await call("/api/session", {}, bobC)).text()).includes('"S"'));
     check("rows with no owner are hidden", (await call(`/api/session/${orphan}`, {}, alice)).status === 404);

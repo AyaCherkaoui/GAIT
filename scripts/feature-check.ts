@@ -133,6 +133,10 @@ async function main() {
     check("help: blank question is 400", r.status === 400 && (await r.text()).includes("Type what you would like help with."), String(r.status));
     check("help: another tutor gets 404", (await post(`/api/session/${sid}/help`, { question: "hi" }, t2)).status === 404);
     check("help: signed out is 401", (await post(`/api/session/${sid}/help`, { question: "hi" })).status === 401);
+    r = await post(`/api/session/${sid}/director-note`, {}, t1);
+    check("director-note: owner gets 200 with a note", r.status === 200 && typeof ((await r.json().catch(() => ({}))) as { note?: string }).note === "string", String(r.status));
+    check("director-note: another tutor's session is 404", (await post(`/api/session/${sid}/director-note`, {}, t2)).status === 404);
+    check("director-note: signed out is 401", (await post(`/api/session/${sid}/director-note`, {})).status === 401);
     check("help: 2001 characters is 400", (await post(`/api/session/${sid}/help`, { question: "a".repeat(2001) }, t1)).status === 400);
 
     // Search fallback (second tutor, so the help checks do not share its rate limit)
@@ -174,6 +178,11 @@ async function main() {
       { path: "/search", cookie: directorC },
       { path: "/practice", cookie: directorC },
       { path: "/reading", cookie: directorC },
+      { path: "/ai-talk", cookie: directorC },
+      { path: "/policies", cookie: directorC },
+      { path: "/debrief", cookie: directorC },
+      { path: "/voice", cookie: directorC },
+      { path: "/impact", cookie: directorC },
       { path: "/taskforce", cookie: directorC },
       { path: "/admin/tutors", cookie: directorC },
       { path: "/login?error=not_allowed" },

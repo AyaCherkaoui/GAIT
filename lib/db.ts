@@ -7,6 +7,9 @@ export function getDb(): DatabaseSync {
   if (db) return db;
   db = new DatabaseSync(process.env.GAIT_DB || process.env.GAIT_DB_PATH || path.join(process.cwd(), "gait.db"));
   db.exec("PRAGMA busy_timeout = 30000; PRAGMA journal_mode = WAL;");
+  // course_policies is per tutor. A copy made before sign-in (course_code as the only key) is moved over below.
+  const oldPolicies = db.prepare("PRAGMA table_info(course_policies)").all() as { name: string }[];
+  if (oldPolicies.length && !oldPolicies.some((c) => c.name === "user_id")) db.exec("ALTER TABLE course_policies RENAME TO course_policies_old");
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -32,6 +35,28 @@ export function getDb(): DatabaseSync {
       created_at TEXT DEFAULT (datetime('now')),
       title TEXT, description TEXT, plan TEXT, related TEXT
     );
+    CREATE TABLE IF NOT EXISTS course_policies (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER REFERENCES users(id),
+      course_code TEXT NOT NULL,
+      professor TEXT DEFAULT '',
+      policy TEXT NOT NULL DEFAULT 'unknown',
+      details TEXT DEFAULT '',
+      source TEXT DEFAULT '',
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE (user_id, course_code)
+    );
+    CREATE TABLE IF NOT EXISTS debriefs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      created_at TEXT DEFAULT (datetime('now')),
+      drain INTEGER NOT NULL,
+      note TEXT DEFAULT ''
+    );
+    CREATE TABLE IF NOT EXISTS usage_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      kind TEXT NOT NULL,
+      at TEXT DEFAULT (datetime('now'))
+    );
     CREATE VIRTUAL TABLE IF NOT EXISTS aria_docs USING fts5(
       drive_id UNINDEXED, name, mime UNINDEXED, url UNINDEXED, modified UNINDEXED, text,
       tokenize = 'porter unicode61'
@@ -46,7 +71,12 @@ export function getDb(): DatabaseSync {
     (db!.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).some((c) => c.name === column);
   if (!hasColumn("sessions", "reflection")) db.exec("ALTER TABLE sessions ADD COLUMN reflection TEXT");
   // Each tutor sees only their own rows. Rows from before sign-in existed keep user_id NULL until the director signs in and takes them over (lib/auth.ts).
-  for (const table of ["sessions", "tasks", "quiz_results"]) {
+  if (db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'course_policies_old'").get()) {
+    db.exec(`INSERT INTO course_policies (course_code, professor, policy, details, source, updated_at)
+             SELECT course_code, professor, policy, details, source, updated_at FROM course_policies_old;
+             DROP TABLE course_policies_old;`);
+  }
+  for (const table of ["sessions", "tasks", "quiz_results", "course_policies", "debriefs", "usage_events"]) {
     if (!hasColumn(table, "user_id")) db.exec(`ALTER TABLE ${table} ADD COLUMN user_id INTEGER REFERENCES users(id)`);
   }
   return db;

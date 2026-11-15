@@ -26,7 +26,12 @@ export function Card({ title, children, actions }: { title?: string; children: R
 
 export function ErrorBox({ error }: { error: string | null }) {
   if (!error) return null;
-  return <p className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800">{error}</p>;
+  return <p role="alert" className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800">{error}</p>;
+}
+
+/** Shown while a page loads its data. */
+export function Loading({ label = "Loading" }: { label?: string }) {
+  return <p role="status" aria-busy="true" className="text-sm text-stone-500">{label}…</p>;
 }
 
 /** Shown while the AI works: a spinner, what is happening, and how many seconds have passed. */

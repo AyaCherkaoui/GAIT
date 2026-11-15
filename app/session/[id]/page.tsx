@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { use, useEffect, useState } from "react";
 import CopyButton from "@/components/CopyButton";
-import { Card, ErrorBox, PageHeader, Working, btn2Cls, btnCls, inputCls } from "@/components/ui";
+import { Card, ErrorBox, PageHeader, Loading, Working, btn2Cls, btnCls, inputCls } from "@/components/ui";
 import { get, post } from "@/lib/client";
 import type { Reflection, SessionRecord } from "@/lib/types";
 
@@ -42,8 +42,8 @@ export default function SessionDetail({ params }: { params: Promise<{ id: string
     setError(null);
     try {
       const res = await fetch(`/api/session/${id}/reflection`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(form) });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j.error || "Could not save.");
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.error || "Couldn't save. Try again.");
       setSavedAt((j.reflection as Reflection).updatedAt);
     } catch (err) {
       setError((err as Error).message);
@@ -66,7 +66,7 @@ export default function SessionDetail({ params }: { params: Promise<{ id: string
     }
   }
 
-  if (!session) return <div className="space-y-4"><ErrorBox error={error} />{!error && <p className="text-sm text-stone-500">Loading…</p>}</div>;
+  if (!session) return <div className="space-y-4"><ErrorBox error={error} />{!error && <Loading />}</div>;
   const o = session.outputs;
   return (
     <div className="space-y-6">
@@ -82,7 +82,7 @@ export default function SessionDetail({ params }: { params: Promise<{ id: string
             </label>
           ))}
           <div className="flex items-center gap-3">
-            <button className={btnCls} disabled={busy === "save"}>Save reflection</button>
+            <button className={btnCls} disabled={busy === "save"}>{busy === "save" ? "Saving…" : "Save reflection"}</button>
             {savedAt && <span className="text-xs text-stone-500">Saved {new Date(savedAt).toLocaleString()}</span>}
           </div>
         </form>
@@ -96,6 +96,12 @@ export default function SessionDetail({ params }: { params: Promise<{ id: string
           {answer && <p className="whitespace-pre-wrap rounded-lg bg-stone-50 p-3">{answer}</p>}
         </form>
       </Card>
+
+      {session.notes.privateConcern?.trim() && (
+        <Card title="Private, tutor only">
+          <p className="whitespace-pre-wrap text-sm">{session.notes.privateConcern}</p>
+        </Card>
+      )}
 
       <Card title="Email draft" actions={<CopyButton text={o.email} />}>
         <p className="whitespace-pre-wrap text-sm">{o.email}</p>
