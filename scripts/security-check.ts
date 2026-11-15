@@ -290,6 +290,27 @@ async function main() {
     check("a tutor saves a policy", (await post("/api/policies", { courseCode: "engl  101", policy: "limited" }, alice)).status === 200);
     check("another tutor does not see it", !(await (await call("/api/policies?q=", {}, bobC)).text()).includes("ENGL 101"));
 
+    // News (#18)
+    {
+      allow.run("newsy@augustana.edu", "Newsy", "tutor");
+      const newsTutor = sessionCookieValue(signInFromGoogle({ sub: "g-news", email: "newsy@augustana.edu", email_verified: true, name: "Newsy" }));
+      check("signed out: GET /api/news is 401", (await call("/api/news")).status === 401);
+      check("signed out: POST /api/news/try is 401", (await post("/api/news/try", {})).status === 401);
+      check("a tutee gets 403 from /api/news", (await call("/api/news", {}, ginaC)).status === 403);
+      check("a tutee gets 403 from /api/news/try", (await post("/api/news/try", { title: "x" }, ginaC)).status === 403);
+      check("news/try: wrong type is 400", (await post("/api/news/try", { title: 5 }, alice)).status === 400);
+      check("news/try: missing title is 400", (await post("/api/news/try", {}, alice)).status === 400);
+      check("news/try: not JSON is 400", (await post("/api/news/try", "nope", alice)).status === 400);
+      check("news/try: too much text is 413", (await post("/api/news/try", { title: "x", summary: "y".repeat(20_000) }, alice)).status === 413);
+      r = await call("/api/news", {}, alice);
+      const nj = (await r.json().catch(() => null)) as { items?: unknown[]; failed?: unknown[] } | null;
+      check("a tutor gets the news list (items and failed sources, even with no internet)", r.status === 200 && Array.isArray(nj?.items) && Array.isArray(nj?.failed));
+      check("the director gets the news list", (await call("/api/news", {}, carolC)).status === 200);
+      const tryCodes: number[] = [];
+      for (let i = 0; i < 25; i++) tryCodes.push((await post("/api/news/try", { title: "" }, newsTutor)).status);
+      check("news/try is rate limited (429 after 20)", tryCodes.slice(0, 20).every((c) => c === 400) && tryCodes.slice(20).every((c) => c === 429), tryCodes.join(","));
+    }
+
     // Debrief, impact, voice, director note
     const tuteeU = signInFromGoogle({ sub: "g-901", email: "tutee901@augustana.edu", email_verified: true });
     const tuteeC = sessionCookieValue(tuteeU);
