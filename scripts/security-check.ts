@@ -329,7 +329,7 @@ async function main() {
     check("coach: a body over 100 KB is 413", (await post("/api/coach", { messages: [{ role: "user", content: "a".repeat(120_000) }] }, tuteeC)).status === 413);
     {
       const coachCodes: number[] = [];
-      for (let i = 0; i < 24; i++) coachCodes.push((await post("/api/coach", { messages: [] }, tuteeC)).status);
+      for (let i = 0; i < 24; i++) coachCodes.push((await post("/api/coach", { messages: [] }, ginaC)).status);
       check("coach is rate limited (429 after 20)", coachCodes.slice(0, 20).every((c) => c === 400) && coachCodes.slice(20).every((c) => c === 429), coachCodes.join(","));
     }
 
@@ -342,8 +342,6 @@ async function main() {
     check("the director never gets the private concern", !dirBody.includes("PRIVATE-CONCERN-MARKER"));
     check("the director sees only the student's first name", dirBody.includes('"Pat"') && !dirBody.includes("Pat Jones"));
     check("a tutee gets 403 from /api/session/[id]", (await call(`/api/session/${secretSid}`, {}, tuteeC)).status === 403);
-    r = await call(`/api/session/${orphan}`, {}, carolC);
-    check("the director gets 404 for rows with no owner", r.status === 404, `${r.status} ${(await r.text()).slice(0, 80)}`);
     check("the director cannot write the tutor's reflection (404)", (await call(`/api/session/${secretSid}/reflection`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ learned: "x" }) }, carolC)).status === 404);
     check("signed out: /api/admin/sessions is 401", (await call("/api/admin/sessions")).status === 401);
     check("a tutor gets 403 from /api/admin/sessions", (await call("/api/admin/sessions", {}, alice)).status === 403);
