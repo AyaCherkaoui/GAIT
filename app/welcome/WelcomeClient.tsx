@@ -5,9 +5,9 @@ import { post } from "@/lib/client";
 
 type Choice = "student" | "tutor" | "director";
 const OPTIONS: { value: Choice; title: string; text: string }[] = [
-  { value: "student", title: "Student", text: "Learn to use AI as a writing coach" },
-  { value: "tutor", title: "Tutor", text: "Write up sessions, search ARIA, practice" },
-  { value: "director", title: "Director", text: "Manage the tutor list and see the whole center" },
+  { value: "student", title: "Student", text: "I come to the Writing Center for help with my papers. I want to learn how to use AI as a coach, not to write for me." },
+  { value: "tutor", title: "Tutor", text: "I tutor at the Writing Center. I want to write up sessions, search ARIA and practice." },
+  { value: "director", title: "Director", text: "I run the Writing Center. I manage the tutor list and see how sessions are going." },
 ];
 
 export default function WelcomeClient() {
@@ -33,7 +33,7 @@ export default function WelcomeClient() {
       <p className="font-display text-2xl font-semibold tracking-tight text-ink">Ink<span className="text-gold-400">.</span></p>
       <fieldset className="space-y-4">
         <legend className="font-display text-3xl font-semibold tracking-tight text-ink sm:text-4xl">How will you use Ink?</legend>
-        <p className="max-w-prose text-stone-700">Pick the one that fits. You will see the matching tools right after you continue.</p>
+        <p className="max-w-prose text-stone-700">Pick the one that fits you. You can use the arrow keys to move between the choices. The director approves Tutor and Director, so until then you will see the student guide.</p>
         <div className="grid gap-3 pt-2 sm:grid-cols-3">
           {OPTIONS.map((o) => {
             const on = choice === o.value;
@@ -50,7 +50,7 @@ export default function WelcomeClient() {
                   <span className="font-display text-2xl font-semibold text-ink">{o.title}</span>
                 </span>
                 <span className="mt-2 text-stone-700">{o.text}</span>
-                {o.value !== "student" && <span className="mt-3 text-sm text-stone-600">The director confirms this. Until then you see the student guide.</span>}
+                {o.value !== "student" && <span className="mt-3 text-sm text-stone-600">The director has to approve this first.</span>}
               </label>
             );
           })}
