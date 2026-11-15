@@ -319,6 +319,28 @@ async function main() {
     r = await call("/api/impact?format=csv", {}, carolC);
     check("the director downloads impact CSV", r.status === 200 && (r.headers.get("content-type") ?? "").includes("text/csv") && (await r.text()).startsWith("week,sessions"));
 
+    // Director read-only access to sessions (#18)
+    const secretSid = Number(ins.run("Pat Jones", "HIST 1", JSON.stringify({ workedOn: "a", struggles: "b", wentWell: "c", privateConcern: "PRIVATE-CONCERN-MARKER" }), outputs, a.id).lastInsertRowid);
+    check("a tutor gets 404 reading another tutor's session", (await call(`/api/session/${secretSid}`, {}, bobC)).status === 404);
+    r = await call(`/api/session/${secretSid}`, {}, carolC);
+    const dirBody = await r.text();
+    check("the director reads any tutor's session, read-only", r.status === 200 && dirBody.includes('"readOnly":true') && dirBody.includes('"tutor"'), `${r.status}`);
+    check("the director never gets the private concern", !dirBody.includes("PRIVATE-CONCERN-MARKER"));
+    check("the director sees only the student's first name", dirBody.includes('"Pat"') && !dirBody.includes("Pat Jones"));
+    check("a tutee gets 403 from /api/session/[id]", (await call(`/api/session/${secretSid}`, {}, tuteeC)).status === 403);
+    check("the director gets 404 for rows with no owner", (await call(`/api/session/${orphan}`, {}, carolC)).status === 404);
+    const helpAsDirector = await post(`/api/session/${secretSid}/help`, { question: "hi" }, carolC);
+    check("the director cannot use the tutor's help route (404)", helpAsDirector.status === 404);
+    check("the director cannot write the tutor's reflection (404)", (await call(`/api/session/${secretSid}/reflection`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ learned: "x" }) }, carolC)).status === 404);
+    check("signed out: /api/admin/sessions is 401", (await call("/api/admin/sessions")).status === 401);
+    check("a tutor gets 403 from /api/admin/sessions", (await call("/api/admin/sessions", {}, alice)).status === 403);
+    check("a tutee gets 403 from /api/admin/sessions", (await call("/api/admin/sessions", {}, tuteeC)).status === 403);
+    r = await call("/api/admin/sessions", {}, carolC);
+    const listBody = await r.text();
+    check("the director lists sessions with first names only", r.status === 200 && listBody.includes('"student":"Pat"') && !listBody.includes("Pat Jones") && !listBody.includes("PRIVATE-CONCERN-MARKER"), `${r.status}`);
+    check("a tutor is sent away from /admin/sessions", [302, 303, 307, 308].includes((await call("/admin/sessions", {}, alice)).status));
+    check("the director opens /admin/sessions", (await call("/admin/sessions", {}, carolC)).status === 200);
+
     // 9. No internal text in server errors (the AI service is unreachable, so the handler fails)
     r = await post("/api/taskforce", { title: "t" }, alice);
     const body = await r.text();
