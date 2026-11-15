@@ -1,11 +1,19 @@
-import { Card, PageHeader } from "@/components/ui";
+"use client";
+import Link from "next/link";
+import VoiceToggle, { useVoiceFirst } from "@/components/VoiceToggle";
+import { Card, PageHeader, btn2Cls } from "@/components/ui";
 
 const list = "list-disc space-y-1.5 pl-5 text-[15px] text-stone-800";
 
 export default function VoicePage() {
+  const [on, setOn] = useVoiceFirst();
   return (
     <div className="space-y-6">
       <PageHeader title="Voice-first writing support">A one-page explainer tutors can share with students, faculty and each other.</PageHeader>
+      <Card title="Your setting" tone="note">
+        <VoiceToggle on={on} set={setOn} />
+        <p className="mt-2 text-sm text-stone-600">{on ? "Voice-first mode is on. It is saved in this browser." : "Voice-first mode is off. Turn it on to keep suggestions in the writer's own phrasing."}</p>
+      </Card>
       <Card title="AI detectors are unreliable, and biased">
         <ul className={list}>
           <li>Detectors guess from patterns in the text. They make false accusations, and nobody can verify their scores.</li>
@@ -36,6 +44,10 @@ export default function VoicePage() {
           <li>Invite the writer to explain their claims in their own words.</li>
         </ul>
       </Card>
+    <div className="flex flex-wrap gap-2">
+        <Link href="/session" className={`${btn2Cls} min-h-11`}>Write up a session</Link>
+        <Link href="/ai-talk" className={`${btn2Cls} min-h-11`}>Open AI talk</Link>
+      </div>
     </div>
   );
 }
