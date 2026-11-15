@@ -15,7 +15,7 @@ This is v0, a rough first draft that runs on one computer. Tutors sign in with G
 1. Node 22.5 or newer (uses the built-in `node:sqlite`).
 2. `npm install`
 3. `cp .env.example .env.local` and fill in:
-   - `GAIT_PROVIDER`: `ollama` (default, free, local: install Ollama and `ollama pull llama3.1:8b`), `grok` (needs `XAI_API_KEY`) or `anthropic` (needs `ANTHROPIC_API_KEY`). Switching later only changes `.env.local`. Small models are slow and weaker: on a low-memory Mac use `GAIT_MODEL_SMART=llama3.2:3b`.
+   - `GAIT_PROVIDER`: `ollama` (default, free, local: install Ollama and `ollama pull llama3.1:8b`), `groq`, `gemini`, `openrouter` (free tiers, see `.env.example`), `grok` (alias `xai`, needs `XAI_API_KEY`) or `anthropic` (needs `ANTHROPIC_API_KEY`). Switching later only changes `.env.local`. `GAIT_MODEL_SMART` / `GAIT_MODEL_FAST` override the models; `GAIT_API_BASE` overrides a hosted provider's URL. Small models are slow and weaker: on a low-memory Mac use `GAIT_MODEL_SMART=llama3.2:3b`.
    - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`: in Google Cloud Console, enable the Google Drive API, then create an OAuth client of type **Desktop app**.
    - `ARIA_FOLDER_ID`: the last part of the ARIA folder's Drive URL.
    - `AUTH_SECRET`: at least 32 random characters that sign the login cookie (`openssl rand -base64 32`). The app refuses requests without it.

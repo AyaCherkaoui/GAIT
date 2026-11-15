@@ -9,6 +9,7 @@
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 
@@ -281,9 +282,62 @@ async function main() {
     check("rate limit returns 429 after 20 requests", codes.slice(0, 20).every((c) => c === 400) && codes.slice(20).every((c) => c === 429), codes.join(","));
     check("rate limit is per user", (await post("/api/search", { q: "" }, bobC)).status === 400);
 
-    // 11. Logout
+    // 11. Logout ends the session on the server (#16)
     r = await call("/api/auth/logout", { method: "POST" });
     check("logout clears the cookie and goes to /login", /gait_session=;/.test(r.headers.get("set-cookie") ?? "") && (r.headers.get("location") ?? "").endsWith("/login"));
+    const copied = bobC;
+    check("before logout a copied cookie works", (await call("/api/session", {}, copied)).status !== 401);
+    r = await call("/api/auth/logout", { method: "POST" }, copied);
+    check("logout with a cookie clears it", /gait_session=;/.test(r.headers.get("set-cookie") ?? ""));
+    check("after logout the copied cookie is rejected by the API", (await call("/api/session", {}, copied)).status === 401);
+    check("after logout the copied cookie is not a signed-in page", (await call("/history", {}, copied)).status !== 200);
+    check("a new sign-in after logout works", (await call("/api/session", {}, sessionCookieValue(bob))).status !== 401);
+    check("an old-format cookie without a version still works until logout", (await call("/api/session", {}, signToken({ uid: a.id, role: "tutor" }, 600))).status !== 401);
+
+    // 12. AI call caps are counted in the database (#15)
+    const { chargeAiCall, aiContext, rateLimit: dbLimit, AI_CALLS_PER_REQUEST } = await import("../lib/limits");
+    const caps = aiContext.run({ userId: 424242, calls: 0 }, () => Array.from({ length: AI_CALLS_PER_REQUEST + 2 }, () => chargeAiCall()));
+    check("one request may make only a few model calls", caps.slice(0, AI_CALLS_PER_REQUEST).every((c) => c === null) && caps.slice(AI_CALLS_PER_REQUEST).every((c) => c !== null), JSON.stringify(caps));
+    check("limit is stored in the database (survives a restart, shared by processes)", dbLimit("probe", 2, 60_000) && dbLimit("probe", 2, 60_000) && !dbLimit("probe", 2, 60_000) && (getDb().prepare("SELECT count(*) AS n FROM rate_hits WHERE key = 'probe'").get() as { n: number }).n === 2);
+    check("model calls are counted per minute, not just requests", aiContext.run({ userId: 777, calls: 0 }, () => { let ok = 0; for (let i = 0; i < 100; i++) if (dbLimit("aicall:777", 60, 60_000)) ok++; return ok; }) === 60);
+    for (const t of ["sessions", "tasks", "quiz_results"]) check(`${t} has a user_id index`, (getDb().prepare(`PRAGMA index_list(${t})`).all() as { name: string }[]).some((i) => i.name === `${t}_user`));
+
+    // 13. Provider switch: grok/xai through the OpenAI-compatible client, stand-in server (#3)
+    const seen: { auth?: string; body?: { model?: string; messages?: { role: string; content: string }[] } }[] = [];
+    let aiStatus = 200;
+    const fakeAi = http.createServer((q, s2) => {
+      let raw = "";
+      q.on("data", (c) => (raw += c));
+      q.on("end", () => {
+        seen.push({ auth: q.headers.authorization, body: JSON.parse(raw || "{}") });
+        s2.statusCode = aiStatus;
+        s2.setHeader("content-type", "application/json");
+        s2.end(JSON.stringify(aiStatus === 200 ? { choices: [{ message: { content: '{"ok":true}' } }] } : { error: { message: "nope" } }));
+      });
+    });
+    await new Promise<void>((res) => fakeAi.listen(0, "127.0.0.1", res));
+    const { ask, askJson, hasModel } = await import("../lib/claude");
+    const saved = { ...process.env };
+    try {
+      process.env.GAIT_API_BASE = `http://127.0.0.1:${(fakeAi.address() as { port: number }).port}/v1`;
+      process.env.GAIT_PROVIDER = "xai";
+      delete process.env.XAI_API_KEY;
+      check("grok without a key says what to add", !hasModel() && (await ask({ system: "s", messages: [{ role: "user", content: "hi" }] }).catch((e: Error) => e.message)).includes("XAI_API_KEY"));
+      process.env.XAI_API_KEY = "fake-key";
+      const got = await askJson<{ ok: boolean }>({ system: "s", messages: [{ role: "user", content: "hi" }] });
+      check("GAIT_PROVIDER=xai works like grok (bearer key, grok model, JSON parsed)", got.ok === true && seen[0]?.auth === "Bearer fake-key" && /^grok/.test(seen[0]?.body?.model ?? ""), JSON.stringify(seen[0]));
+      check("coaching rules are always in the system prompt", (seen[0]?.body?.messages?.[0]?.content ?? "").includes("AI in writing"));
+      aiStatus = 401;
+      check("a bad key is a readable error, not a crash", (await ask({ system: "s", messages: [{ role: "user", content: "hi" }] }).catch((e: Error) => e.message)).includes("rejected the key"));
+      aiStatus = 429;
+      check("rate limited is a readable error", (await ask({ system: "s", messages: [{ role: "user", content: "hi" }] }).catch((e: Error) => e.message)).includes("rate limited"));
+    } finally {
+      for (const k of ["GAIT_API_BASE", "GAIT_PROVIDER", "XAI_API_KEY"]) {
+        if (saved[k] === undefined) delete process.env[k];
+        else process.env[k] = saved[k];
+      }
+      fakeAi.close();
+    }
   } finally {
     stop();
     fs.rmSync(dir, { recursive: true, force: true });
