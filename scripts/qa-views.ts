@@ -143,16 +143,31 @@ async function main() {
     await snap("filled");
   };
   const search: Step = async (page, snap) => {
-    await page.locator("input, textarea").first().fill("thesis help");
-    await page.getByRole("button", { name: /search|find/i }).first().click();
-    await page.waitForTimeout(3500);
+    if (!(await page.locator("#aria-q").evaluate((el) => el === document.activeElement))) throw new Error("search box is not focused on load");
+    await page.getByRole("button", { name: "Templates for a thesis statement" }).waitFor();
+    await page.locator("#aria-q").fill("thesis help");
+    await page.keyboard.press("Control+Enter");
+    await page.getByRole("link", { name: "Open in Drive" }).first().waitFor({ timeout: 30_000 });
+    await page.getByText("Why it matched").first().waitFor();
     await snap("result");
+    await page.locator("#aria-q").fill("zzzz qqqq nothing");
+    await page.getByRole("button", { name: "Find files" }).click();
+    await page.getByRole("heading", { name: "Nothing matched" }).or(page.getByRole("link", { name: "Open in Drive" }).first()).waitFor({ timeout: 30_000 });
+    await page.getByRole("button", { name: "thesis help" }).waitFor();
+    await snap("recent");
   };
   const taskforce: Step = async (page, snap) => {
     await page.locator("input").first().fill("Citation workshop");
     await page.locator("textarea").first().fill("Plan a one-hour workshop for first-years.");
-    await page.getByRole("button", { name: /plan|steps|start|get/i }).first().click();
-    await page.waitForTimeout(3500);
+    await page.keyboard.press("Control+Enter");
+    await page.getByRole("button", { name: "Copy outline" }).first().waitFor({ timeout: 30_000 });
+    const box = page.getByRole("checkbox").first();
+    await box.check();
+    await page.getByText("1 of 5 done").first().waitFor();
+    await page.reload({ waitUntil: "load" });
+    await page.getByRole("button", { name: "Reopen" }).first().click();
+    await page.getByText("1 of 5 done").first().waitFor();
+    check("taskforce: ticked step is still ticked after reload", await page.getByRole("checkbox").first().isChecked());
     await snap("result");
   };
   const policies: Step = async (page, snap) => {
@@ -162,6 +177,11 @@ async function main() {
     await page.getByLabel("Details", { exact: true }).fill("OK for brainstorming, must be disclosed");
     await page.getByRole("button", { name: "Save policy" }).click();
     await page.getByText("OK for brainstorming").first().waitFor({ timeout: 30_000 });
+    await page.getByText("Draft: director to confirm").first().waitFor();
+    await page.getByLabel("Filter by course code").fill("zzz");
+    await page.getByText("No policy matches").waitFor();
+    await page.getByLabel("Filter by course code").fill("ENGL");
+    await page.getByRole("button", { name: "Copy", exact: true }).first().waitFor();
     await snap("saved");
   };
   const aiTalk: Step = async (page, snap) => {
@@ -169,10 +189,13 @@ async function main() {
     await page.getByRole("button", { name: "Tailor it" }).waitFor({ timeout: 30_000 });
     await page.waitForTimeout(2500);
     await snap("tailored");
+    await page.getByText("Draft: director to confirm").first().waitFor();
+    check("ai-talk: scripts have Copy buttons", (await page.getByRole("button", { name: "Copy", exact: true }).count()) > 0);
     await page.getByRole("button", { name: "Ownership questions" }).click();
     await snap("ownership");
   };
   const practice: Step = async (page, snap) => {
+    await page.getByRole("button", { name: "Role-play a session" }).click();
     await page.getByRole("button", { name: "Start role-play" }).click();
     await page.getByText("mostly need help").waitFor({ timeout: 30_000 });
     await page.fill("#rp-draft", "What would you like to work on today?");
@@ -181,11 +204,30 @@ async function main() {
     await page.waitForTimeout(2500);
     await page.getByRole("button", { name: "End and get feedback" }).click();
     await page.getByRole("heading", { name: "What worked" }).waitFor({ timeout: 30_000 });
+    await page.getByRole("heading", { name: "One thing to try next time" }).waitFor();
     await snap("roleplay");
+    await page.getByRole("button", { name: "5-question refresher" }).click();
     await page.getByRole("button", { name: "Start quiz" }).click();
     await page.getByText("Sample question 1").waitFor({ timeout: 30_000 });
-    for (const li of await page.locator("ol > li").all()) await li.getByRole("button").first().click().catch(() => {});
-    await snap("quiz");
+    for (let i = 1; i <= 5; i++) {
+      await page.getByText(`Question ${i} of 5`).waitFor();
+      await page.getByRole("button", { name: /^(Ask what|Fix the grammar)/ }).nth(i === 1 ? 1 : 0).click(); // miss the first one on purpose
+      await page.getByText("Asking keeps the student in charge").waitFor();
+      if (i === 1) await snap("quiz-explained");
+      await page.getByRole("button", { name: i < 5 ? "Next question" : "See my score" }).click();
+    }
+    await page.getByText("Your score: 4 of 5").waitFor();
+    await snap("quiz-score");
+    await page.getByRole("button", { name: "Try the ones you missed" }).click();
+    await page.getByText("Missed question 1 of 1").waitFor();
+    await page.getByRole("heading", { name: "Your quiz scores" }).waitFor();
+    await page.getByText(/Trending|Holding steady|Take another quiz/).first().waitFor();
+    await snap("quiz-retry");
+  };
+  const reading: Step = async (page) => {
+    await page.getByText("Why read this").first().waitFor();
+    await page.getByRole("link", { name: "News" }).first().waitFor();
+    check("reading: no article feed section", !(await page.getByText("Recent articles").count()));
   };
   const welcome: Step = async (page, snap) => {
     await page.getByText("Tutor", { exact: true }).first().click();
@@ -209,7 +251,7 @@ async function main() {
     { path: "/search", steps: search },
     { path: "/taskforce", steps: taskforce },
     { path: "/practice", steps: practice },
-    { path: "/reading" },
+    { path: "/reading", steps: reading },
     { path: "/debrief", steps: debrief },
     { path: "/voice" },
     { path: "/policies", steps: policies },

@@ -54,7 +54,7 @@ function Plan({ t, onChange }: { t: TaskRecord; onChange: (done: number[]) => vo
           <ul className="mt-2 divide-y divide-stone-200 rounded-md border border-stone-200">
             {t.related.map((h) => (
               <li key={h.driveId} className="px-4 py-3">
-                <a className="inline-block break-words py-1 font-medium text-ink underline decoration-gold-400 decoration-2 underline-offset-4 hover:text-indigo-700" href={h.url} target="_blank" rel="noreferrer">{h.name}</a>
+                <a className="inline-flex min-h-11 items-center break-words font-medium text-ink underline decoration-gold-400 decoration-2 underline-offset-4 hover:text-indigo-700" href={h.url} target="_blank" rel="noreferrer">{h.name}</a>
                 {h.reason && <p className="mt-0.5 max-w-prose text-sm italic text-stone-600">{h.reason}</p>}
               </li>
             ))}
