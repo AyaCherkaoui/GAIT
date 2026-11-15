@@ -14,10 +14,12 @@ const TUTOR_NAV = [
   ["/taskforce", "Task force"],
   ["/practice", "Practice"],
   ["/reading", "Reading"],
+  ["/debrief", "Debrief"],
+  ["/voice", "Voice-first"],
 ] as const;
 const NAV: Record<Role, readonly (readonly [string, string])[]> = {
   tutor: TUTOR_NAV,
-  director: [...TUTOR_NAV, ["/admin/tutors", "Tutor list"]],
+  director: [...TUTOR_NAV, ["/impact", "Impact"], ["/admin/tutors", "Tutor list"]],
   tutee: [["/", "Home"]],
 };
 const ROLE_LABEL: Record<Role, string> = { director: "Director", tutor: "Tutor", tutee: "Student" };

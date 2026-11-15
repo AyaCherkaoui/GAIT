@@ -270,6 +270,35 @@ async function main() {
     check("practice: unknown action is 400", (await post("/api/practice", { action: "nope" }, alice)).status === 400);
     check("taskforce: wrong type is 400", (await post("/api/taskforce", { title: 123 }, alice)).status === 400);
 
+    // Debrief, impact, voice, director note
+    const tuteeU = signInFromGoogle({ sub: "g-901", email: "tutee901@augustana.edu", email_verified: true });
+    const tuteeC = sessionCookieValue(tuteeU);
+    const putNote = (c: string, body: unknown, id = sid) => call(`/api/session/${id}/director-note`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }, c);
+    check("signed out: GET /api/debrief is 401", (await call("/api/debrief")).status === 401);
+    check("signed out: POST /api/debrief is 401", (await post("/api/debrief", { drain: 3 })).status === 401);
+    check("signed out: GET /api/impact is 401", (await call("/api/impact")).status === 401);
+    check("signed out: PUT director-note is 401", (await putNote("", { note: "x" })).status === 401);
+    check("a tutee gets 403 from /api/debrief", (await call("/api/debrief", {}, tuteeC)).status === 403 && (await post("/api/debrief", { drain: 3 }, tuteeC)).status === 403);
+    check("a tutee gets 403 from /api/impact", (await call("/api/impact", {}, tuteeC)).status === 403);
+    check("a tutee gets 403 from director-note", (await putNote(tuteeC, { note: "x" })).status === 403);
+    check("a tutor gets 403 from /api/impact", (await call("/api/impact", {}, alice)).status === 403);
+    check("a tutor gets 403 writing a director note", (await putNote(alice, { note: "x" })).status === 403);
+    check("debrief: rating 9 is 400", (await post("/api/debrief", { drain: 9 }, alice)).status === 400);
+    check("debrief: no rating is 400", (await post("/api/debrief", {}, alice)).status === 400);
+    check("debrief: wrong note type is 400", (await post("/api/debrief", { drain: 3, note: 5 }, alice)).status === 400);
+    check("a tutor saves a debrief", (await post("/api/debrief", { drain: 4, note: "long shift" }, alice)).status === 200);
+    check("debrief is private to its owner", !(await (await call("/api/debrief", {}, bobC)).text()).includes('"shifts":1'));
+    check("the director cannot read a tutor's debrief", !(await (await call("/api/debrief", {}, carolC)).text()).includes('"shifts":1'));
+    check("director note: wrong type is 400", (await putNote(carolC, { note: 5 })).status === 400);
+    check("director note: unknown session is 404", (await putNote(carolC, { note: "x" }, 999999)).status === 404);
+    check("the director writes a note", (await putNote(carolC, { note: "Nice work on this one." })).status === 200);
+    check("the session's tutor reads the note", (await (await call(`/api/session/${sid}/director-note`, {}, alice)).text()).includes("Nice work on this one."));
+    check("another tutor cannot read the note", (await call(`/api/session/${sid}/director-note`, {}, bobC)).status === 404);
+    r = await call("/api/impact", {}, carolC);
+    check("the director reads impact counts", r.status === 200 && (await r.text()).includes('"weeks"'));
+    r = await call("/api/impact?format=csv", {}, carolC);
+    check("the director downloads impact CSV", r.status === 200 && (r.headers.get("content-type") ?? "").includes("text/csv") && (await r.text()).startsWith("week,sessions"));
+
     // 9. No internal text in server errors (the AI service is unreachable, so the handler fails)
     r = await post("/api/taskforce", { title: "t" }, alice);
     const body = await r.text();

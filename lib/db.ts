@@ -62,6 +62,19 @@ export function getDb(): DatabaseSync {
     CREATE INDEX IF NOT EXISTS tasks_user ON tasks (user_id, id);
     CREATE INDEX IF NOT EXISTS quiz_results_user ON quiz_results (user_id, id);
   `);
+  // Debrief: a private shift check-in, read only by its owner. Director note: what the director wrote on a session, shown to its tutor.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS debriefs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      created_at TEXT DEFAULT (datetime('now')),
+      drain INTEGER NOT NULL,
+      note TEXT DEFAULT '',
+      user_id INTEGER REFERENCES users(id)
+    );
+    CREATE INDEX IF NOT EXISTS debriefs_user ON debriefs (user_id, id);
+  `);
+  if (!hasColumn("sessions", "director_note")) db.exec("ALTER TABLE sessions ADD COLUMN director_note TEXT");
+  if (!hasColumn("sessions", "director_note_at")) db.exec("ALTER TABLE sessions ADD COLUMN director_note_at TEXT");
   if (!hasColumn("users", "session_version")) db.exec("ALTER TABLE users ADD COLUMN session_version INTEGER NOT NULL DEFAULT 0");
   return db;
 }

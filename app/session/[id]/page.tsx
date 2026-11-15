@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { use, useEffect, useState } from "react";
 import CopyButton from "@/components/CopyButton";
+import DirectorNote from "@/components/DirectorNote";
 import { ErrorBox, PageHeader, Working, btn2Cls, btnCls, inputCls, labelCls } from "@/components/ui";
 import { fmtDate } from "@/components/format";
 import { get, post } from "@/lib/client";
@@ -73,6 +74,8 @@ export default function SessionDetail({ params }: { params: Promise<{ id: string
     <div className="space-y-8">
       <PageHeader title={`${session.student_name || "Student"} · ${session.course || "no course"}`}>{fmtDate(session.created_at)}</PageHeader>
       <ErrorBox error={error} />
+
+      <DirectorNote sessionId={id} />
 
       <section aria-labelledby="refl" className="space-y-4">
         <h2 id="refl" className="font-display text-2xl font-semibold text-ink">My reflection</h2>

@@ -175,6 +175,14 @@ async function main() {
     await snap("tutor-chosen");
   };
 
+  const debrief: Step = async (page, snap) => {
+    await page.getByRole("button", { name: "4", exact: true }).click();
+    await page.getByLabel("One line").fill("A long shift.");
+    await page.getByRole("button", { name: "Save" }).click();
+    await page.getByText("Saved. Thanks for checking in.").waitFor({ timeout: 30_000 });
+    await snap("saved");
+  };
+
   const staff = (c: string): Role["views"] => [
     { path: "/" },
     { path: "/session", steps: session },
@@ -185,6 +193,8 @@ async function main() {
     { path: "/taskforce", steps: taskforce },
     { path: "/practice", steps: practice },
     { path: "/reading" },
+    { path: "/debrief", steps: debrief },
+    { path: "/voice" },
   ].map((v) => ({ ...v, path: v.path.replace(String(sid), c === "director" ? String(dsid) : String(sid)) }));
 
   const roles: Role[] = [
@@ -192,7 +202,7 @@ async function main() {
     { name: "student", cookie: cookie(tutee), views: [{ path: "/" }] },
     { name: "student-pending", cookie: cookie(pending), views: [{ path: "/" }] },
     { name: "tutor", cookie: cookie(tutor), views: staff("tutor") },
-    { name: "director", cookie: cookie(director), views: [...staff("director"), { path: "/admin/tutors" }] },
+    { name: "director", cookie: cookie(director), views: [...staff("director"), { path: "/admin/tutors" }, { path: "/impact" }] },
     { name: "out", views: [{ path: "/login" }, { path: "/login?error=domain" }] },
   ];
 
