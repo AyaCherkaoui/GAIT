@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { btn2Cls, btnCls, Card, ErrorBox, inputCls, PageHeader, Working } from "@/components/ui";
+import { btn2Cls, btnCls, Card, Chip, Empty, ErrorBox, inputCls, labelCls, PageHeader, Working } from "@/components/ui";
 import { get, post } from "@/lib/client";
 
 type Tutor = { email: string; name: string | null; role: "tutor" | "director"; active: number; added_at: string };
@@ -59,46 +59,60 @@ export default function TutorsClient({ myEmail }: { myEmail: string }) {
       <PageHeader title="Tutors">Only people on this list can sign in. Deactivating someone ends their access at once.</PageHeader>
       <ErrorBox error={error} />
       <Card title="Add a tutor">
-        <form onSubmit={add} noValidate className="grid gap-3 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-start">
+        <form onSubmit={add} noValidate className="grid gap-4 sm:grid-cols-2">
           <div>
-            <input className={inputCls} type="email" placeholder="Email" aria-label="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-            {emailError && <p role="alert" className="mt-1 text-sm text-red-700">{emailError}</p>}
+            <label htmlFor="tutor-email" className={labelCls}>Email</label>
+            <input id="tutor-email" className={inputCls} type="email" placeholder="name@augustana.edu" value={email} onChange={(e) => setEmail(e.target.value)} aria-invalid={!!emailError} />
+            {emailError && <p role="alert" className="mt-1 text-sm text-red-800">{emailError}</p>}
           </div>
-          <input className={inputCls} placeholder="Name (optional)" aria-label="Name" value={name} onChange={(e) => setName(e.target.value)} />
-          <select className={inputCls} aria-label="Role" value={role} onChange={(e) => setRole(e.target.value as "tutor" | "director")}>
-            <option value="tutor">Tutor</option>
-            <option value="director">Director</option>
-          </select>
-          <button type="submit" className={btnCls} disabled={busy}>Add</button>
+          <div>
+            <label htmlFor="tutor-name" className={labelCls}>Name (optional)</label>
+            <input id="tutor-name" className={inputCls} value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div>
+            <label htmlFor="tutor-role" className={labelCls}>Role</label>
+            <select id="tutor-role" className={inputCls} value={role} onChange={(e) => setRole(e.target.value as "tutor" | "director")}>
+              <option value="tutor">Tutor</option>
+              <option value="director">Director</option>
+            </select>
+          </div>
+          <div className="flex items-end">
+            <button type="submit" className={`${btnCls} min-h-11 w-full sm:w-auto`} disabled={busy}>Add tutor</button>
+          </div>
         </form>
       </Card>
       <Card title="Tutors">
         {tutors === null && <Working label="Loading" />}
-        {tutors?.length === 0 && <p className="text-sm text-stone-500">No tutors yet — add the first one above.</p>}
+        {tutors?.length === 0 && <Empty title="No tutors yet">Add the first one with the form above.</Empty>}
         {!!tutors?.length && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="text-stone-500">
-                <tr><th className="py-2 pr-4">Email</th><th className="hidden pr-4 sm:table-cell">Name</th><th className="hidden pr-4 sm:table-cell">Role</th><th className="pr-4">Active</th><th className="hidden pr-4 sm:table-cell">Added</th><th /></tr>
-              </thead>
-              <tbody className="divide-y divide-stone-100">
-                {tutors.map((t) => (
-                  <tr key={t.email}>
-                    <td className="py-2 pr-4 break-all">{t.email}{t.role === "director" && <span className="text-stone-500 sm:hidden"> (director)</span>}</td>
-                    <td className="hidden pr-4 sm:table-cell">{t.name ?? ""}</td>
-                    <td className="hidden pr-4 sm:table-cell">{t.role}</td>
-                    <td className="pr-4">{t.active ? "Yes" : "No"}</td>
-                    <td className="hidden pr-4 whitespace-nowrap sm:table-cell">{t.added_at}</td>
-                    <td className="text-right">
-                      {!!t.active && t.email !== myEmail && (
-                        <button type="button" className={btn2Cls} disabled={busy} onClick={() => deactivate(t.email)}>Deactivate</button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <table className="block w-full text-left text-sm sm:table">
+            <thead className="hidden border-b border-stone-200 text-stone-600 sm:table-header-group">
+              <tr>
+                <th className="py-2 pr-4 font-semibold">Email</th>
+                <th className="pr-4 font-semibold">Name</th>
+                <th className="pr-4 font-semibold">Role</th>
+                <th className="pr-4 font-semibold">Status</th>
+                <th className="pr-4 font-semibold">Added</th>
+                <th><span className="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody className="block divide-y divide-stone-200 sm:table-row-group">
+              {tutors.map((t) => (
+                <tr key={t.email} className={`flex flex-wrap items-center gap-x-3 gap-y-2 py-3 sm:table-row ${t.active ? "text-stone-900" : "bg-stone-50 text-stone-600"}`}>
+                  <td className="w-full break-all font-medium sm:table-cell sm:w-auto sm:py-3 sm:pr-4">{t.email}</td>
+                  <td className="sm:table-cell sm:pr-4">{t.name ?? ""}</td>
+                  <td className="sm:table-cell sm:pr-4"><Chip tone={t.role === "director" ? "gold" : "plain"}>{t.role === "director" ? "Director" : "Tutor"}</Chip></td>
+                  <td className="sm:table-cell sm:pr-4">{t.active ? "Active" : <span className="font-semibold">Inactive</span>}</td>
+                  <td className="hidden whitespace-nowrap sm:table-cell sm:pr-4">{t.added_at}</td>
+                  <td className="ml-auto sm:table-cell sm:text-right">
+                    {!!t.active && t.email !== myEmail && (
+                      <button type="button" className={`${btn2Cls} min-h-10`} disabled={busy} onClick={() => deactivate(t.email)}>Deactivate</button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </Card>
     </div>

@@ -87,7 +87,7 @@ async function main() {
 
     // 2. Login page and Google redirect
     const login = await call("/login");
-    check("/login has a Sign in with Google button", login.status === 200 && (await login.text()).includes("Sign in with Google"));
+    check("/login has a Continue with Google button", login.status === 200 && (await login.text()).includes("Continue with Google"));
     const start = await call("/api/auth/google?next=/history");
     const to = new URL(start.headers.get("location") ?? "http://none");
     check("/api/auth/google redirects to accounts.google.com", to.host === "accounts.google.com", to.href);
@@ -174,20 +174,24 @@ async function main() {
     } catch (e) {
       refused = e instanceof SignInRefused ? e.message : "other";
     }
-    check("sign-in for an email not on the list is refused with not_allowed", refused === "not_allowed", refused);
-    check("an email not on the list gets no users row", (db.prepare("SELECT COUNT(*) AS n FROM users WHERE google_sub = 'g-7'").get() as { n: number }).n === 0);
+    const daveUser = refused === "" ? signInFromGoogle({ sub: "g-7", email: "dave@augustana.edu", email_verified: true }) : null;
+    check("an email not on the list signs in as a tutee", daveUser?.role === "tutee", refused);
+    const daveC = daveUser ? sessionCookieValue(daveUser) : "";
+    check("a tutee gets 403 from GET /api/session", (await call("/api/session", {}, daveC)).status === 403);
+    check("a tutee is sent home from /history", (await call("/history", {}, daveC)).status !== 200);
+    check("a tutee can open the home page", (await call("/", {}, daveC)).status === 200);
     db.prepare("INSERT INTO allowed_users (email, role) VALUES ('erin@augustana.edu', 'tutor')").run();
     const erinC = sessionCookieValue(signInFromGoogle({ sub: "g-8", email: "erin@augustana.edu", email_verified: true }));
     check("a listed tutor is accepted", (await call("/api/session", {}, erinC)).status === 200);
     db.prepare("UPDATE allowed_users SET active = 0 WHERE email = 'erin@augustana.edu'").run();
-    check("a deactivated tutor gets 401 on the next request", (await call("/api/session", {}, erinC)).status === 401);
+    check("a deactivated tutor gets 403 on the next request", (await call("/api/session", {}, erinC)).status === 403);
     let refusedAgain = "";
     try {
       signInFromGoogle({ sub: "g-8", email: "erin@augustana.edu", email_verified: true });
     } catch (e) {
       refusedAgain = e instanceof SignInRefused ? e.message : "other";
     }
-    check("a deactivated tutor cannot sign in again", refusedAgain === "not_allowed", refusedAgain);
+    check("a deactivated tutor signs in again only as a tutee", refusedAgain === "" , refusedAgain);
     const carolUser = signInFromGoogle({ sub: "g-6", email: "carol@augustana.edu", email_verified: true, name: "Carol" });
     const carolC = sessionCookieValue(carolUser);
     check("a tutor gets 403 from GET /api/admin/tutors", (await call("/api/admin/tutors", {}, alice)).status === 403);

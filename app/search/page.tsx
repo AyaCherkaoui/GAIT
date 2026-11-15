@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Card, ErrorBox, PageHeader, Working, btnCls, inputCls } from "@/components/ui";
+import { Empty, ErrorBox, PageHeader, Working, btnCls, inputCls, labelCls } from "@/components/ui";
 import { get, post } from "@/lib/client";
 import type { Hit } from "@/lib/types";
 
@@ -35,23 +35,28 @@ export default function SearchPage() {
       <PageHeader title="ARIA search">
         {docs === null ? "…" : docs === 0 ? "No ARIA files indexed yet: run npm run sync-aria." : `${docs} ARIA files indexed. Describe what you are looking for in your own words.`}
       </PageHeader>
-      <form onSubmit={search} className="flex gap-2">
-        <input className={inputCls} placeholder="Describe it, e.g. a handout on integrating quotes for ESL students" value={q} onChange={(e) => setQ(e.target.value)} />
-        <button className={btnCls} disabled={loading}>Search</button>
+      <form onSubmit={search} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div className="min-w-0 flex-1">
+          <label htmlFor="aria-q" className={labelCls}>What are you looking for?</label>
+          <input id="aria-q" className={`${inputCls} min-h-11`} placeholder="For example, a handout on integrating quotes for ESL students" value={q} onChange={(e) => setQ(e.target.value)} />
+        </div>
+        <button className={`${btnCls} min-h-11`} disabled={loading}>Find files</button>
       </form>
       {loading && <Working label="Searching ARIA" />}
       <ErrorBox error={error} />
-      {terms.length > 0 && <p className="text-xs text-stone-500">Searched for: {terms.join(", ")}</p>}
-      {hits && hits.length === 0 && !error && <p className="text-sm">Nothing matched. Try other words.</p>}
-      <div className="space-y-3">
-        {hits?.map((h) => (
-          <Card key={h.driveId}>
-            <a href={h.url} target="_blank" rel="noreferrer" className="font-medium text-indigo-700 hover:underline">{h.name}</a>
-            {h.reason && <p className="text-sm">{h.reason}</p>}
-            <p className="mt-1 text-xs text-stone-500">{h.snippet}</p>
-          </Card>
-        ))}
-      </div>
+      {terms.length > 0 && <p className="text-sm text-stone-600">Searched for: <span className="mark">{terms.join(", ")}</span></p>}
+      {hits && hits.length === 0 && !error && <Empty title="Nothing matched">Try different words, or describe the situation instead of the file name.</Empty>}
+      {hits && hits.length > 0 && (
+        <ul className="divide-y divide-stone-200 rounded-lg border border-stone-200 bg-white">
+          {hits.map((h) => (
+            <li key={h.driveId} className="px-5 py-4 sm:px-6">
+              <a href={h.url} target="_blank" rel="noreferrer" className="inline-block break-words font-display text-lg font-semibold text-ink underline decoration-gold-400 decoration-2 underline-offset-4 hover:text-indigo-700">{h.name}</a>
+              {h.snippet && <p className="mt-1 max-w-prose text-[15px] text-stone-800">{h.snippet}</p>}
+              {h.reason && <p className="mt-1 max-w-prose text-sm italic text-stone-600">Why it matches: {h.reason}</p>}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

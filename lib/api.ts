@@ -34,11 +34,12 @@ export function rateLimit(key: string, max = AI_LIMIT, windowMs = AI_WINDOW_MS):
  * Wraps a route handler: signed-in users only (401 otherwise), JSON in and out, no internal error text.
  * `ai: true` also rate-limits the route (429).
  */
-export async function handle(req: Request, fn: (user: User) => Promise<unknown>, opts: { ai?: boolean } = {}) {
+export async function handle(req: Request, fn: (user: User) => Promise<unknown>, opts: { ai?: boolean; tutee?: boolean } = {}) {
   try {
     const user = getUserFromRequest(req);
     if (!user) return NextResponse.json({ error: "Please sign in to continue." }, { status: 401 });
-    if (opts.ai && !rateLimit(`ai:${user.id}`)) {
+    if (user.role === "tutee" && !opts.tutee) return NextResponse.json({ error: "That is for tutors. Ask the Reading/Writing Center director." }, { status: 403 });
+  if (opts.ai && !rateLimit(`ai:${user.id}`)) {
       return NextResponse.json({ error: "Too many requests. Wait a minute and try again." }, { status: 429 });
     }
     return NextResponse.json(await fn(user));

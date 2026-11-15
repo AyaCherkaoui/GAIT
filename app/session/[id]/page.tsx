@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { use, useEffect, useState } from "react";
 import CopyButton from "@/components/CopyButton";
-import { Card, ErrorBox, PageHeader, Working, btn2Cls, btnCls, inputCls } from "@/components/ui";
+import { ErrorBox, PageHeader, Working, btn2Cls, btnCls, inputCls, labelCls } from "@/components/ui";
 import { get, post } from "@/lib/client";
 import type { Reflection, SessionRecord } from "@/lib/types";
 
@@ -66,43 +66,60 @@ export default function SessionDetail({ params }: { params: Promise<{ id: string
     }
   }
 
-  if (!session) return <div className="space-y-4"><ErrorBox error={error} />{!error && <p className="text-sm text-stone-500">Loading…</p>}</div>;
+  if (!session) return <div className="space-y-4"><ErrorBox error={error} />{!error && <p className="text-sm text-stone-600">Loading…</p>}</div>;
   const o = session.outputs;
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <PageHeader title={`${session.student_name || "Student"} · ${session.course || "no course"}`}>{session.created_at}</PageHeader>
       <ErrorBox error={error} />
 
-      <Card title="My reflection">
-        <form onSubmit={save} className="space-y-3 text-sm">
+      <section aria-labelledby="refl" className="space-y-4">
+        <h2 id="refl" className="font-display text-2xl font-semibold text-ink">My reflection</h2>
+        <form onSubmit={save} className="max-w-prose space-y-4 rounded-lg border border-stone-200 bg-white p-5 sm:p-6">
           {FIELDS.map(([key, label]) => (
-            <label key={key} className="block">
-              <span className="mb-1 block font-medium">{label}</span>
-              <textarea className={inputCls} rows={2} value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })} />
-            </label>
+            <div key={key}>
+              <label htmlFor={`f-${key}`} className={labelCls}>{label}</label>
+              <textarea id={`f-${key}`} className={inputCls} rows={2} value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })} />
+            </div>
           ))}
-          <div className="flex items-center gap-3">
-            <button className={btnCls} disabled={busy === "save"}>Save reflection</button>
-            {savedAt && <span className="text-xs text-stone-500">Saved {new Date(savedAt).toLocaleString()}</span>}
+          <div className="flex flex-wrap items-center gap-3">
+            <button className={`${btnCls} min-h-10`} disabled={busy === "save"}>Save reflection</button>
+            {savedAt && <span className="text-sm text-stone-600">Saved {new Date(savedAt).toLocaleString()}</span>}
           </div>
         </form>
-      </Card>
+      </section>
 
-      <Card title="How could I have helped this student better?">
-        <form onSubmit={help} className="space-y-3 text-sm">
-          <textarea className={inputCls} rows={2} placeholder="e.g. They kept saying 'it's fine'. How can I get them talking?" value={question} onChange={(e) => setQuestion(e.target.value)} />
-          <button className={btn2Cls} disabled={busy === "help"}>Ask for coaching</button>
+      <section aria-labelledby="coach" className="space-y-4 border-t border-stone-200 pt-6">
+        <div>
+          <h2 id="coach" className="font-display text-2xl font-semibold text-ink">How could I have helped this student better?</h2>
+          <p className="mt-1 max-w-prose text-sm text-stone-600">Ask about this session and get coaching for next time.</p>
+        </div>
+        <form onSubmit={help} className="max-w-prose space-y-3">
+          <div>
+            <label htmlFor="question" className={labelCls}>Your question</label>
+            <textarea id="question" className={inputCls} rows={2} placeholder="They kept saying 'it's fine'. How can I get them talking?" value={question} onChange={(e) => setQuestion(e.target.value)} />
+          </div>
+          <button className={`${btn2Cls} min-h-10`} disabled={busy === "help"}>Ask for coaching</button>
           {busy === "help" && <Working label="Thinking about your question" />}
-          {answer && <p className="whitespace-pre-wrap rounded-lg bg-stone-50 p-3">{answer}</p>}
+          {answer && <p className="whitespace-pre-wrap rounded-lg border border-gold-300/70 bg-gold-50 p-4 text-[15px] text-stone-800">{answer}</p>}
         </form>
-      </Card>
+      </section>
 
-      <Card title="Email draft" actions={<CopyButton text={o.email} />}>
-        <p className="whitespace-pre-wrap text-sm">{o.email}</p>
-      </Card>
-      <Card title="Next steps" actions={<Link className="text-sm text-indigo-700 underline" href={`/session/${session.id}/print`} target="_blank">Printable page</Link>}>
-        <ul className="list-disc space-y-1 pl-5 text-sm">{o.nextSteps.map((s, i) => <li key={i}>{s}</li>)}</ul>
-      </Card>
+      <section aria-labelledby="s-email" className="space-y-3 border-t border-stone-200 pt-6">
+        <div className="flex items-center justify-between gap-2">
+          <h2 id="s-email" className="font-display text-2xl font-semibold text-ink">Email draft</h2>
+          <CopyButton text={o.email} />
+        </div>
+        <p className="max-w-prose whitespace-pre-wrap rounded-lg border border-stone-200 bg-white p-4 text-[15px] text-stone-800">{o.email}</p>
+      </section>
+
+      <section aria-labelledby="s-steps" className="space-y-3 border-t border-stone-200 pt-6">
+        <div className="flex items-center justify-between gap-2">
+          <h2 id="s-steps" className="font-display text-2xl font-semibold text-ink">Next steps</h2>
+          <Link className="inline-flex min-h-10 items-center text-sm font-medium text-indigo-700 underline underline-offset-4" href={`/session/${session.id}/print`} target="_blank">Open printable page</Link>
+        </div>
+        <ul className="max-w-prose list-disc space-y-1.5 pl-5 text-[15px] text-stone-800">{o.nextSteps.map((s, i) => <li key={i}>{s}</li>)}</ul>
+      </section>
     </div>
   );
 }

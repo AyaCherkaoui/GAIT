@@ -7,7 +7,7 @@ import {
   appUrl, readCookie, SESSION_COOKIE, SESSION_SECONDS, signToken, verifyToken,
 } from "./session-token";
 
-export type Role = "tutor" | "director";
+export type Role = "tutor" | "director" | "tutee";
 export type User = { id: number; email: string; name: string | null; picture: string | null; role: Role };
 
 /** The signed-in user for a route handler (reads the Cookie header), or null. */
@@ -29,8 +29,8 @@ function userFromToken(token: string | undefined): User | null {
 
 function userWhere(where: string, param: string | number): User | null {
   const row = getDb().prepare(
-    `SELECT u.id, u.email, u.name, u.picture, a.role FROM users u
-     JOIN allowed_users a ON a.email = lower(u.email) AND a.active = 1 WHERE ${where}`,
+    `SELECT u.id, u.email, u.name, u.picture, CASE WHEN a.active = 1 THEN a.role ELSE 'tutee' END AS role
+     FROM users u LEFT JOIN allowed_users a ON a.email = lower(u.email) WHERE ${where}`,
   ).get(param) as User | undefined;
   return row ?? null;
 }
@@ -65,17 +65,18 @@ export function signInFromGoogle(claims: { sub?: string; email?: string; email_v
   seedDirector();
   const db = getDb();
   const row = db.prepare("SELECT active, role FROM allowed_users WHERE email = ?").get(email) as { active: number; role: string } | undefined;
-  if (!row?.active) throw new SignInRefused("not_allowed");
+  // Anyone else with a verified account (on the allowed domain) is a tutee: no tutor tools, just the student guide.
   const user = upsertUser(claims.sub, email, claims.name ?? null, claims.picture ?? null);
   // Rows saved before sign-in existed have no owner. The director takes them over, so they are not lost.
-  if (row.role === "director") {
+  if (row?.active && row.role === "director") {
     for (const table of ["sessions", "tasks", "quiz_results"]) db.prepare(`UPDATE ${table} SET user_id = ? WHERE user_id IS NULL`).run(user.id);
   }
   return user;
 }
 
 export function sessionCookieValue(user: User): string {
-  return signToken({ uid: user.id }, SESSION_SECONDS);
+  // The role is only a hint for the proxy (to keep tutees off tutor pages); every page and route re-reads the real role.
+  return signToken({ uid: user.id, role: user.role }, SESSION_SECONDS);
 }
 
 function oauthClient() {

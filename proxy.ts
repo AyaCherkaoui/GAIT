@@ -33,12 +33,15 @@ export function proxy(req: NextRequest) {
   requireAuthSecret();
   const { pathname, search } = req.nextUrl;
   const open = pathname === "/login" || pathname.startsWith("/api/auth/");
-  if (!open && !verifyToken(req.cookies.get(SESSION_COOKIE)?.value)) {
+  const token = verifyToken<{ role?: string }>(req.cookies.get(SESSION_COOKIE)?.value);
+  if (!open && !token) {
     if (pathname.startsWith("/api/")) return secure(NextResponse.json({ error: "Please sign in to continue." }, { status: 401 }));
     const url = new URL("/login", req.url);
     url.searchParams.set("next", pathname + search);
     return secure(NextResponse.redirect(url));
   }
+  // Tutees get the home page only; every API route also refuses them (lib/api.ts).
+  if (!open && token?.role === "tutee" && pathname !== "/" && !pathname.startsWith("/api/")) return secure(NextResponse.redirect(new URL("/", req.url)));
   return secure(NextResponse.next());
 }
 

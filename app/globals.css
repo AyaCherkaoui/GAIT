@@ -1,7 +1,91 @@
 @import "tailwindcss";
 
-body { @apply bg-stone-50 text-stone-900 antialiased; }
+/*
+ * GAIT design system.
+ * Ink navy and highlighter gold (Augustana's colors), on cool paper. Newsreader (serif) for voice, Figtree for UI.
+ * The existing `indigo-*` and `stone-*` utilities are remapped here, so every page recolors from this one file:
+ *   indigo = ink navy (actions, links)   stone = cool paper and slate (surfaces, text)
+ */
+@theme {
+  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-newsreader), ui-serif, Georgia, serif;
+
+  --color-stone-50: #f5f6f9;
+  --color-stone-100: #eceef3;
+  --color-stone-200: #dde0e8;
+  --color-stone-300: #c2c8d4;
+  --color-stone-400: #9199a9;
+  --color-stone-500: #6a7286;
+  --color-stone-600: #4f566a;
+  --color-stone-700: #3a4054;
+  --color-stone-800: #252a3b;
+  --color-stone-900: #141a2b;
+
+  --color-indigo-50: #eef1f9;
+  --color-indigo-100: #dce3f3;
+  --color-indigo-200: #b8c6e6;
+  --color-indigo-300: #8ea4d3;
+  --color-indigo-400: #5f7cba;
+  --color-indigo-500: #3f5d9f;
+  --color-indigo-600: #2c4784;
+  --color-indigo-700: #1f356a;
+  --color-indigo-800: #172a55;
+  --color-indigo-900: #111d3b;
+
+  --color-gold-50: #fff8dc;
+  --color-gold-100: #ffefb0;
+  --color-gold-300: #ffd84d;
+  --color-gold-400: #f5c518;
+  --color-gold-600: #a67c00;
+  --color-ink: #111d3b;
+  --color-paper: #f5f6f9;
+  --color-margin: #c8372d;
+}
+
+html { scroll-behavior: smooth; }
+body {
+  @apply bg-stone-50 text-stone-900 antialiased;
+  font-family: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+}
+h1, h2, h3 { text-wrap: balance; }
+p { text-wrap: pretty; }
+.font-display { font-family: var(--font-newsreader), ui-serif, Georgia, serif; font-optical-sizing: auto; }
+
+:focus-visible { outline: 3px solid var(--color-gold-400); outline-offset: 2px; border-radius: 4px; }
+
+/* Ruled legal-pad texture with a red margin line: used on the sign-in page and the home hero only. */
+.pad {
+  background-color: #fbfcfe;
+  background-image:
+    linear-gradient(to right, transparent 3.25rem, rgba(200, 55, 45, 0.45) 3.25rem, rgba(200, 55, 45, 0.45) calc(3.25rem + 1px), transparent calc(3.25rem + 1px)),
+    repeating-linear-gradient(to bottom, transparent 0, transparent 1.9rem, rgba(63, 93, 159, 0.14) 1.9rem, rgba(63, 93, 159, 0.14) calc(1.9rem + 1px));
+}
+.pad-dark {
+  background-color: var(--color-ink);
+  background-image:
+    linear-gradient(to right, transparent 3.25rem, rgba(255, 216, 77, 0.35) 3.25rem, rgba(255, 216, 77, 0.35) calc(3.25rem + 1px), transparent calc(3.25rem + 1px)),
+    repeating-linear-gradient(to bottom, transparent 0, transparent 1.9rem, rgba(255, 255, 255, 0.06) 1.9rem, rgba(255, 255, 255, 0.06) calc(1.9rem + 1px));
+}
+/* Highlighter swipe behind text. */
+.mark {
+  background: linear-gradient(transparent 58%, var(--color-gold-300) 58%, var(--color-gold-300) 92%, transparent 92%);
+  padding: 0 0.12em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+/* One entrance, used once per page on the main heading block. */
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.rise { animation: rise 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .rise { animation: none; }
+  * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}
 
 @media print {
   body { background: white; }
+  .pad, .pad-dark { background-image: none; }
 }
