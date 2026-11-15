@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Card, Empty, ErrorBox, PageHeader, btnCls, inputCls, labelCls } from "@/components/ui";
+import Link from "next/link";
+import { Card, Empty, ErrorBox, PageHeader, btnCls, inputCls, labelCls, submitOnCmdEnter } from "@/components/ui";
 import { get, post } from "@/lib/client";
 
 type Week = { week: string; shifts: number; avg: number; draining: number };
@@ -61,11 +62,12 @@ export default function DebriefPage() {
           </div>
           <div>
             <label htmlFor="debrief-note" className={labelCls}>One line: what stuck with you? (optional)</label>
-            <input id="debrief-note" className={inputCls} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
+            <input id="debrief-note" className={inputCls} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} onKeyDown={submitOnCmdEnter} />
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <button className={`${btnCls} min-h-10`} disabled={!drain || busy}>Save</button>
-            {saved && <span role="status" className="text-sm text-stone-700">Saved. Thanks for checking in.</span>}
+            <button className={`${btnCls} min-h-11`} disabled={!drain || busy}>{busy ? "Saving…" : "Save"}</button>
+            {!drain && <span className="text-sm text-stone-600">Pick a number first.</span>}
+            {saved && <span role="status" className="text-sm text-stone-700">Saved. Thanks for checking in. <Link href="/" className="font-medium text-indigo-700 underline underline-offset-4">Back to Today</Link></span>}
           </div>
         </form>
       </Card>

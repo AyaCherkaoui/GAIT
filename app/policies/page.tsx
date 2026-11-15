@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Card, Chip, Empty, ErrorBox, PageHeader, btn2Cls, btnCls, inputCls, labelCls } from "@/components/ui";
+import CopyButton from "@/components/CopyButton";
+import { Card, Chip, Empty, ErrorBox, PageHeader, btn2Cls, btnCls, inputCls, labelCls, submitOnCmdEnter } from "@/components/ui";
 import { get, post } from "@/lib/client";
 import { AI_POLICIES, type AiPolicy, type CoursePolicy } from "@/lib/policy-types";
 
@@ -68,7 +69,7 @@ export default function PoliciesPage() {
           </div>
           <div>
             <label htmlFor="pol-details" className={labelCls}>Details</label>
-            <textarea id="pol-details" className={inputCls} rows={2} placeholder="For example, OK for brainstorming, must be disclosed" value={details} onChange={(e) => setDetails(e.target.value)} />
+            <textarea id="pol-details" className={inputCls} rows={2} placeholder="For example, OK for brainstorming, must be disclosed" value={details} onChange={(e) => setDetails(e.target.value)} onKeyDown={submitOnCmdEnter} />
           </div>
           <div>
             <label htmlFor="pol-source" className={labelCls}>Source</label>
@@ -79,20 +80,25 @@ export default function PoliciesPage() {
       </Card>
       <ErrorBox error={error} />
       <Card title="Saved policies">
-        <label htmlFor="pol-search" className="sr-only">Search by course code or professor</label>
-        <input id="pol-search" className={`${inputCls} min-h-11`} placeholder="Search by course code or professor" value={q} onChange={(e) => setQ(e.target.value)} />
+        <label htmlFor="pol-search" className={labelCls}>Filter by course code</label>
+        <input id="pol-search" className={`${inputCls} min-h-11`} placeholder="For example, ENGL 101 (a professor's name works too)" value={q} onChange={(e) => setQ(e.target.value)} />
         <div className="mt-4">
-          {loaded && list.length === 0 && <Empty title="No policies saved yet">Add a course above and it will show up here.</Empty>}
+          {!loaded && !error && <p className="text-sm text-stone-600">Loading…</p>}
+          {loaded && list.length === 0 && (q ? <Empty title={`No policy matches "${q}"`}>Check the course code, or add it above.</Empty> : <Empty title="No policies saved yet">Add a course above and it will show up here.</Empty>)}
           {list.length > 0 && (
-            <ul className="divide-y divide-stone-200">
+            <ul className="grid gap-3 sm:grid-cols-2">
               {list.map((p) => (
-                <li key={p.course_code} className="flex items-start justify-between gap-3 py-3">
+                <li key={p.course_code} className="flex flex-col justify-between gap-3 rounded-lg border border-stone-200 bg-white p-4">
                   <div className="min-w-0">
-                    <p className="break-words"><span className="font-semibold text-ink">{p.course_code}</span> <Chip tone={p.policy === "unknown" ? "plain" : "gold"}>{LABEL[p.policy]}</Chip>{p.professor && <span className="ml-2 text-sm text-stone-600">{p.professor}</span>}</p>
-                    {p.details && <p className="mt-1 text-[15px] text-stone-700">{p.details}</p>}
-                    {p.source && <p className="mt-1 text-xs text-stone-600">Source: {p.source} · updated {p.updated_at.slice(0, 10)}</p>}
+                    <div className="flex flex-wrap items-center gap-2"><h3 className="font-display text-lg font-semibold text-ink">{p.course_code}</h3><Chip tone={p.policy === "unknown" ? "plain" : "gold"}>{LABEL[p.policy]}</Chip></div>
+                    {p.professor && <p className="text-sm text-stone-600">{p.professor}</p>}
+                    {p.details && <p className="mt-2 break-words text-[15px] text-stone-800">{p.details}</p>}
+                    {p.source && <p className="mt-2 text-xs text-stone-600">Source: {p.source} · updated {p.updated_at.slice(0, 10)}</p>}
                   </div>
-                  <button className={`${btn2Cls} min-h-10 shrink-0`} onClick={() => edit(p)}>Edit</button>
+                  <div className="flex flex-wrap gap-2">
+                    <CopyButton text={`${p.course_code}${p.professor ? ` (${p.professor})` : ""}: AI ${LABEL[p.policy].toLowerCase()}.${p.details ? ` ${p.details}` : ""}${p.source ? ` Source: ${p.source}.` : ""}`} label="Copy" />
+                    <button className={`${btn2Cls} min-h-10`} onClick={() => edit(p)}>Edit</button>
+                  </div>
                 </li>
               ))}
             </ul>
