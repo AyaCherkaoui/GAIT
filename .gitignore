@@ -10,3 +10,4 @@ gait.db*
 .DS_Store
 .next-feature/
 .feature-shots/
+.playwright-mcp/
