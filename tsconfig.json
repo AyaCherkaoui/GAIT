@@ -37,7 +37,9 @@
     ".next-security/types/**/*.ts",
     ".next-security/dev/types/**/*.ts",
     ".next-feature/types/**/*.ts",
-    ".next-feature/dev/types/**/*.ts"
+    ".next-feature/dev/types/**/*.ts",
+    ".next-qa/types/**/*.ts",
+    ".next-qa/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",
