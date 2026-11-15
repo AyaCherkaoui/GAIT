@@ -9,7 +9,9 @@ const SOURCES = [
   { name: "Inside Higher Ed", url: "https://www.insidehighered.com/rss.xml" },
 ];
 
-let cache: { at: number; items: FeedItem[] } | undefined;
+// Per source: a good answer is kept 1 h, a failed one is remembered 5 min (so a slow source does not stall every visit),
+// and a request already in flight is shared.
+const cache = new Map<string, { at: number; ok: boolean; items: FeedItem[]; pending?: Promise<FeedItem[]> }>();
 
 function text(block: string, tag: string): string {
   const m = block.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`));
@@ -39,15 +41,21 @@ async function readFeed(name: string, url: string): Promise<FeedItem[]> {
   }
 }
 
+async function cached(name: string, url: string): Promise<FeedItem[]> {
+  const hit = cache.get(url);
+  if (hit?.pending) return hit.pending;
+  if (hit && Date.now() - hit.at < (hit.ok ? 3600_000 : 300_000)) return hit.items;
+  const pending = readFeed(name, url).then((items) => {
+    cache.set(url, { at: Date.now(), ok: items.length > 0, items: items.length ? items : hit?.items ?? [] });
+    return cache.get(url)!.items;
+  });
+  cache.set(url, { at: hit?.at ?? 0, ok: hit?.ok ?? false, items: hit?.items ?? [], pending });
+  return pending;
+}
+
 export async function GET(req: Request) {
   return handle(req, async () => {
-    if (!cache || Date.now() - cache.at > 3600_000) {
-      const lists = await Promise.all(SOURCES.map((s) => readFeed(s.name, s.url)));
-      const items = lists.flat();
-      // Only cache when every source answered, so a failed source is retried on the next visit.
-      if (lists.every((l) => l.length)) cache = { at: Date.now(), items };
-      return { items, books: BOOKS };
-    }
-    return { items: cache.items, books: BOOKS };
+    const lists = await Promise.all(SOURCES.map((s) => cached(s.name, s.url)));
+    return { items: lists.flat(), books: BOOKS };
   });
 }
