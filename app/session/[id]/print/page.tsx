@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getUser } from "@/lib/auth";
 import { getSession } from "@/lib/sessions";
+import Link from "next/link";
 import PrintButton from "./PrintButton";
 import { fmtDate } from "@/components/format";
 
@@ -14,6 +15,7 @@ export default async function PrintPage({ params }: { params: Promise<{ id: stri
   const o = s.outputs;
   return (
     <article className="mx-auto max-w-2xl space-y-6 bg-white p-6 text-[15px] leading-relaxed text-black print:p-0">
+      <Link href={`/session/${s.id}`} className="inline-flex min-h-10 items-center text-sm font-medium text-indigo-700 underline underline-offset-4 print:hidden">← Back to the session</Link>
       <div className="flex items-start justify-between">
         <div>
           <h1 className="font-display text-2xl font-semibold">Your next steps{s.student_name ? `, ${s.student_name}` : ""}</h1>
