@@ -30,9 +30,9 @@ export default function WelcomeClient() {
 
   return (
     <form onSubmit={go} className="space-y-8">
-      <p className="font-display text-2xl font-semibold tracking-tight text-ink">GAIT<span className="text-gold-400">.</span></p>
+      <p className="font-display text-2xl font-semibold tracking-tight text-ink">Ink<span className="text-gold-400">.</span></p>
       <fieldset className="space-y-4">
-        <legend className="font-display text-3xl font-semibold tracking-tight text-ink sm:text-4xl">How will you use GAIT?</legend>
+        <legend className="font-display text-3xl font-semibold tracking-tight text-ink sm:text-4xl">How will you use Ink?</legend>
         <p className="max-w-prose text-stone-700">Pick the one that fits. You will see the matching tools right after you continue.</p>
         <div className="grid gap-3 pt-2 sm:grid-cols-3">
           {OPTIONS.map((o) => {

@@ -13,7 +13,7 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 
-const PORT = 3101;
+const PORT = Number(process.env.CHECK_PORT) || 3101; // CHECK_PORT lets several checkouts run checks at once
 const BASE = `http://localhost:${PORT}`;
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "gait-security-"));
 const SECRET = randomBytes(32).toString("base64url");

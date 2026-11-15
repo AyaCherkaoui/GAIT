@@ -29,7 +29,7 @@ function text(block: string, tag: string): string {
 
 async function readFeed(name: string, url: string): Promise<FeedItem[]> {
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(6000), headers: { "user-agent": "Mozilla/5.0 GAIT" } });
+    const res = await fetch(url, { signal: AbortSignal.timeout(6000), headers: { "user-agent": "Mozilla/5.0 Ink" } });
     if (!res.ok) return [];
     const xml = await res.text();
     const items = xml.split(/<item[\s>]/).slice(1, 6);

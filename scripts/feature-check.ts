@@ -13,7 +13,7 @@ import os from "node:os";
 import path from "node:path";
 import { chromium } from "playwright-core";
 
-const PORT = 3102;
+const PORT = Number(process.env.CHECK_PORT) || 3102; // CHECK_PORT lets several checkouts run checks at once
 const BASE = `http://localhost:${PORT}`;
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "gait-feature-"));
 const shots = path.join(process.cwd(), ".feature-shots");

@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /*
- * GAIT design system.
+ * Ink design system.
  * Ink navy and highlighter gold (Augustana's colors), on cool paper. Newsreader (serif) for voice, Figtree for UI.
  * The existing `indigo-*` and `stone-*` utilities are remapped here, so every page recolors from this one file:
  *   indigo = ink navy (actions, links)   stone = cool paper and slate (surfaces, text)

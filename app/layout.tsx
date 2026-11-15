@@ -8,7 +8,7 @@ const figtree = Figtree({ subsets: ["latin"], variable: "--font-figtree", displa
 const newsreader = Newsreader({ subsets: ["latin"], variable: "--font-newsreader", display: "swap", style: ["normal", "italic"] });
 
 export const metadata: Metadata = {
-  title: "GAIT",
+  title: "Ink",
   description: "An assistant for Reading/Writing Center tutors",
 };
 export const viewport: Viewport = { themeColor: "#111d3b" };

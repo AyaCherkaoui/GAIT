@@ -5,10 +5,10 @@ import { safeNext } from "@/lib/session-token";
 export const dynamic = "force-dynamic";
 
 const MESSAGES: Record<string, string> = {
-  domain: "That Google account can't use GAIT. Sign in with your Augustana account.",
+  domain: "That Google account can't use Ink. Sign in with your Augustana account.",
   denied: "Sign-in didn't finish. Try again.",
   failed: "Sign-in failed. Try again in a moment.",
-  config: "Sign-in isn't set up yet. Ask the person who runs GAIT.",
+  config: "Sign-in isn't set up yet. Ask the person who runs Ink.",
 };
 
 function GoogleG() {
@@ -29,7 +29,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[1.1fr_1fr]">
       <section className="pad-dark flex flex-col justify-between gap-16 px-6 py-10 pl-[4.75rem] text-white sm:px-10 sm:pl-[5.5rem] lg:min-h-dvh lg:py-14 lg:pl-[6rem]">
-        <p className="font-display text-2xl font-semibold tracking-tight">GAIT<span className="text-gold-300">.</span></p>
+        <p className="font-display text-2xl font-semibold tracking-tight">Ink<span className="text-gold-300">.</span></p>
         <div className="rise max-w-xl">
           <h1 className="font-display text-4xl font-medium leading-[1.08] tracking-tight sm:text-6xl">
             Coach the writer,<br />not the paper.
@@ -44,7 +44,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <section className="flex items-center px-6 py-12 sm:px-12">
         <div className="mx-auto w-full max-w-sm">
           <h2 className="font-display text-3xl font-semibold tracking-tight text-ink">Sign in</h2>
-          <p className="mt-2 text-stone-600">Use your Augustana Google account. GAIT shows tutors, directors and students what each of them needs.</p>
+          <p className="mt-2 text-stone-600">Use your Augustana Google account. Ink shows tutors, directors and students what each of them needs.</p>
           {error && MESSAGES[error] && (
             <p role="alert" className="mt-5 rounded-md border-l-4 border-margin bg-red-50 px-4 py-3 text-sm text-red-900">{MESSAGES[error]}</p>
           )}

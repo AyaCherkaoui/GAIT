@@ -1,6 +1,6 @@
-# GAIT
+# Ink
 
-GAIT is an assistant for tutors at the Augustana College Reading/Writing Center (RWC).
+Ink is an assistant for tutors at the Augustana College Reading/Writing Center (RWC).
 Its goal: help tutors grow students into independent writers who use AI as a coach, never as a ghostwriter, and help tutors keep improving.
 
 This is v0, a rough first draft that runs on one computer. Tutors sign in with Google; there is no hosting and no session recording.

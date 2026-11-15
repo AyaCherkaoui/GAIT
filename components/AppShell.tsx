@@ -31,7 +31,7 @@ const ROLE_LABEL: Record<Role, string> = { director: "Director", tutor: "Tutor",
 function Wordmark() {
   return (
     <Link href="/" className="font-display inline-flex min-h-10 items-center text-2xl font-semibold tracking-tight text-white">
-      GAIT<span className="text-gold-300">.</span>
+      Ink<span className="text-gold-300">.</span>
     </Link>
   );
 }

@@ -12,7 +12,7 @@ import os from "node:os";
 import path from "node:path";
 import { chromium, type Page } from "playwright-core";
 
-const PORT = 3104;
+const PORT = Number(process.env.CHECK_PORT) || 3104; // CHECK_PORT lets several checkouts run checks at once
 const BASE = `http://localhost:${PORT}`;
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "gait-qa-"));
 const shots = path.join(process.cwd(), ".qa-shots");

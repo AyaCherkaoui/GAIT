@@ -11,7 +11,7 @@ export default function VoicePage() {
           <li>Detectors guess from patterns in the text. They make false accusations, and nobody can verify their scores.</li>
           <li>Studies of popular detectors have found they flag writing by multilingual writers as AI-generated more often than writing by native speakers.</li>
           <li>Writers who use plain, careful or formulaic language, including neurodivergent writers, can be flagged too.</li>
-          <li>That is why GAIT has no detector and never gives a verdict on who wrote a text.</li>
+          <li>That is why Ink has no detector and never gives a verdict on who wrote a text.</li>
         </ul>
       </Card>
       <Card title="Linguistic diversity is a strength">

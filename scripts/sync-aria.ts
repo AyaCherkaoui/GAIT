@@ -43,7 +43,7 @@ async function authorize() {
     const server = http
       .createServer((req, res) => {
         const c = new URL(req.url ?? "/", REDIRECT).searchParams.get("code");
-        res.end(c ? "GAIT is connected to Google Drive. You can close this tab." : "No sign-in code received.");
+        res.end(c ? "Ink is connected to Google Drive. You can close this tab." : "No sign-in code received.");
         if (c) {
           server.close();
           resolve(c);

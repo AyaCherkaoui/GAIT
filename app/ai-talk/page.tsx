@@ -126,7 +126,7 @@ export default function AiTalkPage() {
     `min-h-11 rounded-md px-4 text-sm font-semibold transition ${tab === t ? "bg-ink text-white" : "border border-stone-300 bg-white text-stone-800 hover:bg-stone-100"}`;
   return (
     <div className="space-y-6">
-      <PageHeader title="AI talk">Curious, never accusing. GAIT does not detect AI and does not judge who wrote a text.</PageHeader>
+      <PageHeader title="AI talk">Curious, never accusing. Ink does not detect AI and does not judge who wrote a text.</PageHeader>
       <div className="flex flex-wrap gap-2" role="group" aria-label="Tools">
         <button type="button" aria-pressed={tab === "scripts"} className={tabCls("scripts")} onClick={() => setTab("scripts")}>Script bank</button>
         <button type="button" aria-pressed={tab === "ownership"} className={tabCls("ownership")} onClick={() => setTab("ownership")}>Ownership questions</button>

@@ -10,11 +10,11 @@ export async function POST(req: Request) {
   return handle(req, async (user) => {
     const { role } = await readJson(req);
     if (role !== "student" && role !== "tutor" && role !== "director") throw new UserFacingError("Choose student, tutor or director.");
-    if (user.onboarded) throw new HttpError(409, "You already chose how to use GAIT.");
+    if (user.onboarded) throw new HttpError(409, "You already chose how to use Ink.");
     const info = getDb()
       .prepare("UPDATE users SET onboarded = 1, requested_role = ? WHERE id = ? AND onboarded = 0")
       .run(role === "student" ? null : role, user.id);
-    if (!info.changes) throw new HttpError(409, "You already chose how to use GAIT.");
+    if (!info.changes) throw new HttpError(409, "You already chose how to use Ink.");
     // Testing only: the chosen role takes effect at once, so every view can be tried without the director approving it.
     if (testToolsOn() && role !== "student") {
       getDb()
