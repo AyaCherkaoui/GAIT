@@ -314,6 +314,135 @@ async function main() {
         }
       }
     }
+    // tutor-a: shell, Home, After session, session detail and History interactions.
+    {
+      const open = async (c: string, w: number, h = 900) => {
+        const ctx = await browser.newContext({ viewport: { width: w, height: h }, permissions: ["clipboard-read", "clipboard-write"] });
+        await ctx.addCookies([{ name: "gait_session", value: c, url: BASE }]);
+        return { ctx, page: await ctx.newPage() };
+      };
+      const flow = async (name: string, c: string, w: number, fn: (page: Page) => Promise<void>) => {
+        const { ctx, page } = await open(c, w);
+        try {
+          await fn(page);
+          check(name, true);
+        } catch (e) {
+          check(name, false, (e as Error).message.split("\n")[0]);
+          await page.screenshot({ path: path.join(shots, `flow-failed-${name.replace(/[^a-z0-9]+/gi, "_")}.png`), fullPage: true }).catch(() => {});
+        } finally {
+          await ctx.close();
+        }
+      };
+      const T = { timeout: 30_000 };
+
+      await flow("home (tutor): primary button, pick up, recent sessions, quick actions, tip", cookie(tutor), 1280, async (page) => {
+        await page.goto(BASE + "/");
+        await page.getByRole("link", { name: /Log a session/ }).first().waitFor(T);
+        await page.getByRole("heading", { name: "Pick up where you left off" }).waitFor(T);
+        await page.getByRole("heading", { name: "Recent sessions" }).waitFor(T);
+        for (const l of ["Search ARIA", "Practice", "Task force"]) await page.getByRole("link", { name: new RegExp(l) }).first().waitFor(T);
+        await page.getByText("Coaching tip.").waitFor(T);
+      });
+      await flow("home (director): pending requests strip links to the tutor list", cookie(director), 1280, async (page) => {
+        await page.goto(BASE + "/");
+        const strip = page.getByRole("link", { name: /request waiting/ });
+        await strip.waitFor(T);
+        if ((await strip.getAttribute("href")) !== "/admin/tutors") throw new Error("strip does not link to /admin/tutors");
+      });
+      await flow("shell (director, desktop): grouped nav, active page, Admin links, skip link", cookie(director), 1280, async (page) => {
+        await page.goto(BASE + "/history");
+        const nav = page.getByRole("navigation", { name: "Main" });
+        for (const g of ["Today", "Tools", "Learn", "Admin"]) await nav.getByText(g, { exact: true }).waitFor(T);
+        for (const l of ["News", "Sessions", "Tutor list", "Impact"]) await nav.getByRole("link", { name: l, exact: true }).waitFor(T);
+        if ((await nav.getByRole("link", { name: "History", exact: true }).getAttribute("aria-current")) !== "page") throw new Error("History is not marked current");
+        await page.getByText("Sign out").first().waitFor(T);
+        await page.keyboard.press("Tab");
+        const skip = page.getByRole("link", { name: "Skip to content" });
+        if (!(await skip.isVisible())) throw new Error("skip link is not visible on focus");
+      });
+      await flow("shell (student): Coach link, no tutor tools", cookie(tutee), 1280, async (page) => {
+        await page.goto(BASE + "/");
+        const nav = page.getByRole("navigation", { name: "Main" });
+        await nav.getByRole("link", { name: "Coach", exact: true }).waitFor(T);
+        if (await nav.getByRole("link", { name: "After session" }).count()) throw new Error("student sees After session");
+      });
+      await flow("shell (phone): menu opens, closes on navigate, user footer is reachable", cookie(tutor), 390, async (page) => {
+        await page.goto(BASE + "/");
+        await page.getByRole("button", { name: "Menu" }).click();
+        await page.getByRole("button", { name: "Sign out" }).waitFor(T);
+        await page.getByRole("link", { name: "History", exact: true }).click();
+        await page.waitForURL("**/history", T);
+        await page.getByRole("button", { name: "Menu" }).waitFor(T);
+      });
+
+      await flow("after session: validation, Ctrl+Enter, draft restore and Clear, tabs, Copy, Mark email sent", cookie(tutor), 1280, async (page) => {
+        await page.goto(BASE + "/session");
+        await page.getByRole("button", { name: "Write the follow-up" }).click();
+        await page.getByText("Add what you worked on or what the student struggled with.").first().waitFor(T);
+        await page.fill("#workedOn", "Draft survives a reload.");
+        await page.waitForTimeout(700);
+        await page.reload();
+        await page.getByText("Draft restored.").waitFor(T);
+        if ((await page.inputValue("#workedOn")) !== "Draft survives a reload.") throw new Error("draft text was not restored");
+        await page.getByRole("button", { name: "Clear" }).click();
+        if ((await page.inputValue("#workedOn")) !== "") throw new Error("Clear did not empty the form");
+        // A failed request keeps the form filled and offers Try again.
+        await page.fill("#workedOn", "We worked on the thesis.");
+        await page.route("**/api/session", (r) => (r.request().method() === "POST" ? r.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "Something went wrong. Try again." }) }) : r.continue()));
+        await page.keyboard.press("Control+Enter");
+        await page.getByRole("button", { name: "Try again" }).waitFor(T);
+        if ((await page.inputValue("#workedOn")) !== "We worked on the thesis.") throw new Error("notes were lost after an error");
+        await page.unroute("**/api/session");
+        await page.getByRole("button", { name: "Try again" }).click();
+        await page.getByText("Writing the follow-up").waitFor(T);
+        if ((await page.inputValue("#workedOn")) !== "We worked on the thesis.") throw new Error("form emptied while working");
+        await page.getByRole("heading", { name: "Email draft" }).waitFor(T);
+        await page.getByRole("tab", { name: "Next steps" }).click();
+        await page.getByText("Write your thesis in one sentence").waitFor(T);
+        await page.getByRole("tab", { name: "AI prompts" }).click();
+        await page.getByRole("button", { name: "Copy", exact: true }).first().click();
+        await page.getByRole("button", { name: "Copied" }).waitFor(T);
+        await page.getByRole("button", { name: "Mark email sent" }).click();
+        await page.getByText("Email sent", { exact: true }).waitFor(T);
+        await page.getByRole("link", { name: "Print next steps" }).waitFor(T);
+      });
+      await flow("session detail: breadcrumb, reflection autosave, previous/next", cookie(tutor), 1280, async (page) => {
+        await page.goto(BASE + `/session/${sid}`);
+        await page.getByRole("link", { name: "← History" }).waitFor(T);
+        await page.fill("#f-learned", "Autosaved text");
+        await page.getByRole("status").filter({ hasText: /^Saved / }).waitFor(T);
+        await page.reload();
+        await done(page);
+        await page.waitForFunction(() => (document.getElementById("f-learned") as HTMLTextAreaElement | null)?.value === "Autosaved text", undefined, T);
+        await page.getByRole("link", { name: /^Next:/ }).click();
+        await page.waitForURL((u) => !u.pathname.endsWith(`/${sid}`), T);
+        await page.getByRole("link", { name: /^← Previous/ }).waitFor(T);
+        await page.getByRole("link", { name: "← History" }).click();
+        await page.waitForURL("**/history", T);
+      });
+      await flow("history: search, filters, week groups, status chips, clickable rows", cookie(tutor), 1280, async (page) => {
+        await page.goto(BASE + "/history");
+        await page.getByText(/^Week of /).first().waitFor(T);
+        await page.getByText("Reflection saved").or(page.getByText("No reflection yet")).first().waitFor(T);
+        await page.fill("#h-search", "Alex");
+        await page.getByText(/^1 of \d+ sessions?$/).waitFor(T);
+        await page.fill("#h-search", "zzzz");
+        await page.getByText("No matches").waitFor(T);
+        await page.getByRole("button", { name: "Clear filters" }).click();
+        await page.selectOption("#h-student", "Sam");
+        await page.getByText(/^\d+ of \d+ sessions?$/).waitFor(T);
+        if (await page.getByRole("link", { name: /HIST 210/ }).count()) throw new Error("the Sam filter still shows Alex's session");
+        await page.getByRole("link", { name: /Sam/ }).first().click();
+        await page.waitForURL(/\/session\/\d+$/, T);
+      });
+      allow.run("empty@example.test", "Eve Empty", "tutor");
+      const empty = login(6, "empty@example.test", "Eve Empty");
+      await flow("history (new tutor, no sessions): empty state offers Log a session", cookie(empty), 1280, async (page) => {
+        await page.goto(BASE + "/history");
+        await page.getByRole("link", { name: "Log a session" }).waitFor(T);
+      });
+    }
+
     // A student must not reach tutor pages.
     const ctx = await browser.newContext();
     await ctx.addCookies([{ name: "gait_session", value: cookie(tutee), url: BASE }]);

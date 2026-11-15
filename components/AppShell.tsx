@@ -33,7 +33,7 @@ function Wordmark() {
 
 function NavLinks({ role, path, onGo }: { role: Role; path: string; onGo?: () => void }) {
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 lg:space-y-2.5">
       {NAV[role].map(([title, items]) => (
         <div key={title}>
           <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-indigo-300">{title}</p>
@@ -46,7 +46,7 @@ function NavLinks({ role, path, onGo }: { role: Role; path: string; onGo?: () =>
                     href={href}
                     onClick={onGo}
                     aria-current={active ? "page" : undefined}
-                    className={`flex min-h-10 items-center gap-3 rounded-md px-3 py-1.5 text-[15px] transition focus-visible:outline-gold-300 ${
+                    className={`flex min-h-10 items-center gap-3 rounded-md px-3 py-1.5 text-[15px] transition lg:min-h-7 lg:py-0.5 lg:text-sm focus-visible:outline-gold-300 ${
                       active ? "bg-white/10 font-semibold text-white" : "text-indigo-200 hover:bg-white/5 hover:text-white"
                     }`}
                   >
@@ -148,7 +148,7 @@ export default function AppShell({ user, testTools, children }: { user: ShellUse
       {/* Desktop: a fixed ink sidebar. */}
       <aside className="hidden bg-ink lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col print:hidden">
         <div className="px-7 pt-6"><Wordmark /></div>
-        <nav aria-label="Main" className="min-h-0 flex-1 overflow-y-auto px-4 py-6"><NavLinks role={user.role} path={path} /></nav>
+        <nav aria-label="Main" className="min-h-0 flex-1 overflow-y-auto px-4 py-4 lg:py-3"><NavLinks role={user.role} path={path} /></nav>
         <div className="border-t border-white/15 px-7 py-4"><Who user={user} testTools={testTools} /></div>
       </aside>
       <main id="main" tabIndex={-1} className="mx-auto w-full max-w-4xl px-4 pb-[calc(2.5rem+env(safe-area-inset-bottom))] pt-8 outline-none sm:px-8 sm:pt-10 lg:max-w-5xl">{children}</main>
