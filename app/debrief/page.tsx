@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Card, ErrorBox, btnCls, inputCls } from "@/components/ui";
+import { Card, ErrorBox, Loading, btnCls, inputCls } from "@/components/ui";
 import { get, post } from "@/lib/client";
 
 type Week = { week: string; shifts: number; avg: number; draining: number };
@@ -12,19 +12,24 @@ export default function DebriefPage() {
   const [nudge, setNudge] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const load = () => get<{ weeks: Week[]; nudge: boolean }>("/api/debrief").then((j) => { setWeeks(j.weeks); setNudge(j.nudge); }).catch((e) => setError(e.message));
+  const load = () => get<{ weeks: Week[]; nudge: boolean }>("/api/debrief").then((j) => { setWeeks(j.weeks); setNudge(j.nudge); }).catch((e) => setError(e.message)).finally(() => setLoading(false));
   useEffect(() => { load(); }, []);
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setSaving(true);
     try {
       await post("/api/debrief", { drain, note });
       setDrain(0); setNote(""); setSaved(true);
       load();
     } catch (err) {
       setError((err as Error).message);
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -44,7 +49,7 @@ export default function DebriefPage() {
             <span className="text-slate-500">Draining</span>
           </div>
           <input className={inputCls} placeholder="One line: what stuck with you? (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
-          <button className={btnCls} disabled={!drain}>Save</button>
+          <button className={btnCls} disabled={!drain || saving}>{saving ? "Saving…" : "Save"}</button>
           {saved && <p className="text-slate-600">Saved. Thanks for checking in.</p>}
         </form>
       </Card>
@@ -55,8 +60,10 @@ export default function DebriefPage() {
         </p>
       )}
       <Card title="Your weeks">
-        {weeks.length === 0 ? (
-          <p className="text-sm text-slate-500">No debriefs yet.</p>
+        {loading ? (
+          <Loading />
+        ) : weeks.length === 0 ? (
+          error ? null : <p className="text-sm text-slate-500">No debriefs yet.</p>
         ) : (
           <table className="w-full text-sm">
             <thead><tr className="text-left text-slate-500"><th>Week of</th><th>Shifts</th><th>Average</th><th>Draining (4-5)</th></tr></thead>

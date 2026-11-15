@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Card, ErrorBox, btnCls, inputCls } from "@/components/ui";
+import { Card, ErrorBox, Loading, btnCls, inputCls } from "@/components/ui";
 import { get, post } from "@/lib/client";
 import { AI_POLICIES, type AiPolicy, type CoursePolicy } from "@/lib/types";
 
@@ -13,20 +13,25 @@ export default function PoliciesPage() {
   const [details, setDetails] = useState("");
   const [source, setSource] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const load = (text: string) =>
-    get<{ policies: CoursePolicy[] }>(`/api/policies?q=${encodeURIComponent(text)}`).then((j) => setList(j.policies)).catch((e) => setError(e.message));
+    get<{ policies: CoursePolicy[] }>(`/api/policies?q=${encodeURIComponent(text)}`).then((j) => { setError(null); setList(j.policies); }).catch((e) => setError(e.message)).finally(() => setLoading(false));
   useEffect(() => { load(q); }, [q]);
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setSaving(true);
     try {
       await post("/api/policies", { courseCode, professor, policy, details, source });
       setCourseCode(""); setProfessor(""); setPolicy("unknown"); setDetails(""); setSource("");
       load(q);
     } catch (err) {
       setError((err as Error).message);
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -52,14 +57,15 @@ export default function PoliciesPage() {
           </div>
           <textarea className={inputCls} rows={2} placeholder="Details (e.g. OK for brainstorming, must be disclosed)" value={details} onChange={(e) => setDetails(e.target.value)} />
           <input className={inputCls} placeholder="Source (e.g. syllabus, fall 2026)" value={source} onChange={(e) => setSource(e.target.value)} />
-          <button className={btnCls}>Save policy</button>
+          <button className={btnCls} disabled={saving}>{saving ? "Saving…" : "Save policy"}</button>
         </form>
       </Card>
       <ErrorBox error={error} />
       <Card title="Search">
         <input className={inputCls} placeholder="Search by course code or professor" value={q} onChange={(e) => setQ(e.target.value)} />
         <ul className="mt-3 space-y-2 text-sm">
-          {list.length === 0 && <li className="text-slate-500">No policies saved yet.</li>}
+          {loading && <li><Loading /></li>}
+          {!loading && !error && list.length === 0 && <li className="text-slate-500">No policies saved yet.</li>}
           {list.map((p) => (
             <li key={p.course_code} className="rounded bg-slate-50 p-2">
               <div className="flex items-start justify-between gap-2">

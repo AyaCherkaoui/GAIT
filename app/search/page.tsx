@@ -11,8 +11,9 @@ export default function SearchPage() {
   const [terms, setTerms] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [docsError, setDocsError] = useState<string | null>(null);
 
-  useEffect(() => { get<{ docs: number }>("/api/search").then((j) => setDocs(j.docs)).catch(() => {}); }, []);
+  useEffect(() => { get<{ docs: number }>("/api/search").then((j) => setDocs(j.docs)).catch(() => setDocsError("Couldn't load the index size.")); }, []);
 
   async function search(e: React.FormEvent) {
     e.preventDefault();
@@ -35,6 +36,7 @@ export default function SearchPage() {
       <PageHeader title="ARIA search">
         {docs === null ? "…" : docs === 0 ? "No ARIA files indexed yet: run npm run sync-aria." : `${docs} ARIA files indexed. Describe what you are looking for in your own words.`}
       </PageHeader>
+      <ErrorBox error={docsError} />
       <form onSubmit={search} className="flex gap-2">
         <input className={inputCls} placeholder="Describe it, e.g. a handout on integrating quotes for ESL students" value={q} onChange={(e) => setQ(e.target.value)} />
         <button className={btnCls} disabled={loading}>Search</button>

@@ -26,12 +26,17 @@ export default function SessionPage() {
   const [saveMsg, setSaveMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [savingPolicy, setSavingPolicy] = useState(false);
+  const [drafting, setDrafting] = useState(false);
   const [result, setResult] = useState<{ id: number; outputs: SessionOutputs } | null>(null);
   const [email, setEmail] = useState("");
 
   async function lookupPolicy() {
     const code = courseCode.trim();
     if (!code) return;
+    setError(null);
+    setChecking(true);
     try {
       const { policy } = await get<{ policy: CoursePolicy | null }>(`/api/policies?code=${encodeURIComponent(code)}`);
       // A policy picked up from a previous course must not carry over to one with nothing on file.
@@ -41,11 +46,15 @@ export default function SessionPage() {
       setPolicyChecked(true);
     } catch (err) {
       setError((err as Error).message);
+    } finally {
+      setChecking(false);
     }
   }
 
   async function savePolicy() {
     setSaveMsg("");
+    setError(null);
+    setSavingPolicy(true);
     try {
       const { policy } = await post<{ policy: CoursePolicy }>("/api/policies", {
         courseCode, policy: aiPolicy, source: "Checked with the student at a session",
@@ -53,19 +62,24 @@ export default function SessionPage() {
       setPolicyOnFile(policy);
       setSaveMsg(`Saved for ${policy.course_code}.`);
     } catch (err) {
-      setSaveMsg((err as Error).message);
+      setError((err as Error).message);
+    } finally {
+      setSavingPolicy(false);
     }
   }
 
   async function draftDirectorNote() {
     if (!result) return;
     setError(null);
+    setDrafting(true);
     try {
       const r = await post<{ note: string; concernWithheld?: boolean }>(`/api/session/${result.id}/director-note`, {});
       setDirectorNote(r.note);
       setConcernWithheld(!!r.concernWithheld);
     } catch (err) {
       setError((err as Error).message);
+    } finally {
+      setDrafting(false);
     }
   }
 
@@ -108,6 +122,7 @@ export default function SessionPage() {
             </select>
           </label>
         </div>
+        {checking && <p className="text-xs text-slate-600">Checking…</p>}
         {policyOnFile && (
           <p className="text-xs text-slate-600">
             On file for {policyOnFile.course_code}: {policyOnFile.policy}{policyOnFile.details ? `. ${policyOnFile.details}` : ""} You can change the policy above.
@@ -118,7 +133,7 @@ export default function SessionPage() {
             <p className="font-medium">No policy on file for {courseCode.trim().toUpperCase()}.</p>
             <p className="mt-1">Try this: &quot;Let&apos;s look at your syllabus together. Is there a section on AI or technology? What does it say about brainstorming, drafting, and editing? If it isn&apos;t there, ask your professor, and we can note what they say.&quot;</p>
             <div className="mt-2 flex items-center gap-2">
-              <button type="button" className="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-white" onClick={savePolicy}>Save the policy chosen above for this course</button>
+              <button type="button" className="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-white" disabled={savingPolicy} onClick={savePolicy}>{savingPolicy ? "Saving…" : "Save the policy chosen above for this course"}</button>
               {saveMsg && <span className="text-xs">{saveMsg}</span>}
             </div>
           </div>
@@ -188,7 +203,7 @@ export default function SessionPage() {
         <Card title="Private, tutor only">
           <div className="space-y-2 text-sm">
             <p className="whitespace-pre-wrap">{privateConcern.trim() || "No private concern noted."}</p>
-            <button type="button" className="rounded border border-slate-300 px-3 py-1 text-sm hover:bg-slate-100" onClick={draftDirectorNote}>Draft a note to the director</button>
+            <button type="button" className="rounded border border-slate-300 px-3 py-1 text-sm hover:bg-slate-100" disabled={drafting} onClick={draftDirectorNote}>{drafting ? "Drafting…" : "Draft a note to the director"}</button>
             {directorNote && (
               <>
                 <textarea className={inputCls} rows={8} value={directorNote} onChange={(e) => setDirectorNote(e.target.value)} />

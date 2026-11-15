@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Card, ErrorBox } from "@/components/ui";
+import { Card, ErrorBox, Loading } from "@/components/ui";
 import { get } from "@/lib/client";
 import type { ImpactWeek } from "@/lib/impact";
 
@@ -19,7 +19,9 @@ export default function ImpactPage() {
       </div>
       <ErrorBox error={error} />
       <Card title="By week">
-        {!weeks || weeks.length === 0 ? (
+        {!weeks ? (
+          error ? null : <Loading />
+        ) : weeks.length === 0 ? (
           <p className="text-sm text-slate-500">Nothing counted yet.</p>
         ) : (
           <div className="overflow-x-auto">

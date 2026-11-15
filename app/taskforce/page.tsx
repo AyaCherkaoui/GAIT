@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import CopyButton from "@/components/CopyButton";
-import { Card, ErrorBox, PageHeader, Working, btnCls, inputCls } from "@/components/ui";
+import { Card, ErrorBox, Loading, PageHeader, Working, btnCls, inputCls } from "@/components/ui";
 import { get, post } from "@/lib/client";
 import type { TaskRecord } from "@/lib/types";
 
@@ -12,8 +12,10 @@ export default function TaskForcePage() {
   const [openId, setOpenId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [listLoading, setListLoading] = useState(true);
+  const [listError, setListError] = useState<string | null>(null);
 
-  const load = () => get<{ tasks: TaskRecord[] }>("/api/taskforce").then((j) => setTasks(j.tasks)).catch(() => {});
+  const load = () => get<{ tasks: TaskRecord[] }>("/api/taskforce").then((j) => { setListError(null); setTasks(j.tasks); }).catch((e) => setListError((e as Error).message)).finally(() => setListLoading(false));
   useEffect(() => { load(); }, []);
 
   async function plan(e: React.FormEvent) {
@@ -43,6 +45,8 @@ export default function TaskForcePage() {
       </form>
       {loading && <Working label="Planning your task" />}
       <ErrorBox error={error} />
+      {listLoading && <Loading />}
+      <ErrorBox error={listError} />
       <div className="space-y-3">
         {tasks.map((t) => (
           <Card key={t.id} title={t.title || "Untitled task"} actions={
