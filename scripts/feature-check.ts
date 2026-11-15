@@ -112,7 +112,7 @@ async function main() {
 
   const log = fs.openSync(path.join(dir, "server.log"), "w");
   const server = spawn("npx", ["next", "dev", "-p", String(PORT), ...(process.env.GAIT_DEV_ARGS?.split(" ").filter(Boolean) ?? [])], {
-    stdio: ["ignore", log, log], detached: true, env: { ...process.env, GAIT_DIST_DIR: ".next-feature" },
+    stdio: ["ignore", log, log], detached: true, env: { ...process.env, GAIT_DIST_DIR: ".next-feature", GAIT_TEST_TOOLS: "0" },
   });
   const stop = () => {
     try {
