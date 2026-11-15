@@ -15,10 +15,10 @@ export default function ProviderStatus() {
       .then(setS)
       .catch(() => setS({ provider: null, unavailable: true }));
   }, []);
-  if (!s) return null;
+  if (!s) return <span role="status" aria-busy="true" className="w-full text-xs text-stone-500 sm:w-auto sm:min-w-[16rem]">AI: checking…</span>;
   const text = s.unavailable ? "AI: status unavailable" : s.model ? `AI: ${s.label} · ${s.model}` : `AI: ${s.note ?? "not set up"}`;
   return (
-    <span className={`text-xs ${s.model ? "text-stone-500" : "text-amber-700"}`} title="Set GAIT_PROVIDER in .env.local to change it">
+    <span role={s.unavailable ? "alert" : undefined} className={`w-full text-xs sm:w-auto sm:min-w-[16rem] ${s.model ? "text-stone-500" : "text-amber-700"}`} title="Set GAIT_PROVIDER in .env.local to change it">
       {text}
     </span>
   );
