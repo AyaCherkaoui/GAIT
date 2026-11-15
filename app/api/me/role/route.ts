@@ -1,6 +1,7 @@
 import { handle, HttpError, readJson } from "@/lib/api";
 import { UserFacingError } from "@/lib/claude";
 import { getDb } from "@/lib/db";
+import { testToolsOn } from "@/lib/test-tools";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,15 @@ export async function POST(req: Request) {
       .prepare("UPDATE users SET onboarded = 1, requested_role = ? WHERE id = ? AND onboarded = 0")
       .run(role === "student" ? null : role, user.id);
     if (!info.changes) throw new HttpError(409, "You already chose how to use GAIT.");
+    // Testing only: the chosen role takes effect at once, so every view can be tried without the director approving it.
+    if (testToolsOn() && role !== "student") {
+      getDb()
+        .prepare(
+          `INSERT INTO allowed_users (email, name, role, active) VALUES (?, ?, ?, 1)
+           ON CONFLICT(email) DO UPDATE SET role = excluded.role, active = 1`,
+        )
+        .run(user.email.toLowerCase(), user.name, role);
+    }
     return { ok: true };
   }, { tutee: true });
 }

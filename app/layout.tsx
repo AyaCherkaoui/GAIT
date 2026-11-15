@@ -19,7 +19,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en" className={`${figtree.variable} ${newsreader.variable}`}>
       <body>
         {user ? (
-          <AppShell user={{ name: user.name, email: user.email, picture: user.picture, role: user.role }}>{children}</AppShell>
+          <AppShell user={{ name: user.name, email: user.email, picture: user.picture, role: user.role }} testTools={process.env.GAIT_TEST_TOOLS === "1"}>{children}</AppShell>
         ) : (
           children
         )}

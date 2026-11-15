@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import ProviderStatus from "@/components/ProviderStatus";
+import { post } from "@/lib/client";
 
 type Role = "director" | "tutor" | "tutee";
 type ShellUser = { name: string | null; email: string; picture: string | null; role: Role };
@@ -60,7 +61,29 @@ function NavLinks({ role, path, onGo }: { role: Role; path: string; onGo?: () =>
   );
 }
 
-function Who({ user }: { user: ShellUser }) {
+function ResetRole() {
+  const [busy, setBusy] = useState(false);
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      onClick={async () => {
+        setBusy(true);
+        try {
+          await post("/api/me/reset", {});
+          window.location.assign("/welcome");
+        } catch {
+          setBusy(false);
+        }
+      }}
+      className="block min-h-10 text-sm text-gold-300 underline decoration-gold-300/50 underline-offset-4 hover:text-white"
+    >
+      {busy ? "Resetting…" : "Reset role (testing)"}
+    </button>
+  );
+}
+
+function Who({ user, testTools }: { user: ShellUser; testTools?: boolean }) {
   return (
     <div className="space-y-3">
       {user.role !== "tutee" && <ProviderStatus />}
@@ -68,6 +91,7 @@ function Who({ user }: { user: ShellUser }) {
         <p className="truncate text-sm font-semibold text-white">{user.name || user.email}</p>
         <p className="text-xs text-gold-300">{ROLE_LABEL[user.role]}</p>
       </div>
+      {testTools && <ResetRole />}
       <form method="post" action="/api/auth/logout">
         <button type="submit" className="min-h-10 text-sm text-indigo-200 underline decoration-indigo-400 underline-offset-4 hover:text-white">
           Sign out
@@ -77,7 +101,7 @@ function Who({ user }: { user: ShellUser }) {
   );
 }
 
-export default function AppShell({ user, children }: { user: ShellUser; children: ReactNode }) {
+export default function AppShell({ user, testTools, children }: { user: ShellUser; testTools?: boolean; children: ReactNode }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
   useEffect(() => setOpen(false), [path]);
@@ -104,7 +128,7 @@ export default function AppShell({ user, children }: { user: ShellUser; children
       {open && (
         <div id="mobile-nav" className="z-20 space-y-5 bg-ink px-4 pb-5 pt-1 lg:hidden print:hidden">
           <NavLinks role={user.role} path={path} onGo={() => setOpen(false)} />
-          <div className="border-t border-white/15 pt-4"><Who user={user} /></div>
+          <div className="border-t border-white/15 pt-4"><Who user={user} testTools={testTools} /></div>
         </div>
       )}
       {/* Desktop: a fixed ink sidebar. */}
@@ -113,7 +137,7 @@ export default function AppShell({ user, children }: { user: ShellUser; children
           <div className="px-3"><Wordmark /></div>
           <nav aria-label="Main"><NavLinks role={user.role} path={path} /></nav>
         </div>
-        <div className="border-t border-white/15 px-3 pt-4"><Who user={user} /></div>
+        <div className="border-t border-white/15 px-3 pt-4"><Who user={user} testTools={testTools} /></div>
       </aside>
       <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-8 sm:py-10 lg:max-w-5xl">{children}</main>
     </div>
