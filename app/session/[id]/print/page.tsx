@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { getUser } from "@/lib/auth";
 import { getSession } from "@/lib/sessions";
 import PrintButton from "./PrintButton";
+import { fmtDate } from "@/components/format";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export default async function PrintPage({ params }: { params: Promise<{ id: stri
       <div className="flex items-start justify-between">
         <div>
           <h1 className="font-display text-2xl font-semibold">Your next steps{s.student_name ? `, ${s.student_name}` : ""}</h1>
-          <p className="text-stone-700">Reading/Writing Center · {s.course} · {s.created_at.slice(0, 10)}</p>
+          <p className="text-stone-700">Reading/Writing Center · {s.course} · {fmtDate(s.created_at)}</p>
         </div>
         <PrintButton />
       </div>

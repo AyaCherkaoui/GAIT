@@ -3,6 +3,7 @@ import Link from "next/link";
 import { use, useEffect, useState } from "react";
 import CopyButton from "@/components/CopyButton";
 import { ErrorBox, PageHeader, Working, btn2Cls, btnCls, inputCls, labelCls } from "@/components/ui";
+import { fmtDate } from "@/components/format";
 import { get, post } from "@/lib/client";
 import type { Reflection, SessionRecord } from "@/lib/types";
 
@@ -70,7 +71,7 @@ export default function SessionDetail({ params }: { params: Promise<{ id: string
   const o = session.outputs;
   return (
     <div className="space-y-8">
-      <PageHeader title={`${session.student_name || "Student"} · ${session.course || "no course"}`}>{session.created_at}</PageHeader>
+      <PageHeader title={`${session.student_name || "Student"} · ${session.course || "no course"}`}>{fmtDate(session.created_at)}</PageHeader>
       <ErrorBox error={error} />
 
       <section aria-labelledby="refl" className="space-y-4">

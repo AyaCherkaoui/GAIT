@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Chip, Empty } from "@/components/ui";
+import { fmtDate } from "@/components/format";
 import { getUser, type Role } from "@/lib/auth";
 import { listSessions } from "@/lib/sessions";
 
@@ -61,7 +62,7 @@ function StaffHome({ role, userId }: { role: Role; userId: number }) {
       <section aria-labelledby="recent">
         <div className="mb-3 flex items-baseline justify-between">
           <h2 id="recent" className="font-display text-2xl font-semibold text-ink">Recent sessions</h2>
-          <Link href="/history" className="text-sm font-medium text-indigo-700 underline underline-offset-4">All history</Link>
+          <Link href="/history" className="inline-flex min-h-10 items-center text-sm font-medium text-indigo-700 underline underline-offset-4">All history</Link>
         </div>
         {recent.length === 0 ? (
           <Empty title="No sessions yet">Write one up after your next appointment and it will show here.</Empty>
@@ -71,7 +72,7 @@ function StaffHome({ role, userId }: { role: Role; userId: number }) {
               <li key={s.id}>
                 <Link href={`/session/${s.id}`} className="flex flex-wrap items-baseline justify-between gap-x-4 px-5 py-3.5 hover:bg-stone-50">
                   <span className="font-semibold text-ink">{s.student_name || "Student"} <span className="font-normal text-stone-600">in {s.course || "no course"}</span></span>
-                  <span className="text-sm text-stone-500">{s.created_at}{s.reflection ? "" : " · no reflection yet"}</span>
+                  <span className="shrink-0 text-sm text-stone-600">{fmtDate(s.created_at)}{s.reflection ? "" : " · no reflection yet"}</span>
                 </Link>
               </li>
             ))}

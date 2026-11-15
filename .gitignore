@@ -11,3 +11,5 @@ gait.db*
 .next-feature/
 .feature-shots/
 .playwright-mcp/
+.qa-shots/
+.next-qa/

@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Empty, PageHeader } from "@/components/ui";
+import { fmtDate } from "@/components/format";
 import { get } from "@/lib/client";
 import type { QuizResult, SessionSummary } from "@/lib/types";
 
@@ -28,16 +29,16 @@ export default function HistoryPage() {
             {sessions.map((s) => (
               <li key={s.id}>
                 <Link className="block min-h-10 px-5 py-3.5 hover:bg-stone-50" href={`/session/${s.id}`}>
-                  <span className="flex flex-wrap items-baseline justify-between gap-x-4">
-                    <span className="font-semibold text-ink">{s.student_name || "Student"} <span className="font-normal text-stone-600">in {s.course || "no course"}</span></span>
-                    <span className="text-sm text-stone-500">{s.created_at}</span>
+                  <span className="flex items-baseline justify-between gap-4">
+                    <span className="min-w-0 font-semibold text-ink">{s.student_name || "Student"} <span className="font-normal text-stone-600">in {s.course || "no course"}</span></span>
+                    <span className="shrink-0 whitespace-nowrap text-sm text-stone-600">{fmtDate(s.created_at)}</span>
                   </span>
                   {s.reflection ? (
                     <span className="mt-1 block max-w-prose text-sm text-stone-600">
                       {s.reflection.goalNextTime ? `Goal next time: ${s.reflection.goalNextTime}` : s.reflection.learned ? `Learned: ${s.reflection.learned}` : "Reflection saved."}
                     </span>
                   ) : (
-                    <span className="mt-1 block text-sm text-stone-500">No reflection yet</span>
+                    <span className="mt-1 block text-sm text-stone-600">No reflection yet</span>
                   )}
                 </Link>
               </li>
@@ -55,7 +56,7 @@ export default function HistoryPage() {
             {quizzes.map((q) => (
               <li key={q.id} className="flex flex-wrap items-baseline justify-between gap-x-4 px-5 py-3">
                 <span><span className="font-semibold text-ink">{q.score}/{q.total}</span> <span className="text-stone-700">{q.topic}</span></span>
-                <span className="text-stone-500">{q.created_at}</span>
+                <span className="shrink-0 whitespace-nowrap text-stone-600">{fmtDate(q.created_at)}</span>
               </li>
             ))}
           </ul>

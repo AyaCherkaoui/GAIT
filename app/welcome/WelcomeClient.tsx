@@ -33,6 +33,7 @@ export default function WelcomeClient() {
       <p className="font-display text-2xl font-semibold tracking-tight text-ink">GAIT<span className="text-gold-400">.</span></p>
       <fieldset className="space-y-4">
         <legend className="font-display text-3xl font-semibold tracking-tight text-ink sm:text-4xl">How will you use GAIT?</legend>
+        <p className="max-w-prose text-stone-700">Pick the one that fits. You will see the matching tools right after you continue.</p>
         <div className="grid gap-3 pt-2 sm:grid-cols-3">
           {OPTIONS.map((o) => {
             const on = choice === o.value;
@@ -49,7 +50,7 @@ export default function WelcomeClient() {
                   <span className="font-display text-2xl font-semibold text-ink">{o.title}</span>
                 </span>
                 <span className="mt-2 text-stone-700">{o.text}</span>
-                {o.value !== "student" && <span className="mt-3 text-sm text-stone-500">The director confirms this. Until then you see the student guide.</span>}
+                {o.value !== "student" && <span className="mt-3 text-sm text-stone-600">The director confirms this. Until then you see the student guide.</span>}
               </label>
             );
           })}

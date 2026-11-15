@@ -24,7 +24,7 @@ const ROLE_LABEL: Record<Role, string> = { director: "Director", tutor: "Tutor",
 
 function Wordmark() {
   return (
-    <Link href="/" className="font-display text-2xl font-semibold tracking-tight text-white">
+    <Link href="/" className="font-display inline-flex min-h-10 items-center text-2xl font-semibold tracking-tight text-white">
       GAIT<span className="text-gold-300">.</span>
     </Link>
   );
@@ -41,7 +41,7 @@ function NavLinks({ role, path, onGo }: { role: Role; path: string; onGo?: () =>
               href={href}
               onClick={onGo}
               aria-current={active ? "page" : undefined}
-              className={`flex items-center gap-3 rounded-md px-3 py-2 text-[15px] transition ${
+              className={`flex min-h-11 items-center gap-3 rounded-md px-3 py-2 text-[15px] transition ${
                 active ? "bg-white/10 font-semibold text-white" : "text-indigo-200 hover:bg-white/5 hover:text-white"
               }`}
             >
@@ -63,7 +63,7 @@ function Who({ user }: { user: ShellUser }) {
         <p className="text-xs text-gold-300">{ROLE_LABEL[user.role]}</p>
       </div>
       <form method="post" action="/api/auth/logout">
-        <button type="submit" className="text-sm text-indigo-200 underline decoration-indigo-400 underline-offset-4 hover:text-white">
+        <button type="submit" className="min-h-10 text-sm text-indigo-200 underline decoration-indigo-400 underline-offset-4 hover:text-white">
           Sign out
         </button>
       </form>
@@ -90,7 +90,7 @@ export default function AppShell({ user, children }: { user: ShellUser; children
           aria-expanded={open}
           aria-controls="mobile-nav"
           onClick={() => setOpen((o) => !o)}
-          className="rounded-md border border-white/25 px-3 py-1.5 text-sm font-medium text-white"
+          className="min-h-10 rounded-md border border-white/25 px-4 text-sm font-medium text-white hover:bg-white/10"
         >
           {open ? "Close" : "Menu"}
         </button>

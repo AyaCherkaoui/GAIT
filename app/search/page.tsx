@@ -50,7 +50,7 @@ export default function SearchPage() {
         <ul className="divide-y divide-stone-200 rounded-lg border border-stone-200 bg-white">
           {hits.map((h) => (
             <li key={h.driveId} className="px-5 py-4 sm:px-6">
-              <a href={h.url} target="_blank" rel="noreferrer" className="inline-block break-words font-display text-lg font-semibold text-ink underline decoration-gold-400 decoration-2 underline-offset-4 hover:text-indigo-700">{h.name}</a>
+              <a href={h.url} target="_blank" rel="noreferrer" className="inline-block break-words py-1.5 font-display text-lg font-semibold text-ink underline decoration-gold-400 decoration-2 underline-offset-4 hover:text-indigo-700">{h.name}</a>
               {h.snippet && <p className="mt-1 max-w-prose text-[15px] text-stone-800">{h.snippet}</p>}
               {h.reason && <p className="mt-1 max-w-prose text-sm italic text-stone-600">Why it matches: {h.reason}</p>}
             </li>

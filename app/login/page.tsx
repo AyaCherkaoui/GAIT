@@ -38,7 +38,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             Turn session notes into next steps a student can act on, and use AI to teach, never to ghostwrite.
           </p>
         </div>
-        <p className="text-sm text-indigo-200">Augustana College Reading/Writing Center</p>
+        <p className="text-sm text-indigo-100">Augustana College Reading/Writing Center</p>
       </section>
 
       <section className="flex items-center px-6 py-12 sm:px-12">
@@ -55,7 +55,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             <GoogleG />
             Continue with Google
           </a>
-          <p className="mt-5 text-sm text-stone-500">We only read your name and email. Nothing is posted to your account.</p>
+          <p className="mt-5 text-sm text-stone-700">We only read your name and email. Nothing is posted to your account.</p>
         </div>
       </section>
     </div>

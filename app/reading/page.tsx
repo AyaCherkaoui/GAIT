@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Empty, PageHeader, Working } from "@/components/ui";
+import { fmtDate } from "@/components/format";
 import { get } from "@/lib/client";
 import type { Book, FeedItem } from "@/lib/types";
 
@@ -30,7 +31,7 @@ export default function ReadingPage() {
             <ul className="divide-y divide-stone-200">
               {items.map((i) => (
                 <li key={i.url} className="py-3 first:pt-0 last:pb-0">
-                  <a className={`${linkCls} inline-block py-1 text-[15px] font-medium`} href={i.url} target="_blank" rel="noreferrer">{i.title}</a>
+                  <a className={`${linkCls} inline-block py-2.5 text-[15px] font-medium`} href={i.url} target="_blank" rel="noreferrer">{i.title}</a>
                   <p className="text-sm text-stone-600">{i.source}{i.date ? ` · ${i.date}` : ""}</p>
                 </li>
               ))}
@@ -46,7 +47,7 @@ export default function ReadingPage() {
             <li key={b.title} className="py-4 first:pt-0 last:pb-0">
               <p className="font-display text-lg font-semibold text-ink">
                 {b.url ? (
-                  <a className={`${linkCls} inline-block py-1`} href={b.url} target="_blank" rel="noreferrer">{b.title}</a>
+                  <a className={`${linkCls} inline-block py-2.5`} href={b.url} target="_blank" rel="noreferrer">{b.title}</a>
                 ) : (
                   b.title
                 )}
