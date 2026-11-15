@@ -3,17 +3,36 @@ import { redirect } from "next/navigation";
 import { Chip, Empty } from "@/components/ui";
 import { fmtDate } from "@/components/format";
 import { getUser, type Role } from "@/lib/auth";
+import { getDb } from "@/lib/db";
 import { listSessions } from "@/lib/sessions";
 
 export const dynamic = "force-dynamic";
 
-const TOOLS = [
-  ["/history", "History", "Past sessions, your reflections and quiz scores."],
-  ["/search", "ARIA search", "Describe what you need and find the right ARIA file."],
-  ["/taskforce", "Task force", "Turn an assignment into steps, an outline and questions."],
-  ["/practice", "Practice", "Role-play a tricky student, or take a 5-question refresher."],
-  ["/reading", "Reading", "Articles and books to keep growing as a tutor."],
+const QUICK = [
+  ["/search", "Search ARIA", "Find the right handout."],
+  ["/practice", "Practice", "Role-play or take a refresher."],
+  ["/taskforce", "Task force", "Turn a task into steps."],
 ] as const;
+
+const TIPS = [
+  "Start by asking what the student wants to leave with today.",
+  "Ask one open question, then wait. The silence is the student thinking.",
+  "Have the student read their own draft aloud before you comment.",
+  "Praise something specific the student did, not the paper in general.",
+  "Point out one pattern, not every error. The student fixes the rest.",
+  "End by asking the student to say their next step in their own words.",
+  "When a student asks you to fix it, ask what they think is wrong first.",
+] as const;
+
+function tipOfTheDay() {
+  const day = Math.floor(Date.now() / 86_400_000);
+  return TIPS[day % TIPS.length];
+}
+
+function pendingRequests(): number {
+  const row = getDb().prepare("SELECT COUNT(*) AS n FROM users WHERE requested_role IS NOT NULL").get() as { n: number };
+  return row.n;
+}
 
 function greeting() {
   const h = new Date().getHours();
@@ -23,7 +42,7 @@ function greeting() {
 function Hero({ role, name }: { role: Role; name: string }) {
   const line = {
     director: "Keep the tutor list current, then see how sessions are going.",
-    tutor: "Write up your last session, or sharpen a skill before the next one.",
+    tutor: "Log your last session, or sharpen a skill before the next one.",
     tutee: "Use AI to learn writing, not to skip it.",
   }[role];
   return (
@@ -38,25 +57,38 @@ function Hero({ role, name }: { role: Role; name: string }) {
 }
 
 function StaffHome({ role, userId }: { role: Role; userId: number }) {
-  const recent = listSessions(userId).slice(0, 3);
+  const all = listSessions(userId);
+  const recent = all.slice(0, 3);
+  const resume = all.find((s) => !s.reflection);
+  const waiting = role === "director" ? pendingRequests() : 0;
   return (
     <div className="space-y-10 pt-10">
+      {role === "director" && (
+        <Link href="/admin/tutors" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gold-300 bg-gold-50 p-4 transition hover:border-gold-400">
+          <p className="text-stone-800">
+            <span className="font-semibold text-ink">{waiting === 0 ? "No requests waiting" : `${waiting} ${waiting === 1 ? "request" : "requests"} waiting`}</span>
+            {waiting === 0 ? ". Manage the tutor list." : " for your approval."}
+          </p>
+          <span className="text-sm font-semibold text-ink underline underline-offset-4">Open tutor list</span>
+        </Link>
+      )}
+
       <Link href="/session" className="group flex flex-wrap items-center justify-between gap-4 rounded-lg bg-ink p-6 text-white transition hover:bg-indigo-800 sm:p-8">
         <div className="max-w-lg">
-          <h2 className="font-display text-3xl font-semibold">After session</h2>
+          <h2 className="font-display text-3xl font-semibold">Log a session</h2>
           <p className="mt-1.5 text-indigo-100">Paste your notes. Get a follow-up email, printable next steps and AI prompts that coach the student instead of writing for them.</p>
         </div>
-        <span className="rounded-md bg-gold-300 px-4 py-2.5 text-sm font-bold text-ink transition group-hover:bg-gold-400">Write up a session</span>
+        <span className="rounded-md bg-gold-300 px-4 py-2.5 text-sm font-bold text-ink transition group-hover:bg-gold-400">Log a session</span>
       </Link>
 
-      {role === "director" && (
-        <Link href="/admin/tutors" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gold-300 bg-gold-50 p-5 transition hover:border-gold-400">
-          <div>
-            <h2 className="font-display text-xl font-semibold text-ink">Tutor list</h2>
-            <p className="text-sm text-stone-700">Add this semester’s tutors and deactivate those who have left.</p>
-          </div>
-          <span className="text-sm font-semibold text-ink underline underline-offset-4">Manage tutors</span>
-        </Link>
+      {resume && (
+        <section aria-labelledby="resume">
+          <h2 id="resume" className="mb-3 font-display text-2xl font-semibold text-ink">Pick up where you left off</h2>
+          <Link href={`/session/${resume.id}`} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 rounded-lg border border-gold-300/70 bg-gold-50 px-5 py-4 hover:border-gold-400">
+            <span className="font-semibold text-ink">{resume.student_name || "Student"} <span className="font-normal text-stone-700">in {resume.course || "no course"}</span></span>
+            <span className="text-sm text-stone-700">{fmtDate(resume.created_at)} · add your reflection</span>
+          </Link>
+        </section>
       )}
 
       <section aria-labelledby="recent">
@@ -65,14 +97,18 @@ function StaffHome({ role, userId }: { role: Role; userId: number }) {
           <Link href="/history" className="inline-flex min-h-10 items-center text-sm font-medium text-indigo-700 underline underline-offset-4">All history</Link>
         </div>
         {recent.length === 0 ? (
-          <Empty title="No sessions yet">Write one up after your next appointment and it will show here.</Empty>
+          <Empty title="No sessions yet">Start with “Log a session” after your next appointment. It will show here.</Empty>
         ) : (
-          <ul className="divide-y divide-stone-200 rounded-lg border border-stone-200 bg-white">
+          <ul className="grid gap-3 sm:grid-cols-3">
             {recent.map((s) => (
               <li key={s.id}>
-                <Link href={`/session/${s.id}`} className="flex flex-wrap items-baseline justify-between gap-x-4 px-5 py-3.5 hover:bg-stone-50">
-                  <span className="font-semibold text-ink">{s.student_name || "Student"} <span className="font-normal text-stone-600">in {s.course || "no course"}</span></span>
-                  <span className="shrink-0 text-sm text-stone-600">{fmtDate(s.created_at)}{s.reflection ? "" : " · no reflection yet"}</span>
+                <Link href={`/session/${s.id}`} className="block h-full rounded-lg border border-stone-200 bg-white p-4 hover:border-stone-400">
+                  <span className="block font-semibold text-ink">{s.student_name || "Student"}</span>
+                  <span className="block text-sm text-stone-600">{s.course || "no course"}</span>
+                  <span className="mt-2 flex flex-wrap items-center gap-2 text-sm text-stone-600">
+                    {fmtDate(s.created_at)}
+                    <Chip tone={s.reflection ? "plain" : "gold"}>{s.reflection ? "Reflected" : "Needs reflection"}</Chip>
+                  </span>
                 </Link>
               </li>
             ))}
@@ -80,10 +116,10 @@ function StaffHome({ role, userId }: { role: Role; userId: number }) {
         )}
       </section>
 
-      <section aria-labelledby="tools">
-        <h2 id="tools" className="mb-3 font-display text-2xl font-semibold text-ink">Tools</h2>
-        <ul className="grid gap-x-8 sm:grid-cols-2">
-          {TOOLS.map(([href, title, text]) => (
+      <section aria-labelledby="quick">
+        <h2 id="quick" className="mb-3 font-display text-2xl font-semibold text-ink">Quick actions</h2>
+        <ul className="grid gap-x-8 sm:grid-cols-3">
+          {QUICK.map(([href, title, text]) => (
             <li key={href} className="border-t border-stone-200">
               <Link href={href} className="group block py-4">
                 <span className="font-semibold text-ink group-hover:underline group-hover:decoration-gold-400 group-hover:decoration-2 group-hover:underline-offset-4">{title}</span>
@@ -93,6 +129,8 @@ function StaffHome({ role, userId }: { role: Role; userId: number }) {
           ))}
         </ul>
       </section>
+
+      <p className="border-l-4 border-gold-300 pl-4 text-stone-700"><span className="font-semibold text-ink">Coaching tip.</span> {tipOfTheDay()}</p>
     </div>
   );
 }
