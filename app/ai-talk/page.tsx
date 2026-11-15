@@ -1,15 +1,22 @@
 "use client";
 import { useState } from "react";
 import CopyButton from "@/components/CopyButton";
-import { Card, ErrorBox, PageHeader, Working, btnCls, inputCls, labelCls } from "@/components/ui";
+import { Card, Chip, ErrorBox, PageHeader, Working, btnCls, inputCls, labelCls, submitOnCmdEnter } from "@/components/ui";
 import { post } from "@/lib/client";
 import { TALK_SCENARIOS } from "@/lib/ai-talk";
 
-function List({ title, items }: { title: string; items: string[] }) {
+function List({ title, items, copy }: { title: string; items: string[]; copy?: boolean }) {
   return (
     <section>
       <h3 className="font-display text-lg font-semibold text-ink">{title}</h3>
-      <ul className="mt-1.5 max-w-prose list-disc space-y-1.5 pl-6 text-[15px] marker:text-gold-600">{items.map((x, i) => <li key={i}>{x}</li>)}</ul>
+      <ul className="mt-1.5 max-w-prose space-y-2 text-[15px]">
+        {items.map((x, i) => (
+          <li key={i} className="flex items-start justify-between gap-3 rounded-md border border-stone-200 bg-white px-3 py-2">
+            <span className="min-w-0 break-words">{x}</span>
+            {copy && <span className="shrink-0"><CopyButton text={x} /></span>}
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
@@ -45,28 +52,28 @@ function Scripts() {
       <Card title={s.label}>
         <div className="space-y-5">
           <p className="max-w-prose text-[15px] text-stone-700">{s.intro}</p>
-          <List title="Openers" items={s.openers} />
-          <List title="Follow-ups" items={s.followUps} />
+          <List title="Openers" items={s.openers} copy />
+          <List title="Follow-ups" items={s.followUps} copy />
           <List title="What not to say" items={s.dontSay} />
-          <List title="Steer back to coaching" items={s.steerBack} />
+          <List title="Steer back to coaching" items={s.steerBack} copy />
         </div>
       </Card>
       <Card title="Tailor the wording">
-        <div className="space-y-3">
+        <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); tailor(); }}>
           <div>
             <label htmlFor="talk-context" className={labelCls}>Context (optional)</label>
-            <textarea id="talk-context" className={inputCls} rows={3} placeholder="Course, what the student said, how the session is going. No full names." value={context} onChange={(e) => setContext(e.target.value)} />
+            <textarea id="talk-context" className={inputCls} rows={3} placeholder="Course, what the student said, how the session is going. No full names." value={context} onChange={(e) => setContext(e.target.value)} onKeyDown={submitOnCmdEnter} />
           </div>
-          <button className={`${btnCls} min-h-11`} disabled={loading} onClick={tailor}>Tailor it</button>
+          <button className={`${btnCls} min-h-11`} disabled={loading}>Tailor it</button>
           {loading && <Working label="Tailoring the wording" />}
           <ErrorBox error={error} />
           {tailored && (
             <div className="space-y-4 pt-2">
-              <List title="Tailored openers" items={tailored.openers} />
-              <List title="Next moves" items={tailored.steps} />
+              <List title="Tailored openers" items={tailored.openers} copy />
+              <List title="Next moves" items={tailored.steps} copy />
             </div>
           )}
-        </div>
+        </form>
       </Card>
     </div>
   );
@@ -99,7 +106,7 @@ function Ownership() {
         <p className="max-w-prose text-[15px] text-stone-700">Paste a paragraph. You get questions only, which help the writer explain their claim, evidence and word choices. The text is not saved.</p>
         <div>
           <label htmlFor="own-text" className={labelCls}>Paragraph</label>
-          <textarea id="own-text" className={inputCls} rows={6} placeholder="Paste one paragraph" value={text} onChange={(e) => setText(e.target.value)} />
+          <textarea id="own-text" className={inputCls} rows={6} placeholder="Paste one paragraph" value={text} onChange={(e) => setText(e.target.value)} onKeyDown={submitOnCmdEnter} />
         </div>
         <div>
           <label htmlFor="own-disc" className={labelCls}>Discipline (optional)</label>
@@ -127,6 +134,7 @@ export default function AiTalkPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="AI talk">Curious, never accusing. Ink does not detect AI and does not judge who wrote a text.</PageHeader>
+      <p className="text-sm text-stone-800"><Chip tone="gold">Draft: director to confirm</Chip> <span className="ml-1">These scripts are a starting point. Check them with the director before relying on them.</span></p>
       <div className="flex flex-wrap gap-2" role="group" aria-label="Tools">
         <button type="button" aria-pressed={tab === "scripts"} className={tabCls("scripts")} onClick={() => setTab("scripts")}>Script bank</button>
         <button type="button" aria-pressed={tab === "ownership"} className={tabCls("ownership")} onClick={() => setTab("ownership")}>Ownership questions</button>
