@@ -275,7 +275,18 @@ async function main() {
                   if (el.closest("p, li > span, .prose")) continue; // links inside running text
                   if (r.height < 40 && !(el instanceof HTMLAnchorElement && cs.display === "inline")) small.push(`${el.tagName.toLowerCase()} "${(el.textContent || "").trim().slice(0, 24)}" ${Math.round(r.height)}px`);
                 }
-                return { scroll: document.documentElement.scrollWidth, inner: window.innerWidth, overlay, small };
+                // Something sitting on top of a link or button makes it unclickable: look at what is on top at its centre.
+                const blocked: string[] = [];
+                for (const el of document.querySelectorAll("a[href], button, select, input, textarea, summary")) {
+                  const r = el.getBoundingClientRect();
+                  if (!r.width || !r.height || getComputedStyle(el).visibility === "hidden" || (el as HTMLButtonElement).disabled || el.classList.contains("sr-only")) continue;
+                  if (el instanceof HTMLInputElement && (el.type === "radio" || el.type === "checkbox" || el.type === "hidden")) continue;
+                  const x = r.left + r.width / 2, y = r.top + Math.min(r.height / 2, 20);
+                  if (x < 0 || y < 0 || x > innerWidth || y > innerHeight) continue;
+                  const top = document.elementFromPoint(x, y);
+                  if (top && top !== el && !el.contains(top) && !top.contains(el)) blocked.push(`${(el.textContent || el.tagName).trim().slice(0, 24)} under ${top.tagName.toLowerCase()}`);
+                }
+                return { scroll: document.documentElement.scrollWidth, inner: window.innerWidth, overlay, small, blocked };
               });
             await snap("page");
             const m = await measure();
@@ -292,6 +303,7 @@ async function main() {
               m.small.push(...after.small);
             }
             if (w === 390 && !view.path.endsWith("/print")) check(`${label}: tap targets 40px or taller`, m.small.length === 0, [...new Set(m.small)].slice(0, 6).join("; "));
+            check(`${label}: nothing covers a link or button`, m.blocked.length === 0, [...new Set(m.blocked)].slice(0, 4).join("; "));
             check(`${label}: no console errors`, errors.length === 0, errors.slice(0, 3).join(" | "));
           } catch (e) {
             check(label, false, (e as Error).message.split("\n")[0]);
