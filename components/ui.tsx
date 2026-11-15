@@ -80,3 +80,11 @@ export const btnCls =
 export const btn2Cls =
   "inline-flex items-center justify-center gap-2 rounded-md border border-stone-300 bg-white px-3.5 py-2.5 text-sm font-medium text-stone-800 transition hover:border-stone-400 hover:bg-stone-100 disabled:opacity-50 disabled:pointer-events-none";
 export const labelCls = "mb-1 block text-sm font-semibold text-stone-800";
+
+/** onKeyDown for a textarea or input: Ctrl/Cmd+Enter submits the form it is in. */
+export function submitOnCmdEnter(e: React.KeyboardEvent<HTMLElement>) {
+  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+    e.preventDefault();
+    (e.currentTarget as HTMLInputElement).form?.requestSubmit();
+  }
+}
