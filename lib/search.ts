@@ -1,6 +1,7 @@
 import { getDb } from "./db";
 import { askJson } from "./claude";
 import type { Hit } from "./types";
+import { semanticSearch } from "./aria-embed";
 
 export function docCount(): number {
   const row = getDb().prepare("SELECT count(*) AS n FROM aria_docs").get() as { n: number };
@@ -34,8 +35,21 @@ export function keywordSearch(terms: string[], limit = 25): Hit[] {
 }
 
 /** Claude expands the question, the index finds candidates, Claude picks the best few. */
-export async function smartSearch(question: string): Promise<{ hits: Hit[]; terms: string[]; indexEmpty: boolean }> {
-  if (docCount() === 0) return { hits: [], terms: [], indexEmpty: true };
+/** Files by id, with a short opening passage, for meaning matches that keyword search did not find. */
+function docsById(ids: string[]): Map<string, Hit> {
+  const get = getDb().prepare("SELECT drive_id, name, url, substr(text, 1, 400) AS t FROM aria_docs WHERE drive_id = ?");
+  const out = new Map<string, Hit>();
+  for (const id of ids) {
+    const r = get.get(id) as { drive_id: string; name: string; url: string; t: string } | undefined;
+    if (r) out.set(id, { driveId: r.drive_id, name: r.name, url: r.url, snippet: (r.t || "").replace(/\s+/g, " ").trim().slice(0, 220) });
+  }
+  return out;
+}
+
+/** Hybrid search: word match plus meaning match (local embeddings), merged by reciprocal rank, then reranked. */
+export async function smartSearch(question: string): Promise<{ hits: Hit[]; terms: string[]; indexEmpty: boolean; related: string[] }> {
+  if (docCount() === 0) return { hits: [], terms: [], indexEmpty: true, related: [] };
+  const semantic = semanticSearch(question, 25).catch(() => []);
   const expanded = await askJson<{ terms?: unknown }>({
     model: "fast",
     system:
@@ -44,8 +58,20 @@ export async function smartSearch(question: string): Promise<{ hits: Hit[]; term
   }).catch(() => ({ terms: [] }));
   // The model's JSON is not trusted: keep only string terms.
   const terms = Array.isArray(expanded?.terms) ? expanded.terms.filter((t): t is string => typeof t === "string").slice(0, 12) : [];
-  const candidates = keywordSearch([question, ...terms]);
-  if (!candidates.length) return { hits: [], terms, indexEmpty: false };
+  const words = keywordSearch([question, ...terms]);
+  const meaning = await semantic;
+  const score = new Map<string, number>();
+  words.forEach((h, i) => score.set(h.driveId, (score.get(h.driveId) || 0) + 1 / (60 + i)));
+  meaning.forEach((m, i) => score.set(m.driveId, (score.get(m.driveId) || 0) + 1 / (60 + i)));
+  const byId = new Map(words.map((h) => [h.driveId, h]));
+  const extra = docsById(meaning.map((m) => m.driveId).filter((id) => !byId.has(id)));
+  const candidates = [...score.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([id]) => byId.get(id) || extra.get(id))
+    .filter((h): h is Hit => !!h)
+    .slice(0, 25);
+  if (!candidates.length) return { hits: [], terms, indexEmpty: false, related: [] };
+  const related = candidates.map((c) => c.driveId);
   const fallback = () => candidates.slice(0, 5);
   const picked = await askJson<{ picks?: unknown }>({
     model: "fast",
@@ -67,5 +93,5 @@ export async function smartSearch(question: string): Promise<{ hits: Hit[]; term
     seen.add(i);
     hits.push({ ...candidates[i], reason: typeof p.reason === "string" ? p.reason : undefined });
   }
-  return { hits: hits.length ? hits.slice(0, 5) : fallback(), terms, indexEmpty: false };
+  return { hits: hits.length ? hits.slice(0, 5) : fallback(), terms, indexEmpty: false, related };
 }

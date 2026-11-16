@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { Card, ErrorBox, PageHeader, Working, btn2Cls, btnCls, inputCls, labelCls, submitOnCmdEnter } from "@/components/ui";
 import { get, post } from "@/lib/client";
 import type { Hit } from "@/lib/types";
@@ -12,6 +13,8 @@ const EXAMPLES = [
 ];
 const STAGES = ["searching keywords", "matching files", "picking the best 5"];
 const RECENT_KEY = "ink-recent-searches";
+const VIEW_KEY = "ink-search-view";
+const AriaMap = dynamic(() => import("@/components/AriaMap"), { ssr: false });
 
 function readRecent(): string[] {
   try {
@@ -48,11 +51,15 @@ export default function SearchPage() {
   const [recent, setRecent] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [related, setRelated] = useState<string[]>([]);
+  const [view, setView] = useState<"list" | "map">("list");
+  const [focusKey, setFocusKey] = useState(0);
   const box = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     box.current?.focus();
     setRecent(readRecent());
+    try { if (localStorage.getItem(VIEW_KEY) === "map") setView("map"); } catch { /* storage blocked */ }
     get<{ docs: number }>("/api/search").then((j) => setDocs(j.docs)).catch(() => {});
   }, []);
 
@@ -64,7 +71,9 @@ export default function SearchPage() {
     setError(null);
     setHits(null);
     try {
-      const r = await post<{ hits: Hit[]; terms: string[]; indexEmpty: boolean }>("/api/search", { q: text });
+      const r = await post<{ hits: Hit[]; terms: string[]; indexEmpty: boolean; related?: string[] }>("/api/search", { q: text });
+      setRelated(r.related || []);
+      setFocusKey((k) => k + 1);
       if (r.indexEmpty) setError("The ARIA index is empty. Run npm run sync-aria first (see AGENTS.md).");
       setHits(r.hits);
       setTerms(r.terms);
@@ -79,6 +88,8 @@ export default function SearchPage() {
     }
   }
 
+  const pickView = (v: "list" | "map") => { setView(v); try { localStorage.setItem(VIEW_KEY, v); } catch { /* storage blocked */ } };
+  const tab = (on: boolean) => `min-h-10 rounded-md px-4 text-sm font-semibold transition ${on ? "bg-ink text-white shadow-sm" : "text-stone-700 hover:bg-stone-100"}`;
   const chip = "min-h-10 rounded-full border border-stone-300 bg-white px-3.5 py-1.5 text-left text-sm text-stone-800 transition hover:border-ink hover:bg-gold-50 disabled:opacity-50";
   return (
     <div className="space-y-6">
@@ -105,7 +116,19 @@ export default function SearchPage() {
         </div>
       </form>
 
-      {!hits && !loading && (
+      <div role="tablist" aria-label="Show results as" className="inline-flex rounded-lg border border-stone-200 bg-white p-1">
+        <button type="button" role="tab" aria-selected={view === "list"} className={tab(view === "list")} onClick={() => pickView("list")}>List</button>
+        <button type="button" role="tab" aria-selected={view === "map"} className={tab(view === "map")} onClick={() => pickView("map")}>Map</button>
+      </div>
+
+      {view === "map" && (
+        <section aria-label="ARIA Map" className="space-y-2">
+          {hits && hits.length > 0 && <p className="text-sm text-stone-700"><span className="inline-block h-2.5 w-2.5 rounded-full bg-gold-300 align-middle ring-2 ring-gold-300/40" /> Gold files match &ldquo;{asked}&rdquo;; {hits.length === 1 ? "the brightest is the best match." : `the brightest are the best ${hits.length}.`}</p>}
+          <AriaMap picks={hits?.map((h) => h.driveId) ?? []} related={related} focusKey={focusKey} />
+        </section>
+      )}
+
+      {!hits && !loading && view === "list" && (
         <section aria-label="Example questions" className="space-y-2">
           <p className="text-sm font-semibold text-stone-800">Try one of these</p>
           <div className="flex flex-wrap gap-2">{EXAMPLES.map((x) => <button key={x} type="button" className={chip} onClick={() => run(x)}>{x}</button>)}</div>
@@ -115,7 +138,7 @@ export default function SearchPage() {
       {loading && <Progress />}
       <ErrorBox error={error} />
 
-      {hits && hits.length > 0 && (
+      {hits && hits.length > 0 && view === "list" && (
         <section aria-label="Results" className="space-y-3">
           {terms.length > 0 && <p className="text-sm text-stone-600">Searched for: <span className="mark">{terms.join(", ")}</span></p>}
           <ul className="space-y-3">
@@ -138,7 +161,7 @@ export default function SearchPage() {
         </section>
       )}
 
-      {hits && hits.length === 0 && !error && (
+      {hits && hits.length === 0 && !error && view === "list" && (
         <Card title="Nothing matched">
           <p className="max-w-prose text-[15px] text-stone-700">No ARIA files matched &ldquo;{asked}&rdquo;. Try rewording:</p>
           <ul className="mt-2 max-w-prose list-disc space-y-1 pl-6 text-[15px] text-stone-700">
