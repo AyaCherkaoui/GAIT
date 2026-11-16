@@ -85,6 +85,7 @@ async function main() {
     for (const p of ["/api/session", "/api/taskforce", "/api/practice", "/api/search", "/api/session/1/help"]) {
       check(`signed out: POST ${p} is 401`, (await post(p, {})).status === 401);
     }
+    check("signed out: PUT /api/taskforce is 401", (await call("/api/taskforce", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: 1, done: [] }) })).status === 401);
 
     // 2. Login page and Google redirect
     const login = await call("/login");
@@ -162,6 +163,12 @@ async function main() {
     check("another user cannot read it", (await call(`/api/session/${sid}`, {}, bobC)).status === 404);
     check("another user cannot print it", (await call(`/session/${sid}/print`, {}, bobC)).status === 404);
     check("owner can print it", (await call(`/session/${sid}/print`, {}, alice)).status === 200);
+    const planJson = JSON.stringify({ steps: ["a", "b"], done: [] });
+    const taskId = Number(db.prepare("INSERT INTO tasks (title, description, plan, related, user_id) VALUES (?, ?, ?, ?, ?)").run("T", "d", planJson, "[]", a.id).lastInsertRowid);
+    const putTask = (c: string, body: unknown) => call("/api/taskforce", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }, c);
+    check("taskforce: owner ticks a step", (await putTask(alice, { id: taskId, done: [0, 9, 0] })).status === 200 && (JSON.parse((db.prepare("SELECT plan FROM tasks WHERE id = ?").get(taskId) as { plan: string }).plan).done as number[]).join() === "0");
+    check("taskforce: another user cannot tick it", (await putTask(bobC, { id: taskId, done: [1] })).status === 400);
+    check("taskforce: bad body is 400", (await putTask(alice, { id: "x", done: "no" })).status === 400);
     const put = (c: string) => call(`/api/session/${sid}/reflection`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ learned: "x" }) }, c);
     check("another user cannot write a reflection", (await put(bobC)).status === 404);
     check("owner can write a reflection", (await put(alice)).status === 200);

@@ -176,6 +176,8 @@ async function main() {
     await page.getByLabel("AI policy", { exact: true }).selectOption("limited");
     await page.getByLabel("Details", { exact: true }).fill("OK for brainstorming, must be disclosed");
     await page.getByRole("button", { name: "Save policy" }).click();
+    // The save clears the form and the filter; wait for that, since an earlier pass may have saved the same policy already.
+    await page.waitForFunction(() => (document.getElementById("pol-code") as HTMLInputElement | null)?.value === "", undefined, { timeout: 30_000 });
     await page.getByText("OK for brainstorming").first().waitFor({ timeout: 30_000 });
     await page.getByText("Draft: director to confirm").first().waitFor();
     await page.getByLabel("Filter by course code").fill("zzz");
