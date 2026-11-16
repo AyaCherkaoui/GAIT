@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Chip, Empty, PageHeader, btn2Cls, btnCls, inputCls, labelCls } from "@/components/ui";
+import { Chip, Empty, ErrorBox, PageHeader, btn2Cls, btnCls, inputCls, labelCls } from "@/components/ui";
 import { fmtDate } from "@/components/format";
 import { get } from "@/lib/client";
 import { readEmailSent } from "@/lib/local";
@@ -30,9 +30,13 @@ export default function HistoryPage() {
   const [q, setQ] = useState("");
   const [student, setStudent] = useState("");
   const [course, setCourse] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [quizError, setQuizError] = useState<string | null>(null);
   useEffect(() => {
-    get<{ sessions: SessionSummary[] }>("/api/session").then((j) => setSessions(j.sessions)).catch(() => setSessions([]));
-    get<{ results: QuizResult[] }>("/api/practice/results").then((j) => setQuizzes(j.results)).catch(() => {});
+    setError(null);
+    setQuizError(null);
+    get<{ sessions: SessionSummary[] }>("/api/session").then((j) => setSessions(j.sessions)).catch((e) => setError((e as Error).message));
+    get<{ results: QuizResult[] }>("/api/practice/results").then((j) => setQuizzes(j.results)).catch((e) => setQuizError((e as Error).message));
   }, []);
 
   const students = useMemo(() => [...new Set((sessions ?? []).map((s) => s.student_name).filter(Boolean))].sort(), [sessions]);
@@ -59,7 +63,8 @@ export default function HistoryPage() {
 
       <section aria-labelledby="h-sessions" className="space-y-4">
         <h2 id="h-sessions" className="font-display text-2xl font-semibold text-ink">Sessions</h2>
-        {sessions === null && <p className="text-sm text-stone-600">Loading…</p>}
+        <ErrorBox error={error} />
+        {sessions === null && !error && <p className="text-sm text-stone-600">Loading…</p>}
         {sessions?.length === 0 && (
           <Empty title="No sessions yet">
             Log one after your next appointment and it will show here.
@@ -127,7 +132,8 @@ export default function HistoryPage() {
 
       <section aria-labelledby="h-quiz" className="space-y-3 border-t border-stone-200 pt-6">
         <h2 id="h-quiz" className="font-display text-2xl font-semibold text-ink">Quiz scores</h2>
-        {quizzes.length === 0 ? (
+        <ErrorBox error={quizError} />
+        {quizzes.length === 0 && !quizError ? (
           <Empty title="No quizzes yet">Take a 5-question refresher on the <Link className="font-medium text-indigo-700 underline underline-offset-4" href="/practice">Practice</Link> page.</Empty>
         ) : (
           <ul className="divide-y divide-stone-200 rounded-lg border border-stone-200 bg-white text-sm">

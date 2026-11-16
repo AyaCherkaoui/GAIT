@@ -118,7 +118,7 @@ export default function SessionDetail({ params }: { params: Promise<{ id: string
             </div>
           ))}
           <div className="flex flex-wrap items-center gap-3">
-            <button className={`${btnCls} min-h-10`} disabled={saving}>Save reflection</button>
+            <button className={`${btnCls} min-h-10`} disabled={saving}>{saving ? "Saving…" : "Save reflection"}</button>
             <span role="status" className="text-sm text-stone-600">
               {saving ? "Saving…" : saveError ? "" : savedAt ? `Saved ${new Date(savedAt).toLocaleString()}` : "Saves as you type."}
             </span>

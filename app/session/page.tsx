@@ -23,6 +23,7 @@ export default function SessionPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldError, setFieldError] = useState<string | null>(null);
+  const [lookupError, setLookupError] = useState<string | null>(null);
   const [result, setResult] = useState<{ id: number; outputs: SessionOutputs } | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
@@ -65,13 +66,15 @@ export default function SessionPage() {
   // A policy saved for this course code (on the Policies page) fills in the choice.
   async function lookupPolicy() {
     const code = f.courseCode.trim();
+    setLookupError(null);
     if (!code) return setOnFile(null);
     try {
       const { policy } = await get<{ policy: { course_code: string; policy: AiPolicy } | null }>(`/api/policies?code=${encodeURIComponent(code)}`);
       if (policy) setAiPolicy(policy.policy);
       setOnFile(policy ? `${policy.course_code}: ${policy.policy}` : null);
-    } catch {
+    } catch (err) {
       setOnFile(null);
+      setLookupError((err as Error).message);
     }
   }
 
@@ -155,6 +158,7 @@ export default function SessionPage() {
             <label htmlFor="aiUse" className={labelCls}>AI use that came up (optional)</label>
             <input id="aiUse" className={inputCls} placeholder="What the student said they used it for" value={f.aiUse} onChange={(e) => set("aiUse", e.target.value)} />
           </div>
+          <ErrorBox error={lookupError} />
           {onFile && <p className="text-sm text-stone-600">Saved policy on file for {onFile}. You can change it above.</p>}
           <p className="text-sm text-stone-600">Not sure? The follow-up will suggest asking the professor. Nothing here judges the student&apos;s work.</p>
         </fieldset>

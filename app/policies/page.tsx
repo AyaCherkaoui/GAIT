@@ -17,8 +17,10 @@ export default function PoliciesPage() {
   const [source, setSource] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    setError(null);
     get<{ policies: CoursePolicy[] }>(`/api/policies?q=${encodeURIComponent(q)}`)
       .then((j) => { setList(j.policies); setLoaded(true); })
       .catch((e) => setError(e.message));
@@ -27,6 +29,7 @@ export default function PoliciesPage() {
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setBusy(true);
     try {
       await post("/api/policies", { courseCode, professor, policy, details, source });
       setCourseCode(""); setProfessor(""); setPolicy("unknown"); setDetails(""); setSource("");
@@ -35,6 +38,8 @@ export default function PoliciesPage() {
       setList(j.policies);
     } catch (err) {
       setError((err as Error).message);
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -75,7 +80,7 @@ export default function PoliciesPage() {
             <label htmlFor="pol-source" className={labelCls}>Source</label>
             <input id="pol-source" className={`${inputCls} min-h-11`} placeholder="For example, syllabus, fall 2026" value={source} onChange={(e) => setSource(e.target.value)} />
           </div>
-          <button className={`${btnCls} min-h-11`}>Save policy</button>
+          <button className={`${btnCls} min-h-11`} disabled={busy}>{busy ? "Saving…" : "Save policy"}</button>
         </form>
       </Card>
       <ErrorBox error={error} />

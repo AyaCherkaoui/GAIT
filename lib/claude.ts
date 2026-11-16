@@ -88,15 +88,6 @@ export function isLocalProvider(): boolean {
 }
 
 /** True when the chosen provider is usable (has its key; Ollama needs none). */
-/** True when the model runs on this machine (Ollama), so private notes never leave it. */
-export function isLocalProvider(): boolean {
-  try {
-    return resolveProvider() === "ollama";
-  } catch {
-    return false;
-  }
-}
-
 export function hasModel(): boolean {
   try {
     return hasKey(resolveProvider());
