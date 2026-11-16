@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:media="http://search.yahoo.com/mrss/">
+  <channel>
+    <title>Fixture Writing Center Blog</title>
+    <item>
+      <title>Coaching with AI: asking questions instead of writing &amp; fixing</title>
+      <link>https://example.test/news/ai-coach</link>
+      <dc:creator>Riley Writer</dc:creator>
+      <pubDate>__D0__</pubDate>
+      <description><![CDATA[<p>Tutors can show students how to use a chatbot as a coach. The student asks for questions, not for sentences. Then they revise on their own.</p>]]></description>
+    </item>
+    <item>
+      <title>Non-directive tutoring in the writing center</title>
+      <link>https://example.test/news/non-directive</link>
+      <dc:creator>Sam Scholar</dc:creator>
+      <pubDate>__D2__</pubDate>
+      <description>&lt;p&gt;Peer tutors who ask open questions help writers own their ideas. This is a core idea in writing center pedagogy.&lt;/p&gt;</description>
+    </item>
+    <item>
+      <title>Helping students revise with feedback they can use</title>
+      <link>https://example.test/news/revise</link>
+      <pubDate>__D5__</pubDate>
+      <media:thumbnail url="https://example.test/img/revise.jpg"/>
+      <description>Students improve when feedback names one next step. Try a short revision plan after each session.</description>
+    </item>
+    <item>
+      <title>Five quick teaching tips for the first week</title>
+      <link>https://example.test/news/tips</link>
+      <pubDate>__D9__</pubDate>
+      <description>Start with a clear assignment prompt. Share a rubric early.</description>
+    </item>
+  </channel>
+</rss>

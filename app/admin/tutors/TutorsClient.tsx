@@ -1,24 +1,31 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { btn2Cls, btnCls, Card, ErrorBox, inputCls, PageHeader, Working } from "@/components/ui";
+import { btn2Cls, btnCls, Card, Chip, Empty, ErrorBox, inputCls, labelCls, PageHeader, Working } from "@/components/ui";
 import { get, post } from "@/lib/client";
 
 type Tutor = { email: string; name: string | null; role: "tutor" | "director"; active: number; added_at: string };
 
+type Req = { id: number; email: string; name: string | null; role: "tutor" | "director" };
+
 export default function TutorsClient({ myEmail }: { myEmail: string }) {
   const [tutors, setTutors] = useState<Tutor[] | null>(null);
+  const [requests, setRequests] = useState<Req[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [role, setRole] = useState<"tutor" | "director">("tutor");
+  const [query, setQuery] = useState("");
 
   const load = useCallback(
-    () => get<{ tutors: Tutor[] }>("/api/admin/tutors").then((j) => setTutors(j.tutors)).catch((e: Error) => { setError(e.message); setTutors([]); }),
+    () => get<{ tutors: Tutor[]; requests: Req[] }>("/api/admin/tutors").then((j) => { setTutors(j.tutors); setRequests(j.requests); }).catch((e: Error) => { setError(e.message); setTutors([]); }),
     [],
   );
   useEffect(() => { load(); }, [load]);
+
+  const q = query.trim().toLowerCase();
+  const shown = (tutors ?? []).filter((t) => !q || t.email.toLowerCase().includes(q) || (t.name ?? "").toLowerCase().includes(q));
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
@@ -39,7 +46,35 @@ export default function TutorsClient({ myEmail }: { myEmail: string }) {
     }
   }
 
+  async function answer(id: number, action: "approve" | "decline") {
+    setError(null);
+    setBusy(true);
+    try {
+      await post("/api/admin/requests", { id, action });
+      await load();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reactivate(t: Tutor) {
+    if (!window.confirm(`Let ${t.email} sign in again?`)) return;
+    setError(null);
+    setBusy(true);
+    try {
+      await post("/api/admin/tutors", { email: t.email, name: t.name ?? "", role: t.role });
+      await load();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function deactivate(target: string) {
+    if (!window.confirm(`Deactivate ${target}? They lose access on their next request.`)) return;
     setError(null);
     setBusy(true);
     try {
@@ -58,47 +93,84 @@ export default function TutorsClient({ myEmail }: { myEmail: string }) {
     <div className="space-y-6">
       <PageHeader title="Tutors">Only people on this list can sign in. Deactivating someone ends their access at once.</PageHeader>
       <ErrorBox error={error} />
+      {requests.length > 0 && (
+        <Card title={`Requests (${requests.length})`} tone="note">
+          <ul className="divide-y divide-gold-300/70">
+            {requests.map((r) => (
+              <li key={r.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3 first:pt-0 last:pb-0">
+                <div className="min-w-0 flex-1 basis-56">
+                  <p className="break-all font-medium text-stone-900">{r.email}</p>
+                  <p className="text-sm text-stone-600">{r.name ? `${r.name} · ` : ""}wants to be a {r.role}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" className={`${btnCls} min-h-10`} disabled={busy} onClick={() => answer(r.id, "approve")}>Approve</button>
+                  <button type="button" className={`${btn2Cls} min-h-10`} disabled={busy} onClick={() => answer(r.id, "decline")}>Decline</button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
       <Card title="Add a tutor">
-        <form onSubmit={add} noValidate className="grid gap-3 sm:grid-cols-[1fr_1fr_auto_auto] sm:items-start">
+        <form onSubmit={add} noValidate className="grid gap-4 sm:grid-cols-2">
           <div>
-            <input className={inputCls} type="email" placeholder="Email" aria-label="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-            {emailError && <p role="alert" className="mt-1 text-sm text-red-700">{emailError}</p>}
+            <label htmlFor="tutor-email" className={labelCls}>Email</label>
+            <input id="tutor-email" className={inputCls} type="email" placeholder="name@augustana.edu" value={email} onChange={(e) => setEmail(e.target.value)} aria-invalid={!!emailError} />
+            {emailError && <p role="alert" className="mt-1 text-sm text-red-800">{emailError}</p>}
           </div>
-          <input className={inputCls} placeholder="Name (optional)" aria-label="Name" value={name} onChange={(e) => setName(e.target.value)} />
-          <select className={inputCls} aria-label="Role" value={role} onChange={(e) => setRole(e.target.value as "tutor" | "director")}>
-            <option value="tutor">Tutor</option>
-            <option value="director">Director</option>
-          </select>
-          <button type="submit" className={btnCls} disabled={busy}>Add</button>
+          <div>
+            <label htmlFor="tutor-name" className={labelCls}>Name (optional)</label>
+            <input id="tutor-name" className={inputCls} value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div>
+            <label htmlFor="tutor-role" className={labelCls}>Role</label>
+            <select id="tutor-role" className={inputCls} value={role} onChange={(e) => setRole(e.target.value as "tutor" | "director")}>
+              <option value="tutor">Tutor</option>
+              <option value="director">Director</option>
+            </select>
+          </div>
+          <div className="flex items-end">
+            <button type="submit" className={`${btnCls} min-h-11 w-full sm:w-auto`} disabled={busy}>Add tutor</button>
+          </div>
         </form>
       </Card>
       <Card title="Tutors">
+        <div className="mb-4 max-w-sm">
+          <label htmlFor="tutor-search" className={labelCls}>Search by name or email</label>
+          <input id="tutor-search" type="search" className={inputCls} value={query} onChange={(e) => setQuery(e.target.value)} />
+        </div>
         {tutors === null && <Working label="Loading" />}
-        {tutors?.length === 0 && <p className="text-sm text-stone-500">No tutors yet — add the first one above.</p>}
-        {!!tutors?.length && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="text-stone-500">
-                <tr><th className="py-2 pr-4">Email</th><th className="hidden pr-4 sm:table-cell">Name</th><th className="hidden pr-4 sm:table-cell">Role</th><th className="pr-4">Active</th><th className="hidden pr-4 sm:table-cell">Added</th><th /></tr>
-              </thead>
-              <tbody className="divide-y divide-stone-100">
-                {tutors.map((t) => (
-                  <tr key={t.email}>
-                    <td className="py-2 pr-4 break-all">{t.email}{t.role === "director" && <span className="text-stone-500 sm:hidden"> (director)</span>}</td>
-                    <td className="hidden pr-4 sm:table-cell">{t.name ?? ""}</td>
-                    <td className="hidden pr-4 sm:table-cell">{t.role}</td>
-                    <td className="pr-4">{t.active ? "Yes" : "No"}</td>
-                    <td className="hidden pr-4 whitespace-nowrap sm:table-cell">{t.added_at}</td>
-                    <td className="text-right">
-                      {!!t.active && t.email !== myEmail && (
-                        <button type="button" className={btn2Cls} disabled={busy} onClick={() => deactivate(t.email)}>Deactivate</button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        {tutors?.length === 0 && <Empty title="No tutors yet">Add the first one with the form above.</Empty>}
+        {!!tutors?.length && shown.length === 0 && <Empty title="No match">No one on the list matches that search.</Empty>}
+        {shown.length > 0 && (
+          <table className="block w-full text-left text-sm sm:table">
+            <thead className="hidden border-b border-stone-200 text-stone-600 sm:table-header-group">
+              <tr>
+                <th className="py-2 pr-4 font-semibold">Email</th>
+                <th className="pr-4 font-semibold">Name</th>
+                <th className="pr-4 font-semibold">Role</th>
+                <th className="pr-4 font-semibold">Status</th>
+                <th className="pr-4 font-semibold">Added</th>
+                <th><span className="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody className="block divide-y divide-stone-200 sm:table-row-group">
+              {shown.map((t) => (
+                <tr key={t.email} className={`flex flex-wrap items-center gap-x-3 gap-y-2 py-3 sm:table-row ${t.active ? "text-stone-900" : "bg-stone-50 text-stone-600"}`}>
+                  <td className="w-full break-all font-medium sm:table-cell sm:w-auto sm:py-3 sm:pr-4">{t.email}</td>
+                  <td className="sm:table-cell sm:pr-4">{t.name ?? ""}</td>
+                  <td className="sm:table-cell sm:pr-4"><Chip tone={t.role === "director" ? "gold" : "plain"}>{t.role === "director" ? "Director" : "Tutor"}</Chip></td>
+                  <td className="sm:table-cell sm:pr-4">{t.active ? "Active" : <span className="font-semibold">Inactive</span>}</td>
+                  <td className="hidden whitespace-nowrap sm:table-cell sm:pr-4">{t.added_at}</td>
+                  <td className="ml-auto sm:table-cell sm:text-right">
+                    {t.email !== myEmail && (
+                      <button type="button" className={`${btn2Cls} min-h-10`} disabled={busy} onClick={() => (t.active ? deactivate(t.email) : reactivate(t))}>{t.active ? "Deactivate" : "Reactivate"}</button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </Card>
     </div>

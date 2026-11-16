@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import fs from "node:fs";
 import path from "node:path";
+import { chargeAiCall } from "./limits";
 
 /** An error whose message is safe and useful to show in the UI. */
 export class UserFacingError extends Error {}
@@ -180,7 +181,7 @@ async function askCompat(id: ProviderId, opts: Internal): Promise<string> {
   if (preset.keyEnv) headers.Authorization = `Bearer ${process.env[preset.keyEnv]}`;
 
   const send = (withJson: boolean) =>
-    fetch(`${preset.baseUrl}/chat/completions`, {
+    fetch(`${(process.env.GAIT_API_BASE || preset.baseUrl)!.replace(/\/$/, "")}/chat/completions`, {
       method: "POST",
       headers,
       signal: AbortSignal.timeout(120_000),
@@ -247,6 +248,9 @@ async function askAnthropic(opts: AskOpts): Promise<string> {
 }
 
 async function run(opts: Internal): Promise<string> {
+  // Every model call (not just every request) counts against the per-request and per-minute caps (lib/limits.ts).
+  const refused = chargeAiCall();
+  if (refused) throw new UserFacingError(refused);
   const p = resolveProvider();
   const preset = PRESETS[p];
   if (!hasKey(p)) throw new UserFacingError(`Add ${preset.keyEnv} to .env.local, then restart npm run dev.`);

@@ -11,15 +11,7 @@ export type SessionOutputs = {
 };
 export type AiPolicy = "allowed" | "limited" | "banned" | "unknown";
 export const AI_POLICIES: AiPolicy[] = ["allowed", "limited", "banned", "unknown"];
-export type CoursePolicy = {
-  course_code: string;
-  professor: string;
-  policy: AiPolicy;
-  details: string;
-  source: string;
-  updated_at: string;
-};
-/** aiPolicy, aiUse and privateConcern are missing on rows saved before the AI-era fields. */
+/** aiPolicy, aiUse, courseCode and privateConcern are missing on rows saved before the AI-era fields. */
 export type SessionNotes = {
   workedOn: string;
   struggles: string;
@@ -35,7 +27,7 @@ export type SessionRecord = SessionSummary & { notes: SessionNotes; outputs: Ses
 
 export type Hit = { driveId: string; name: string; url: string; snippet: string; reason?: string };
 
-export type TaskPlan = { steps: string[]; outline: string; questionsToClarify: string[] };
+export type TaskPlan = { steps: string[]; outline: string; questionsToClarify: string[]; done?: number[] };
 export type TaskRecord = { id: number; created_at: string; title: string; description: string; plan: TaskPlan; related: Hit[] };
 
 export type Turn = { role: "student" | "tutor"; text: string };

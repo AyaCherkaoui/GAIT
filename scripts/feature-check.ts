@@ -13,7 +13,7 @@ import os from "node:os";
 import path from "node:path";
 import { chromium } from "playwright-core";
 
-const PORT = 3102;
+const PORT = Number(process.env.CHECK_PORT) || 3102; // CHECK_PORT lets several checkouts run checks at once
 const BASE = `http://localhost:${PORT}`;
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "gait-feature-"));
 const shots = path.join(process.cwd(), ".feature-shots");
@@ -24,6 +24,7 @@ let picksMode: "empty" | "outOfRange" = "empty";
 let badTerms = false;
 let modelCalls = 0;
 let lastUserPrompt = "";
+let lastSystemPrompt = "";
 const fake = http.createServer((req, res) => {
   let raw = "";
   req.on("data", (c) => (raw += c));
@@ -31,6 +32,7 @@ const fake = http.createServer((req, res) => {
     modelCalls++;
     const body = JSON.parse(raw || "{}") as { messages?: { role: string; content: string }[] };
     const system = body.messages?.find((m) => m.role === "system")?.content ?? "";
+    lastSystemPrompt = system;
     lastUserPrompt = body.messages?.filter((m) => m.role === "user").map((m) => m.content).join("\n") ?? "";
     let content = "COACHING-REPLY";
     if (system.includes("Turn their question into")) content = JSON.stringify({ terms: badTerms ? [1, null, { x: 1 }, "thesis"] : ["thesis"] });
@@ -112,7 +114,7 @@ async function main() {
 
   const log = fs.openSync(path.join(dir, "server.log"), "w");
   const server = spawn("npx", ["next", "dev", "-p", String(PORT), ...(process.env.GAIT_DEV_ARGS?.split(" ").filter(Boolean) ?? [])], {
-    stdio: ["ignore", log, log], detached: true, env: { ...process.env, GAIT_DIST_DIR: ".next-feature" },
+    stdio: ["ignore", log, log], detached: true, env: { ...process.env, GAIT_DIST_DIR: ".next-feature", GAIT_TEST_TOOLS: "0", NEWS_FIXTURE: "1" },
   });
   const stop = () => {
     try {
@@ -133,11 +135,13 @@ async function main() {
     check("help: blank question is 400", r.status === 400 && (await r.text()).includes("Type what you would like help with."), String(r.status));
     check("help: another tutor gets 404", (await post(`/api/session/${sid}/help`, { question: "hi" }, t2)).status === 404);
     check("help: signed out is 401", (await post(`/api/session/${sid}/help`, { question: "hi" })).status === 401);
-    r = await post(`/api/session/${sid}/director-note`, {}, t1);
-    check("director-note: owner gets 200 with a note", r.status === 200 && typeof ((await r.json().catch(() => ({}))) as { note?: string }).note === "string", String(r.status));
-    check("director-note: another tutor's session is 404", (await post(`/api/session/${sid}/director-note`, {}, t2)).status === 404);
-    check("director-note: signed out is 401", (await post(`/api/session/${sid}/director-note`, {})).status === 401);
     check("help: 2001 characters is 400", (await post(`/api/session/${sid}/help`, { question: "a".repeat(2001) }, t1)).status === 400);
+
+    // Coach route
+    r = await post("/api/coach", { messages: [{ role: "user", content: "Where do I start?" }] }, t1);
+    const cj = (await r.json().catch(() => ({}))) as { answer?: string };
+    check("coach: answers with the model's reply", r.status === 200 && cj.answer === "COACHING-REPLY", `${r.status} ${JSON.stringify(cj)}`);
+    check("coach: the system prompt tells the model not to write the student's text", /never write/i.test(lastSystemPrompt));
 
     // Search fallback (second tutor, so the help checks do not share its rate limit)
     const expected = keywordSearch(["thesis"]).slice(0, 5).map((h) => h.driveId);
@@ -178,13 +182,13 @@ async function main() {
       { path: "/search", cookie: directorC },
       { path: "/practice", cookie: directorC },
       { path: "/reading", cookie: directorC },
-      { path: "/ai-talk", cookie: directorC },
-      { path: "/policies", cookie: directorC },
-      { path: "/debrief", cookie: directorC },
-      { path: "/voice", cookie: directorC },
-      { path: "/impact", cookie: directorC },
+      { path: "/news", cookie: directorC },
       { path: "/taskforce", cookie: directorC },
       { path: "/admin/tutors", cookie: directorC },
+      { path: "/coach", cookie: t1 },
+      { path: "/impact", cookie: directorC },
+      { path: "/admin/sessions", cookie: directorC },
+      { path: `/admin/sessions/${sid}`, cookie: directorC },
       { path: "/login?error=not_allowed" },
     ];
     for (const [w, h] of [[390, 844], [1280, 800]]) {

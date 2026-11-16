@@ -38,3 +38,18 @@ export async function POST(req: Request) {
     return { id: Number(info.lastInsertRowid), plan, related };
   }, { ai: true });
 }
+
+/** Saves which steps of a task are ticked. Only the owner's own task can change. */
+export async function PUT(req: Request) {
+  return handle(req, async (user) => {
+    const body = await readJson(req);
+    const id = Number(body.id);
+    if (!Number.isInteger(id) || !Array.isArray(body.done) || body.done.length > 50) throw new UserFacingError("The request was not valid.");
+    const row = getDb().prepare("SELECT plan FROM tasks WHERE id = ? AND user_id = ?").get(id, user.id) as { plan: string } | undefined;
+    if (!row) throw new UserFacingError("That task was not found.");
+    const plan = JSON.parse(row.plan) as TaskPlan;
+    plan.done = [...new Set((body.done as unknown[]).filter((n): n is number => Number.isInteger(n) && (n as number) >= 0 && (n as number) < plan.steps.length))];
+    getDb().prepare("UPDATE tasks SET plan = ? WHERE id = ? AND user_id = ?").run(JSON.stringify(plan), id, user.id);
+    return { done: plan.done };
+  });
+}

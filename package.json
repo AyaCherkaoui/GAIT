@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "sync-aria": "tsx scripts/sync-aria.ts",
     "security-check": "tsx scripts/security-check.ts",
-    "feature-check": "tsx scripts/feature-check.ts"
+    "feature-check": "tsx scripts/feature-check.ts",
+    "qa-views": "tsx scripts/qa-views.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.5.0",

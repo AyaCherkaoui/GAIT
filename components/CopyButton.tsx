@@ -6,7 +6,10 @@ export default function CopyButton({ text, label = "Copy" }: { text: string; lab
   return (
     <button
       type="button"
-      className="rounded border border-stone-300 px-2 py-0.5 text-xs hover:bg-stone-100 print:hidden"
+      className={`inline-flex min-h-10 items-center justify-center rounded-md border px-3 text-sm font-medium transition sm:min-h-8 print:hidden ${
+        done ? "border-gold-400 bg-gold-100 text-ink" : "border-stone-300 bg-white text-stone-800 hover:border-stone-400 hover:bg-stone-100"
+      }`}
+      aria-live="polite"
       onClick={async () => {
         await navigator.clipboard.writeText(text);
         setDone(true);

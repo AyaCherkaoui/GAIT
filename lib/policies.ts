@@ -1,5 +1,6 @@
 import { getDb } from "./db";
-import { AI_POLICIES, type AiPolicy, type CoursePolicy } from "./types";
+import type { AiPolicy, CoursePolicy } from "./policy-types";
+import { AI_POLICIES } from "./policy-types";
 
 /** "engl  101" -> "ENGL 101" so lookups ignore case and spacing. */
 export function normalizeCode(code: string): string {

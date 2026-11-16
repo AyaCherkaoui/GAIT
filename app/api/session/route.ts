@@ -1,8 +1,8 @@
 import { handle, readJson, str } from "@/lib/api";
 import { askJson, UserFacingError } from "@/lib/claude";
 import { getDb } from "@/lib/db";
-import { getPolicy } from "@/lib/policies";
 import { listSessions } from "@/lib/sessions";
+import { getPolicy } from "@/lib/policies";
 import { logUsage } from "@/lib/usage";
 import { AI_POLICIES, type AiPolicy, type SessionNotes, type SessionOutputs } from "@/lib/types";
 
@@ -29,7 +29,7 @@ The course AI policy is given in the notes. Never say or imply that the student 
 
 const VOICE_RULES = `\n\nVoice-first mode is ON. Keep suggestions in the writer's own phrasing and dialect; do not steer toward a "standard" register for its own sake. Fill voiceFlags with any feedback here that mainly standardizes English rather than clarifying meaning (else []).`;
 
-/** What the student-facing parts get to see about policy; the private concern is never passed on. */
+/** Makes the output safe to show the student: arrays are arrays, and the policy rules hold even if the model slips. */
 function sanitizeOutputs(o: SessionOutputs, policy: AiPolicy): SessionOutputs {
   const out: SessionOutputs = {
     ...o,
@@ -66,24 +66,22 @@ export async function POST(req: Request) {
     if (courseCode) notes.courseCode = courseCode;
     const aiUse = str(raw.aiUse, 2000);
     if (aiUse) notes.aiUse = aiUse;
+    // The private concern is saved for the tutor only; it is deliberately left out of the prompt and every student-facing output.
     const privateConcern = str(raw.privateConcern, 4000);
     if (privateConcern) notes.privateConcern = privateConcern;
+    // The tutor's choice wins; "unknown" means no choice was made, so the policy saved for the course code (if any) is used.
+    const chosen: AiPolicy = AI_POLICIES.includes(raw.aiPolicy as AiPolicy) ? (raw.aiPolicy as AiPolicy) : "unknown";
+    const saved = notes.courseCode ? getPolicy(notes.courseCode, user.id) : null;
+    const policy: AiPolicy = chosen !== "unknown" ? chosen : (saved?.policy ?? "unknown");
+    notes.aiPolicy = policy;
     body.studentName = str(body.studentName, 200);
     // Only the first name goes to the model; "Last, First" and "First Last" both work.
     const fullName = body.studentName as string;
     const firstName = (fullName.includes(",") ? fullName.split(",")[1] : fullName).trim().split(/\s+/)[0] || "(not given)";
     body.course = str(body.course, 300);
-    // The tutor's choice wins; otherwise use the saved policy for the course code.
-    const saved = notes.courseCode ? getPolicy(notes.courseCode, user.id) : null;
-    const chosen = AI_POLICIES.includes(raw.aiPolicy as AiPolicy) ? (raw.aiPolicy as AiPolicy) : "unknown";
-    // "unknown" means the tutor made no choice, so a saved policy for the course wins (the lookup may not have finished yet).
-    const policy: AiPolicy = chosen !== "unknown" ? chosen : (saved?.policy ?? "unknown");
-    notes.aiPolicy = policy;
     if (!notes.workedOn.trim() && !notes.struggles.trim()) {
       throw new UserFacingError("Add at least what you worked on or what the student struggled with.");
     }
-    const policyText = `${policy}${saved && saved.policy === policy && saved.details ? ` (${saved.details})` : ""}`;
-    // privateConcern is deliberately left out of the prompt.
     const generated = await askJson<SessionOutputs>({
       system: SYSTEM + (body.voice === true ? VOICE_RULES : ""),
       messages: [
@@ -94,7 +92,7 @@ Course / assignment: ${body.course || "(not given)"}
 What we worked on: ${notes.workedOn}
 What they struggled with: ${notes.struggles}
 What went well: ${notes.wentWell}
-Course AI policy: ${policyText}
+Course AI policy: ${policy}
 AI use the student disclosed or the tutor noticed: ${notes.aiUse?.trim() || "(none noted)"}`,
         },
       ],

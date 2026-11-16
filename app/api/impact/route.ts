@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
-import { handle } from "@/lib/api";
+import { handle, requireDirector } from "@/lib/api";
 import { impactByWeek, toCsv } from "@/lib/impact";
 
 export const dynamic = "force-dynamic";
 
-/** A tutor sees their own numbers; the director sees everyone's. */
+/** Director only: anonymous weekly counts for everyone, as JSON or (?format=csv) a download. */
 export async function GET(req: Request) {
   const csv = new URL(req.url).searchParams.get("format") === "csv";
   const res = await handle(req, async (user) => {
-    const rows = impactByWeek(user.role === "director" ? null : user.id);
+    requireDirector(user);
+    const rows = impactByWeek();
     return csv ? { csv: toCsv(rows) } : { weeks: rows };
   });
   if (!csv || !res.ok) return res;

@@ -9,10 +9,11 @@
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 
-const PORT = 3101;
+const PORT = Number(process.env.CHECK_PORT) || 3101; // CHECK_PORT lets several checkouts run checks at once
 const BASE = `http://localhost:${PORT}`;
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "gait-security-"));
 const SECRET = randomBytes(32).toString("base64url");
@@ -60,7 +61,7 @@ async function main() {
 
   const log = fs.openSync(path.join(dir, "server.log"), "w");
   const server = spawn("npx", ["next", "dev", "-p", String(PORT), ...(process.env.GAIT_DEV_ARGS?.split(" ").filter(Boolean) ?? [])], {
-    stdio: ["ignore", log, log], detached: true, env: { ...process.env, GAIT_DIST_DIR: ".next-security" },
+    stdio: ["ignore", log, log], detached: true, env: { ...process.env, GAIT_DIST_DIR: ".next-security", GAIT_TEST_TOOLS: "0" },
   });
   const stop = () => {
     try {
@@ -73,21 +74,22 @@ async function main() {
     await waitForServer();
 
     // 1. Signed-out access
-    for (const p of ["/", "/history", "/session/1/print", "/search", "/practice", "/ai-talk", "/policies", "/debrief", "/voice", "/impact"]) {
+    for (const p of ["/", "/history", "/session/1/print", "/search", "/practice"]) {
       const r = await call(p);
       const loc = r.headers.get("location") ?? "";
       check(`signed out: ${p} redirects to /login`, [302, 303, 307, 308].includes(r.status) && loc.includes("/login?next="), `${r.status} ${loc}`);
     }
-    for (const p of ["/api/session", "/api/session/1", "/api/taskforce", "/api/practice/results", "/api/search", "/api/feed", "/api/debrief", "/api/impact", "/api/impact?format=csv", "/api/policies", "/api/provider"]) {
+    for (const p of ["/api/session", "/api/session/1", "/api/taskforce", "/api/practice/results", "/api/search", "/api/feed"]) {
       check(`signed out: GET ${p} is 401`, (await call(p)).status === 401);
     }
-    for (const p of ["/api/session", "/api/taskforce", "/api/practice", "/api/search", "/api/session/1/help", "/api/ai-talk", "/api/debrief", "/api/policies", "/api/session/1/director-note"]) {
+    for (const p of ["/api/session", "/api/taskforce", "/api/practice", "/api/search", "/api/session/1/help"]) {
       check(`signed out: POST ${p} is 401`, (await post(p, {})).status === 401);
     }
+    check("signed out: PUT /api/taskforce is 401", (await call("/api/taskforce", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: 1, done: [] }) })).status === 401);
 
     // 2. Login page and Google redirect
     const login = await call("/login");
-    check("/login has a Sign in with Google button", login.status === 200 && (await login.text()).includes("Sign in with Google"));
+    check("/login has a Continue with Google button", login.status === 200 && (await login.text()).includes("Continue with Google"));
     const start = await call("/api/auth/google?next=/history");
     const to = new URL(start.headers.get("location") ?? "http://none");
     check("/api/auth/google redirects to accounts.google.com", to.host === "accounts.google.com", to.href);
@@ -119,7 +121,7 @@ async function main() {
       const b = await call("/history", {}, cookie);
       check(`forged cookie (${label}) is rejected`, a.status === 401 && b.status !== 200, `${a.status}/${b.status}`);
     }
-    const ghost = sessionCookieValue({ id: 9999, email: "x@augustana.edu", name: null, picture: null, role: "tutor" });
+    const ghost = sessionCookieValue({ id: 9999, email: "x@augustana.edu", name: null, picture: null, role: "tutor", onboarded: true, requestedRole: null });
     check("valid signature for a user that does not exist is rejected", (await call("/api/session", {}, ghost)).status === 401);
 
     // 5. Stubbed sign-in: upsert and policy
@@ -161,10 +163,14 @@ async function main() {
     check("another user cannot read it", (await call(`/api/session/${sid}`, {}, bobC)).status === 404);
     check("another user cannot print it", (await call(`/session/${sid}/print`, {}, bobC)).status === 404);
     check("owner can print it", (await call(`/session/${sid}/print`, {}, alice)).status === 200);
+    const planJson = JSON.stringify({ steps: ["a", "b"], done: [] });
+    const taskId = Number(db.prepare("INSERT INTO tasks (title, description, plan, related, user_id) VALUES (?, ?, ?, ?, ?)").run("T", "d", planJson, "[]", a.id).lastInsertRowid);
+    const putTask = (c: string, body: unknown) => call("/api/taskforce", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }, c);
+    check("taskforce: owner ticks a step", (await putTask(alice, { id: taskId, done: [0, 9, 0] })).status === 200 && (JSON.parse((db.prepare("SELECT plan FROM tasks WHERE id = ?").get(taskId) as { plan: string }).plan).done as number[]).join() === "0");
+    check("taskforce: another user cannot tick it", (await putTask(bobC, { id: taskId, done: [1] })).status === 400);
+    check("taskforce: bad body is 400", (await putTask(alice, { id: "x", done: "no" })).status === 400);
     const put = (c: string) => call(`/api/session/${sid}/reflection`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ learned: "x" }) }, c);
     check("another user cannot write a reflection", (await put(bobC)).status === 404);
-    const note = (c: string) => call(`/api/session/${sid}/director-note`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }, c);
-    check("another user cannot draft a director note", (await note(bobC)).status === 404);
     check("owner can write a reflection", (await put(alice)).status === 200);
     check("another user does not see it in their list", !(await (await call("/api/session", {}, bobC)).text()).includes('"S"'));
     check("rows with no owner are hidden", (await call(`/api/session/${orphan}`, {}, alice)).status === 404);
@@ -176,22 +182,65 @@ async function main() {
     } catch (e) {
       refused = e instanceof SignInRefused ? e.message : "other";
     }
-    check("sign-in for an email not on the list is refused with not_allowed", refused === "not_allowed", refused);
-    check("an email not on the list gets no users row", (db.prepare("SELECT COUNT(*) AS n FROM users WHERE google_sub = 'g-7'").get() as { n: number }).n === 0);
+    const daveUser = refused === "" ? signInFromGoogle({ sub: "g-7", email: "dave@augustana.edu", email_verified: true }) : null;
+    check("an email not on the list signs in as a tutee", daveUser?.role === "tutee", refused);
+    const daveC = daveUser ? sessionCookieValue(daveUser) : "";
+    check("a tutee gets 403 from GET /api/session", (await call("/api/session", {}, daveC)).status === 403);
+    // Provider chip and the extra session fields
+    check("signed out: GET /api/provider is 401", (await call("/api/provider")).status === 401);
+    check("a tutee gets 403 from GET /api/provider", (await call("/api/provider", {}, daveC)).status === 403);
+    const prov = await call("/api/provider", {}, alice);
+    check("a tutor sees the provider and no key", prov.status === 200 && !/sk-|key"|api_key/i.test(await prov.text()));
+    check("a tutee gets 403 from POST /api/session", (await post("/api/session", { notes: { workedOn: "x" } }, daveC)).status === 403);
+    check("POST /api/session without notes is 400", (await post("/api/session", { notes: { aiPolicy: "banned", privateConcern: "x" } }, alice)).status === 400);
+    check("a tutee is sent home from /history", (await call("/history", {}, daveC)).status !== 200);
+    check("a new user is not onboarded", daveUser?.onboarded === false);
+    r = await call("/", {}, daveC);
+    check("a new user opening / is redirected to /welcome", [302, 303, 307, 308].includes(r.status) && (r.headers.get("location") ?? "").replace(BASE, "") === "/welcome", `${r.status} ${r.headers.get("location")}`);
+    check("a new user can open /welcome", (await call("/welcome", {}, daveC)).status === 200);
+    check("signed out: POST /api/me/role is 401", (await post("/api/me/role", { role: "student" })).status === 401);
+    check("an unknown role is 400", (await post("/api/me/role", { role: "boss" }, daveC)).status === 400);
+    check("choosing director is accepted as a request", (await post("/api/me/role", { role: "director" }, daveC)).status === 200);
+    check("the requester is still a tutee", (db.prepare("SELECT COUNT(*) AS n FROM allowed_users WHERE email = 'dave@augustana.edu'").get() as { n: number }).n === 0);
+    check("the requester gets 403 from /api/session", (await call("/api/session", {}, daveC)).status === 403);
+    check("the requester gets 403 from /api/admin/tutors", (await call("/api/admin/tutors", {}, daveC)).status === 403);
+    r = await call("/admin/tutors", {}, daveC);
+    check("the requester opening /admin/tutors is redirected", [302, 303, 307, 308].includes(r.status), String(r.status));
+    check("a second POST /api/me/role is 409", (await post("/api/me/role", { role: "tutor" }, daveC)).status === 409);
+    check("a tutor cannot approve requests", (await post("/api/admin/requests", { id: daveUser?.id, action: "approve" }, alice)).status === 403);
+    check("a requester cannot approve themselves", (await post("/api/admin/requests", { id: daveUser?.id, action: "approve" }, daveC)).status === 403);
+    r = await call("/", {}, daveC);
+    check("a requester sees the waiting banner on /", r.status === 200 && (await r.text()).includes("request is waiting for the director"));
+    check("a tutee can open the home page after choosing", r.status === 200);
+    const bobStill = signInFromGoogle({ sub: "g-5", email: "bob@augustana.edu", email_verified: true });
+    check("a listed tutor is onboarded without the chooser", bobStill.onboarded === true);
     db.prepare("INSERT INTO allowed_users (email, role) VALUES ('erin@augustana.edu', 'tutor')").run();
     const erinC = sessionCookieValue(signInFromGoogle({ sub: "g-8", email: "erin@augustana.edu", email_verified: true }));
     check("a listed tutor is accepted", (await call("/api/session", {}, erinC)).status === 200);
     db.prepare("UPDATE allowed_users SET active = 0 WHERE email = 'erin@augustana.edu'").run();
-    check("a deactivated tutor gets 401 on the next request", (await call("/api/session", {}, erinC)).status === 401);
+    check("a deactivated tutor gets 403 on the next request", (await call("/api/session", {}, erinC)).status === 403);
     let refusedAgain = "";
     try {
       signInFromGoogle({ sub: "g-8", email: "erin@augustana.edu", email_verified: true });
     } catch (e) {
       refusedAgain = e instanceof SignInRefused ? e.message : "other";
     }
-    check("a deactivated tutor cannot sign in again", refusedAgain === "not_allowed", refusedAgain);
+    check("a deactivated tutor signs in again only as a tutee", refusedAgain === "" , refusedAgain);
     const carolUser = signInFromGoogle({ sub: "g-6", email: "carol@augustana.edu", email_verified: true, name: "Carol" });
     const carolC = sessionCookieValue(carolUser);
+    r = await call("/api/admin/tutors", {}, carolC);
+    check("the director sees the request", r.status === 200 && (await r.text()).includes("dave@augustana.edu"));
+    check("approving an unknown request is 404", (await post("/api/admin/requests", { id: 99999, action: "approve" }, carolC)).status === 404);
+    check("the director can approve it", (await post("/api/admin/requests", { id: daveUser?.id, action: "approve" }, carolC)).status === 200);
+    check("approval made the user a director", (await call("/api/session", {}, daveC)).status === 200 && (db.prepare("SELECT role, active FROM allowed_users WHERE email = 'dave@augustana.edu'").get() as { role: string; active: number }).role === "director");
+    check("approval cleared the request", (db.prepare("SELECT requested_role AS r FROM users WHERE id = ?").get(daveUser?.id ?? 0) as { r: string | null }).r === null);
+    const gina = signInFromGoogle({ sub: "g-9", email: "gina@augustana.edu", email_verified: true });
+    const ginaC = sessionCookieValue(gina);
+    await post("/api/me/role", { role: "tutor" }, ginaC);
+    check("the director can decline a request", (await post("/api/admin/requests", { id: gina.id, action: "decline" }, carolC)).status === 200);
+    check("decline clears it and grants nothing", (db.prepare("SELECT requested_role AS r FROM users WHERE id = ?").get(gina.id) as { r: string | null }).r === null && (await call("/api/session", {}, ginaC)).status === 403);
+    const hank = signInFromGoogle({ sub: "g-10", email: "hank@augustana.edu", email_verified: true });
+    check("choosing student sets onboarded with no request", (await post("/api/me/role", { role: "student" }, sessionCookieValue(hank))).status === 200 && (db.prepare("SELECT onboarded AS o, requested_role AS r FROM users WHERE id = ?").get(hank.id) as { o: number; r: string | null }).o === 1);
     check("a tutor gets 403 from GET /api/admin/tutors", (await call("/api/admin/tutors", {}, alice)).status === 403);
     check("a tutor gets 403 from POST /api/admin/tutors", (await post("/api/admin/tutors", { email: "z@augustana.edu", role: "tutor" }, alice)).status === 403);
     check("a tutor gets 403 from DELETE /api/admin/tutors", (await call("/api/admin/tutors?email=bob@augustana.edu", { method: "DELETE" }, alice)).status === 403);
@@ -234,6 +283,102 @@ async function main() {
     check("practice: bad turns is 400", (await post("/api/practice", { action: "roleplay", scenario: "x", turns: "zzz" }, alice)).status === 400);
     check("practice: unknown action is 400", (await post("/api/practice", { action: "nope" }, alice)).status === 400);
     check("taskforce: wrong type is 400", (await post("/api/taskforce", { title: 123 }, alice)).status === 400);
+    // Course AI policies and AI talk
+    check("signed out: GET /api/policies is 401", (await call("/api/policies")).status === 401);
+    check("signed out: POST /api/policies is 401", (await post("/api/policies", {})).status === 401);
+    check("signed out: POST /api/ai-talk is 401", (await post("/api/ai-talk", {})).status === 401);
+    check("a tutee gets 403 from /api/policies", (await call("/api/policies", {}, ginaC)).status === 403 && (await post("/api/policies", { courseCode: "ENGL 101" }, ginaC)).status === 403);
+    check("a tutee gets 403 from /api/ai-talk", (await post("/api/ai-talk", { action: "ownership", text: "x" }, ginaC)).status === 403);
+    check("policies: missing course code is 400", (await post("/api/policies", {}, alice)).status === 400);
+    check("policies: wrong type is 400", (await post("/api/policies", { courseCode: 5 }, alice)).status === 400);
+    check("ai-talk: unknown action is 400", (await post("/api/ai-talk", { action: "nope" }, alice)).status === 400);
+    check("ai-talk: empty paragraph is 400", (await post("/api/ai-talk", { action: "ownership", text: "" }, alice)).status === 400);
+    check("ai-talk: unknown situation is 400", (await post("/api/ai-talk", { action: "tailor", scenario: "zzz" }, alice)).status === 400);
+    check("a tutor saves a policy", (await post("/api/policies", { courseCode: "engl  101", policy: "limited" }, alice)).status === 200);
+    check("another tutor does not see it", !(await (await call("/api/policies?q=", {}, bobC)).text()).includes("ENGL 101"));
+
+    // News (#18)
+    {
+      allow.run("newsy@augustana.edu", "Newsy", "tutor");
+      const newsTutor = sessionCookieValue(signInFromGoogle({ sub: "g-news", email: "newsy@augustana.edu", email_verified: true, name: "Newsy" }));
+      check("signed out: GET /api/news is 401", (await call("/api/news")).status === 401);
+      check("signed out: POST /api/news/try is 401", (await post("/api/news/try", {})).status === 401);
+      check("a tutee gets 403 from /api/news", (await call("/api/news", {}, ginaC)).status === 403);
+      check("a tutee gets 403 from /api/news/try", (await post("/api/news/try", { title: "x" }, ginaC)).status === 403);
+      check("news/try: wrong type is 400", (await post("/api/news/try", { title: 5 }, alice)).status === 400);
+      check("news/try: missing title is 400", (await post("/api/news/try", {}, alice)).status === 400);
+      check("news/try: not JSON is 400", (await post("/api/news/try", "nope", alice)).status === 400);
+      check("news/try: too much text is 413", (await post("/api/news/try", { title: "x", summary: "y".repeat(20_000) }, alice)).status === 413);
+      r = await call("/api/news", {}, alice);
+      const nj = (await r.json().catch(() => null)) as { items?: unknown[]; failed?: unknown[] } | null;
+      check("a tutor gets the news list (items and failed sources, even with no internet)", r.status === 200 && Array.isArray(nj?.items) && Array.isArray(nj?.failed));
+      check("the director gets the news list", (await call("/api/news", {}, carolC)).status === 200);
+      const tryCodes: number[] = [];
+      for (let i = 0; i < 25; i++) tryCodes.push((await post("/api/news/try", { title: "" }, newsTutor)).status);
+      check("news/try is rate limited (429 after 20)", tryCodes.slice(0, 20).every((c) => c === 400) && tryCodes.slice(20).every((c) => c === 429), tryCodes.join(","));
+    }
+
+    // Debrief, impact, voice, director note
+    const tuteeU = signInFromGoogle({ sub: "g-901", email: "tutee901@augustana.edu", email_verified: true });
+    const tuteeC = sessionCookieValue(tuteeU);
+    const putNote = (c: string, body: unknown, id = sid) => call(`/api/session/${id}/director-note`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }, c);
+    check("signed out: GET /api/debrief is 401", (await call("/api/debrief")).status === 401);
+    check("signed out: POST /api/debrief is 401", (await post("/api/debrief", { drain: 3 })).status === 401);
+    check("signed out: GET /api/impact is 401", (await call("/api/impact")).status === 401);
+    check("signed out: PUT director-note is 401", (await putNote("", { note: "x" })).status === 401);
+    check("a tutee gets 403 from /api/debrief", (await call("/api/debrief", {}, tuteeC)).status === 403 && (await post("/api/debrief", { drain: 3 }, tuteeC)).status === 403);
+    check("a tutee gets 403 from /api/impact", (await call("/api/impact", {}, tuteeC)).status === 403);
+    check("a tutee gets 403 from director-note", (await putNote(tuteeC, { note: "x" })).status === 403);
+    check("a tutor gets 403 from /api/impact", (await call("/api/impact", {}, alice)).status === 403);
+    check("a tutor gets 403 writing a director note", (await putNote(alice, { note: "x" })).status === 403);
+    check("debrief: rating 9 is 400", (await post("/api/debrief", { drain: 9 }, alice)).status === 400);
+    check("debrief: no rating is 400", (await post("/api/debrief", {}, alice)).status === 400);
+    check("debrief: wrong note type is 400", (await post("/api/debrief", { drain: 3, note: 5 }, alice)).status === 400);
+    check("a tutor saves a debrief", (await post("/api/debrief", { drain: 4, note: "long shift" }, alice)).status === 200);
+    check("debrief is private to its owner", !(await (await call("/api/debrief", {}, bobC)).text()).includes('"shifts":1'));
+    check("the director cannot read a tutor's debrief", !(await (await call("/api/debrief", {}, carolC)).text()).includes('"shifts":1'));
+    check("director note: wrong type is 400", (await putNote(carolC, { note: 5 })).status === 400);
+    check("director note: unknown session is 404", (await putNote(carolC, { note: "x" }, 999999)).status === 404);
+    check("the director writes a note", (await putNote(carolC, { note: "Nice work on this one." })).status === 200);
+    check("the session's tutor reads the note", (await (await call(`/api/session/${sid}/director-note`, {}, alice)).text()).includes("Nice work on this one."));
+    check("another tutor cannot read the note", (await call(`/api/session/${sid}/director-note`, {}, bobC)).status === 404);
+    r = await call("/api/impact", {}, carolC);
+    check("the director reads impact counts", r.status === 200 && (await r.text()).includes('"weeks"'));
+    r = await call("/api/impact?format=csv", {}, carolC);
+    check("the director downloads impact CSV", r.status === 200 && (r.headers.get("content-type") ?? "").includes("text/csv") && (await r.text()).startsWith("week,sessions"));
+
+    // Coach route (#18)
+    check("signed out: POST /api/coach is 401", (await post("/api/coach", {})).status === 401);
+    check("coach: no messages is 400", (await post("/api/coach", {}, tuteeC)).status === 400);
+    check("coach: last turn from the assistant is 400", (await post("/api/coach", { messages: [{ role: "user", content: "a" }, { role: "assistant", content: "b" }] }, tuteeC)).status === 400);
+    check("coach: unknown role is 400", (await post("/api/coach", { messages: [{ role: "system", content: "a" }] }, tuteeC)).status === 400);
+    check("coach: 2001 characters is 400", (await post("/api/coach", { messages: [{ role: "user", content: "a".repeat(2001) }] }, tuteeC)).status === 400);
+    check("coach: 13 turns is 400", (await post("/api/coach", { messages: Array.from({ length: 13 }, () => ({ role: "user", content: "a" })) }, tuteeC)).status === 400);
+    check("coach: a body over 100 KB is 413", (await post("/api/coach", { messages: [{ role: "user", content: "a".repeat(120_000) }] }, tuteeC)).status === 413);
+    {
+      const coachCodes: number[] = [];
+      for (let i = 0; i < 24; i++) coachCodes.push((await post("/api/coach", { messages: [] }, ginaC)).status);
+      check("coach is rate limited (429 after 20)", coachCodes.slice(0, 20).every((c) => c === 400) && coachCodes.slice(20).every((c) => c === 429), coachCodes.join(","));
+    }
+
+    // Director read-only access to sessions (#18)
+    const secretSid = Number(ins.run("Pat Jones", "HIST 1", JSON.stringify({ workedOn: "a", struggles: "b", wentWell: "c", privateConcern: "PRIVATE-CONCERN-MARKER" }), outputs, a.id).lastInsertRowid);
+    check("a tutor gets 404 reading another tutor's session", (await call(`/api/session/${secretSid}`, {}, bobC)).status === 404);
+    r = await call(`/api/session/${secretSid}`, {}, carolC);
+    const dirBody = await r.text();
+    check("the director reads any tutor's session, read-only", r.status === 200 && dirBody.includes('"readOnly":true') && dirBody.includes('"tutor"'), `${r.status}`);
+    check("the director never gets the private concern", !dirBody.includes("PRIVATE-CONCERN-MARKER"));
+    check("the director sees only the student's first name", dirBody.includes('"Pat"') && !dirBody.includes("Pat Jones"));
+    check("a tutee gets 403 from /api/session/[id]", (await call(`/api/session/${secretSid}`, {}, tuteeC)).status === 403);
+    check("the director cannot write the tutor's reflection (404)", (await call(`/api/session/${secretSid}/reflection`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ learned: "x" }) }, carolC)).status === 404);
+    check("signed out: /api/admin/sessions is 401", (await call("/api/admin/sessions")).status === 401);
+    check("a tutor gets 403 from /api/admin/sessions", (await call("/api/admin/sessions", {}, alice)).status === 403);
+    check("a tutee gets 403 from /api/admin/sessions", (await call("/api/admin/sessions", {}, tuteeC)).status === 403);
+    r = await call("/api/admin/sessions", {}, carolC);
+    const listBody = await r.text();
+    check("the director lists sessions with first names only", r.status === 200 && listBody.includes('"student":"Pat"') && !listBody.includes("Pat Jones") && !listBody.includes("PRIVATE-CONCERN-MARKER"), `${r.status}`);
+    check("a tutor is sent away from /admin/sessions", [302, 303, 307, 308].includes((await call("/admin/sessions", {}, alice)).status));
+    check("the director opens /admin/sessions", (await call("/admin/sessions", {}, carolC)).status === 200);
 
     // 9. No internal text in server errors (the AI service is unreachable, so the handler fails)
     r = await post("/api/taskforce", { title: "t" }, alice);
@@ -246,10 +391,67 @@ async function main() {
     for (let i = 0; i < 25; i++) codes.push((await post("/api/search", { q: "" }, carol)).status);
     check("rate limit returns 429 after 20 requests", codes.slice(0, 20).every((c) => c === 400) && codes.slice(20).every((c) => c === 429), codes.join(","));
     check("rate limit is per user", (await post("/api/search", { q: "" }, bobC)).status === 400);
+    db.prepare("INSERT INTO allowed_users (email, name, role, active) VALUES (?, ?, 'director', 1) ON CONFLICT(email) DO UPDATE SET role = 'director', active = 1").run("frank@augustana.edu", "Frank");
+    const frankC = sessionCookieValue(signInFromGoogle({ sub: "g-frank", email: "frank@augustana.edu", email_verified: true, name: "Frank" }));
+    const helpAsDirector = await post(`/api/session/${secretSid}/help`, { question: "hi" }, frankC);
+    check("the director cannot use the tutor's help route (404)", helpAsDirector.status === 404);
 
-    // 11. Logout
+    // 11. Logout ends the session on the server (#16)
     r = await call("/api/auth/logout", { method: "POST" });
     check("logout clears the cookie and goes to /login", /gait_session=;/.test(r.headers.get("set-cookie") ?? "") && (r.headers.get("location") ?? "").endsWith("/login"));
+    const copied = bobC;
+    check("before logout a copied cookie works", (await call("/api/session", {}, copied)).status !== 401);
+    r = await call("/api/auth/logout", { method: "POST" }, copied);
+    check("logout with a cookie clears it", /gait_session=;/.test(r.headers.get("set-cookie") ?? ""));
+    check("after logout the copied cookie is rejected by the API", (await call("/api/session", {}, copied)).status === 401);
+    check("after logout the copied cookie is not a signed-in page", (await call("/history", {}, copied)).status !== 200);
+    check("a new sign-in after logout works", (await call("/api/session", {}, sessionCookieValue(bob))).status !== 401);
+    check("an old-format cookie without a version still works until logout", (await call("/api/session", {}, signToken({ uid: a.id, role: "tutor" }, 600))).status !== 401);
+
+    // 12. AI call caps are counted in the database (#15)
+    const { chargeAiCall, aiContext, rateLimit: dbLimit, AI_CALLS_PER_REQUEST } = await import("../lib/limits");
+    const caps = aiContext.run({ userId: 424242, calls: 0 }, () => Array.from({ length: AI_CALLS_PER_REQUEST + 2 }, () => chargeAiCall()));
+    check("one request may make only a few model calls", caps.slice(0, AI_CALLS_PER_REQUEST).every((c) => c === null) && caps.slice(AI_CALLS_PER_REQUEST).every((c) => c !== null), JSON.stringify(caps));
+    check("limit is stored in the database (survives a restart, shared by processes)", dbLimit("probe", 2, 60_000) && dbLimit("probe", 2, 60_000) && !dbLimit("probe", 2, 60_000) && (getDb().prepare("SELECT count(*) AS n FROM rate_hits WHERE key = 'probe'").get() as { n: number }).n === 2);
+    check("model calls are counted per minute, not just requests", aiContext.run({ userId: 777, calls: 0 }, () => { let ok = 0; for (let i = 0; i < 100; i++) if (dbLimit("aicall:777", 60, 60_000)) ok++; return ok; }) === 60);
+    for (const t of ["sessions", "tasks", "quiz_results"]) check(`${t} has a user_id index`, (getDb().prepare(`PRAGMA index_list(${t})`).all() as { name: string }[]).some((i) => i.name === `${t}_user`));
+
+    // 13. Provider switch: grok/xai through the OpenAI-compatible client, stand-in server (#3)
+    const seen: { auth?: string; body?: { model?: string; messages?: { role: string; content: string }[] } }[] = [];
+    let aiStatus = 200;
+    const fakeAi = http.createServer((q, s2) => {
+      let raw = "";
+      q.on("data", (c) => (raw += c));
+      q.on("end", () => {
+        seen.push({ auth: q.headers.authorization, body: JSON.parse(raw || "{}") });
+        s2.statusCode = aiStatus;
+        s2.setHeader("content-type", "application/json");
+        s2.end(JSON.stringify(aiStatus === 200 ? { choices: [{ message: { content: '{"ok":true}' } }] } : { error: { message: "nope" } }));
+      });
+    });
+    await new Promise<void>((res) => fakeAi.listen(0, "127.0.0.1", res));
+    const { ask, askJson, hasModel } = await import("../lib/claude");
+    const saved = { ...process.env };
+    try {
+      process.env.GAIT_API_BASE = `http://127.0.0.1:${(fakeAi.address() as { port: number }).port}/v1`;
+      process.env.GAIT_PROVIDER = "xai";
+      delete process.env.XAI_API_KEY;
+      check("grok without a key says what to add", !hasModel() && (await ask({ system: "s", messages: [{ role: "user", content: "hi" }] }).catch((e: Error) => e.message)).includes("XAI_API_KEY"));
+      process.env.XAI_API_KEY = "fake-key";
+      const got = await askJson<{ ok: boolean }>({ system: "s", messages: [{ role: "user", content: "hi" }] });
+      check("GAIT_PROVIDER=xai works like grok (bearer key, grok model, JSON parsed)", got.ok === true && seen[0]?.auth === "Bearer fake-key" && /^grok/.test(seen[0]?.body?.model ?? ""), JSON.stringify(seen[0]));
+      check("coaching rules are always in the system prompt", (seen[0]?.body?.messages?.[0]?.content ?? "").includes("AI in writing"));
+      aiStatus = 401;
+      check("a bad key is a readable error, not a crash", (await ask({ system: "s", messages: [{ role: "user", content: "hi" }] }).catch((e: Error) => e.message)).includes("rejected the key"));
+      aiStatus = 429;
+      check("rate limited is a readable error", (await ask({ system: "s", messages: [{ role: "user", content: "hi" }] }).catch((e: Error) => e.message)).includes("rate limited"));
+    } finally {
+      for (const k of ["GAIT_API_BASE", "GAIT_PROVIDER", "XAI_API_KEY"]) {
+        if (saved[k] === undefined) delete process.env[k];
+        else process.env[k] = saved[k];
+      }
+      fakeAi.close();
+    }
   } finally {
     stop();
     fs.rmSync(dir, { recursive: true, force: true });

@@ -9,7 +9,7 @@ const NUDGE_AT = 3;
 
 type Row = { week: string; shifts: number; avg: number; draining: number };
 
-/** Weeks start on Monday. Everything stays in the local database and is never exported. */
+/** Private to the signed-in user: nobody else, the director included, can read these rows. Weeks start on Monday. */
 export async function GET(req: Request) {
   return handle(req, async (user) => {
     const weeks = getDb()
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
     const body = await readJson(req);
     const drain = Number(body.drain);
     if (!Number.isInteger(drain) || drain < 1 || drain > 5) throw new UserFacingError("Pick a rating from 1 to 5.");
-    getDb().prepare("INSERT INTO debriefs (drain, note, user_id) VALUES (?, ?, ?)").run(drain, str(body.note, 5000).slice(0, 500), user.id);
+    getDb().prepare("INSERT INTO debriefs (drain, note, user_id) VALUES (?, ?, ?)").run(drain, str(body.note, 500), user.id);
     return { ok: true };
   });
 }

@@ -7,8 +7,8 @@ import {
   appUrl, readCookie, SESSION_COOKIE, SESSION_SECONDS, signToken, verifyToken,
 } from "./session-token";
 
-export type Role = "tutor" | "director";
-export type User = { id: number; email: string; name: string | null; picture: string | null; role: Role };
+export type Role = "tutor" | "director" | "tutee";
+export type User = { id: number; email: string; name: string | null; picture: string | null; role: Role; onboarded: boolean; requestedRole: "tutor" | "director" | null };
 
 /** The signed-in user for a route handler (reads the Cookie header), or null. */
 export function getUserFromRequest(req: Request): User | null {
@@ -21,18 +21,42 @@ export async function getUser(): Promise<User | null> {
 }
 
 function userFromToken(token: string | undefined): User | null {
-  const payload = verifyToken<{ uid: number }>(token);
+  const payload = verifyToken<{ uid: number; sv?: number }>(token);
   if (!payload || !Number.isInteger(payload.uid)) return null;
   // Checked on every request: deactivating a tutor in allowed_users ends their access at once.
-  return userWhere("u.id = ?", payload.uid);
+  const row = userRow("u.id = ?", payload.uid);
+  // Signing out bumps session_version, so every cookie issued before that stops working (tokens without sv count as 0).
+  if (!row || (payload.sv ?? 0) !== row.sv) return null;
+  return toUser(row);
+}
+
+/** Ends every session of this user on the server (sign-out). */
+export function endSessions(userId: number) {
+  getDb().prepare("UPDATE users SET session_version = session_version + 1 WHERE id = ?").run(userId);
+}
+
+/** The user a (still valid) cookie belongs to, for sign-out. */
+export function userIdFromCookie(token: string | undefined): number | null {
+  const payload = verifyToken<{ uid: number }>(token);
+  return payload && Number.isInteger(payload.uid) ? payload.uid : null;
+}
+
+type UserRow = Omit<User, "onboarded"> & { onboarded: number; sv: number };
+function toUser({ sv: _sv, onboarded, ...rest }: UserRow): User {
+  return { ...rest, onboarded: !!onboarded };
 }
 
 function userWhere(where: string, param: string | number): User | null {
-  const row = getDb().prepare(
-    `SELECT u.id, u.email, u.name, u.picture, a.role FROM users u
-     JOIN allowed_users a ON a.email = lower(u.email) AND a.active = 1 WHERE ${where}`,
-  ).get(param) as User | undefined;
-  return row ?? null;
+  const row = userRow(where, param);
+  return row ? toUser(row) : null;
+}
+
+function userRow(where: string, param: string | number): UserRow | null {
+  return (getDb().prepare(
+    `SELECT u.id, u.email, u.name, u.picture, CASE WHEN a.active = 1 THEN a.role ELSE 'tutee' END AS role,
+       (u.onboarded = 1 OR a.active = 1) AS onboarded, u.requested_role AS requestedRole, u.session_version AS sv
+     FROM users u LEFT JOIN allowed_users a ON a.email = lower(u.email) WHERE ${where}`,
+  ).get(param) as UserRow | undefined) ?? null;
 }
 
 /** DIRECTOR_EMAIL is always an active director, so the director can never be locked out. */
@@ -65,17 +89,24 @@ export function signInFromGoogle(claims: { sub?: string; email?: string; email_v
   seedDirector();
   const db = getDb();
   const row = db.prepare("SELECT active, role FROM allowed_users WHERE email = ?").get(email) as { active: number; role: string } | undefined;
-  if (!row?.active) throw new SignInRefused("not_allowed");
-  const user = upsertUser(claims.sub, email, claims.name ?? null, claims.picture ?? null);
+  // Anyone else with a verified account (on the allowed domain) is a tutee: no tutor tools, just the student guide.
+  let user = upsertUser(claims.sub, email, claims.name ?? null, claims.picture ?? null);
+  // The director and anyone already on the active list skip the role chooser.
+  if (row?.active && !user.onboarded) {
+    db.prepare("UPDATE users SET onboarded = 1 WHERE id = ?").run(user.id);
+    user = { ...user, onboarded: true };
+  }
   // Rows saved before sign-in existed have no owner. The director takes them over, so they are not lost.
-  if (row.role === "director") {
-    for (const table of ["sessions", "tasks", "quiz_results", "course_policies", "debriefs", "usage_events"]) db.prepare(`UPDATE OR IGNORE ${table} SET user_id = ? WHERE user_id IS NULL`).run(user.id);
+  if (row?.active && row.role === "director") {
+    for (const table of ["sessions", "tasks", "quiz_results"]) db.prepare(`UPDATE ${table} SET user_id = ? WHERE user_id IS NULL`).run(user.id);
   }
   return user;
 }
 
 export function sessionCookieValue(user: User): string {
-  return signToken({ uid: user.id }, SESSION_SECONDS);
+  // The role is only a hint for the proxy (to keep tutees off tutor pages); every page and route re-reads the real role.
+  const sv = (getDb().prepare("SELECT session_version AS sv FROM users WHERE id = ?").get(user.id) as { sv: number } | undefined)?.sv ?? 0;
+  return signToken({ uid: user.id, role: user.role, sv }, SESSION_SECONDS);
 }
 
 function oauthClient() {

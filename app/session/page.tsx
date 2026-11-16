@@ -1,223 +1,194 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
-import CopyButton from "@/components/CopyButton";
+import { useEffect, useRef, useState } from "react";
+import SessionOutputsView from "@/components/SessionOutputs";
+import { ErrorBox, PageHeader, Working, btn2Cls, btnCls, inputCls, labelCls } from "@/components/ui";
 import VoiceToggle, { useVoiceFirst } from "@/components/VoiceToggle";
-import { Card, ErrorBox, PageHeader, Working, btnCls, inputCls } from "@/components/ui";
 import { get, post } from "@/lib/client";
-import { AI_POLICIES, type AiPolicy, type CoursePolicy, type SessionOutputs } from "@/lib/types";
+import { readLocal, writeLocal } from "@/lib/local";
+import { AI_POLICIES, type AiPolicy, type SessionOutputs } from "@/lib/types";
+
+const DRAFT_KEY = "ink-draft-session";
+const EMPTY = { studentName: "", course: "", workedOn: "", struggles: "", wentWell: "", courseCode: "", aiUse: "", privateConcern: "" };
+type Draft = typeof EMPTY;
+const NEED_NOTES = "Add what you worked on or what the student struggled with.";
 
 export default function SessionPage() {
-  const [studentName, setStudentName] = useState("");
-  const [course, setCourse] = useState("");
-  const [workedOn, setWorkedOn] = useState("");
-  const [struggles, setStruggles] = useState("");
-  const [wentWell, setWentWell] = useState("");
-  const [courseCode, setCourseCode] = useState("");
+  const [f, setF] = useState<Draft>(EMPTY);
   const [aiPolicy, setAiPolicy] = useState<AiPolicy>("unknown");
-  const [policyOnFile, setPolicyOnFile] = useState<CoursePolicy | null>(null);
-  const [policyChecked, setPolicyChecked] = useState(false);
-  const [aiUse, setAiUse] = useState("");
-  const [privateConcern, setPrivateConcern] = useState("");
   const [voice, setVoice] = useVoiceFirst();
-  const [sessionNote, setSessionNote] = useState("");
-  const [directorNote, setDirectorNote] = useState("");
-  const [concernWithheld, setConcernWithheld] = useState(false);
-  const [saveMsg, setSaveMsg] = useState("");
+  const [onFile, setOnFile] = useState<string | null>(null);
+  const [restored, setRestored] = useState(false);
+  const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [checking, setChecking] = useState(false);
-  const [savingPolicy, setSavingPolicy] = useState(false);
-  const [drafting, setDrafting] = useState(false);
+  const [fieldError, setFieldError] = useState<string | null>(null);
+  const [lookupError, setLookupError] = useState<string | null>(null);
   const [result, setResult] = useState<{ id: number; outputs: SessionOutputs } | null>(null);
-  const [email, setEmail] = useState("");
+  const formRef = useRef<HTMLFormElement>(null);
+  const resultRef = useRef<HTMLDivElement>(null);
+  const set = (k: keyof Draft, v: string) => { setF((x) => ({ ...x, [k]: v })); if (fieldError) setFieldError(null); };
 
+  // Notes are kept in this browser as you type, so a reload or an error never loses them.
+  useEffect(() => {
+    try {
+      const raw = readLocal(DRAFT_KEY);
+      if (raw) {
+        const d = JSON.parse(raw) as Partial<Draft> & { aiPolicy?: AiPolicy };
+        const next = { ...EMPTY, ...Object.fromEntries(Object.keys(EMPTY).map((k) => [k, typeof d[k as keyof Draft] === "string" ? d[k as keyof Draft] : ""])) } as Draft;
+        if (Object.values(next).some((v) => v.trim())) {
+          setF(next);
+          if (d.aiPolicy && AI_POLICIES.includes(d.aiPolicy)) setAiPolicy(d.aiPolicy);
+          setRestored(true);
+        }
+      }
+    } catch {
+      /* a broken draft is ignored */
+    }
+    setReady(true);
+  }, []);
+  useEffect(() => {
+    if (!ready) return;
+    const t = setTimeout(() => writeLocal(DRAFT_KEY, Object.values(f).some((v) => v.trim()) ? JSON.stringify({ ...f, aiPolicy }) : null), 300);
+    return () => clearTimeout(t);
+  }, [f, aiPolicy, ready]);
+
+  function clearDraft() {
+    writeLocal(DRAFT_KEY, null);
+    setF(EMPTY);
+    setAiPolicy("unknown");
+    setOnFile(null);
+    setRestored(false);
+    setFieldError(null);
+    setError(null);
+  }
+
+  // A policy saved for this course code (on the Policies page) fills in the choice.
   async function lookupPolicy() {
-    const code = courseCode.trim();
-    if (!code) return;
-    setError(null);
-    setChecking(true);
+    const code = f.courseCode.trim();
+    setLookupError(null);
+    if (!code) return setOnFile(null);
     try {
-      const { policy } = await get<{ policy: CoursePolicy | null }>(`/api/policies?code=${encodeURIComponent(code)}`);
-      // A policy picked up from a previous course must not carry over to one with nothing on file.
+      const { policy } = await get<{ policy: { course_code: string; policy: AiPolicy } | null }>(`/api/policies?code=${encodeURIComponent(code)}`);
       if (policy) setAiPolicy(policy.policy);
-      else if (policyOnFile) setAiPolicy("unknown");
-      setPolicyOnFile(policy);
-      setPolicyChecked(true);
+      setOnFile(policy ? `${policy.course_code}: ${policy.policy}` : null);
     } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setChecking(false);
+      setOnFile(null);
+      setLookupError((err as Error).message);
     }
   }
 
-  async function savePolicy() {
-    setSaveMsg("");
+  async function generate(e?: React.FormEvent) {
+    e?.preventDefault();
+    if (loading) return;
     setError(null);
-    setSavingPolicy(true);
-    try {
-      const { policy } = await post<{ policy: CoursePolicy }>("/api/policies", {
-        courseCode, policy: aiPolicy, source: "Checked with the student at a session",
-      });
-      setPolicyOnFile(policy);
-      setSaveMsg(`Saved for ${policy.course_code}.`);
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setSavingPolicy(false);
+    if (!f.workedOn.trim() && !f.struggles.trim()) {
+      setFieldError(NEED_NOTES);
+      document.getElementById("workedOn")?.focus();
+      return;
     }
-  }
-
-  async function draftDirectorNote() {
-    if (!result) return;
-    setError(null);
-    setDrafting(true);
-    try {
-      const r = await post<{ note: string; concernWithheld?: boolean }>(`/api/session/${result.id}/director-note`, {});
-      setDirectorNote(r.note);
-      setConcernWithheld(!!r.concernWithheld);
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setDrafting(false);
-    }
-  }
-
-  async function generate(e: React.FormEvent) {
-    e.preventDefault();
+    setFieldError(null);
     setLoading(true);
-    setError(null);
     try {
       const r = await post<{ id: number; outputs: SessionOutputs }>("/api/session", {
-        studentName, course, voice,
-        notes: { workedOn, struggles, wentWell, courseCode, aiPolicy, aiUse, privateConcern },
+        studentName: f.studentName, course: f.course, voice,
+        notes: { workedOn: f.workedOn, struggles: f.struggles, wentWell: f.wentWell, courseCode: f.courseCode, aiPolicy, aiUse: f.aiUse, privateConcern: f.privateConcern },
       });
       setResult(r);
-      setSessionNote(r.outputs.sessionNote ?? "");
-      setDirectorNote("");
-      setConcernWithheld(false);
-      setEmail(r.outputs.email);
+      writeLocal(DRAFT_KEY, null); // saved on the server now
+      setRestored(false);
+      setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
     } catch (err) {
-      setError((err as Error).message);
+      setError((err as Error).message); // the form stays filled so nothing is lost
     } finally {
       setLoading(false);
     }
   }
 
   const o = result?.outputs;
+  const err = fieldError ? "notes-error" : undefined;
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <PageHeader title="After session">Write up your notes and get a follow-up for the student.</PageHeader>
-      <form onSubmit={generate} className="space-y-3">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <input className={inputCls} placeholder="Student first name" value={studentName} onChange={(e) => setStudentName(e.target.value)} />
-          <input className={inputCls} placeholder="Course / assignment (e.g. ENGL 101, argument essay)" value={course} onChange={(e) => setCourse(e.target.value)} />
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <input className={inputCls} placeholder="Course code (e.g. ENGL 101)" value={courseCode} onChange={(e) => { setCourseCode(e.target.value); setPolicyChecked(false); }} onBlur={lookupPolicy} />
-          <label className="flex items-center gap-2 text-sm">
-            AI policy
-            <select className={inputCls} value={aiPolicy} onChange={(e) => setAiPolicy(e.target.value as AiPolicy)}>
-              {AI_POLICIES.map((p) => <option key={p}>{p}</option>)}
-            </select>
-          </label>
-        </div>
-        {checking && <p className="text-xs text-slate-600">Checking…</p>}
-        {policyOnFile && (
-          <p className="text-xs text-slate-600">
-            On file for {policyOnFile.course_code}: {policyOnFile.policy}{policyOnFile.details ? `. ${policyOnFile.details}` : ""} You can change the policy above.
+      <form ref={formRef} onSubmit={generate} onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); formRef.current?.requestSubmit(); } }} className="space-y-4 rounded-lg border border-stone-200 bg-white p-5 sm:p-6">
+        {restored && (
+          <p role="status" className="flex flex-wrap items-center gap-x-3 rounded-md bg-gold-50 px-3 py-2 text-sm text-stone-800">
+            Draft restored.
+            <button type="button" onClick={clearDraft} className="inline-flex min-h-10 items-center font-semibold text-indigo-700 underline underline-offset-4">Clear</button>
           </p>
         )}
-        {policyChecked && !policyOnFile && courseCode.trim() && (
-          <div className="rounded border border-amber-300 bg-amber-50 p-3 text-sm">
-            <p className="font-medium">No policy on file for {courseCode.trim().toUpperCase()}.</p>
-            <p className="mt-1">Try this: &quot;Let&apos;s look at your syllabus together. Is there a section on AI or technology? What does it say about brainstorming, drafting, and editing? If it isn&apos;t there, ask your professor, and we can note what they say.&quot;</p>
-            <div className="mt-2 flex items-center gap-2">
-              <button type="button" className="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-white" disabled={savingPolicy} onClick={savePolicy}>{savingPolicy ? "Saving…" : "Save the policy chosen above for this course"}</button>
-              {saveMsg && <span className="text-xs">{saveMsg}</span>}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor="studentName" className={labelCls}>Student first name</label>
+            <input id="studentName" className={inputCls} value={f.studentName} onChange={(e) => set("studentName", e.target.value)} />
+          </div>
+          <div>
+            <label htmlFor="course" className={labelCls}>Course or assignment</label>
+            <input id="course" className={inputCls} placeholder="ENGL 101, argument essay" value={f.course} onChange={(e) => set("course", e.target.value)} />
+          </div>
+        </div>
+        <div>
+          <label htmlFor="workedOn" className={labelCls}>What did you work on?</label>
+          <textarea id="workedOn" className={inputCls} rows={3} aria-invalid={!!fieldError} aria-describedby={err} value={f.workedOn} onChange={(e) => set("workedOn", e.target.value)} />
+        </div>
+        <div>
+          <label htmlFor="struggles" className={labelCls}>What did they struggle with?</label>
+          <textarea id="struggles" className={inputCls} rows={3} aria-invalid={!!fieldError} aria-describedby={err} value={f.struggles} onChange={(e) => set("struggles", e.target.value)} />
+          {fieldError && <p id="notes-error" role="alert" className="mt-1 text-sm font-medium text-margin">{fieldError}</p>}
+        </div>
+        <div>
+          <label htmlFor="wentWell" className={labelCls}>What went well?</label>
+          <textarea id="wentWell" className={inputCls} rows={2} value={f.wentWell} onChange={(e) => set("wentWell", e.target.value)} />
+        </div>
+        <fieldset className="space-y-4 rounded-md border border-stone-200 p-4">
+          <legend className="px-1 text-sm font-semibold text-ink">AI in this course</legend>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="courseCode" className={labelCls}>Course code (optional)</label>
+              <input id="courseCode" className={inputCls} placeholder="ENGL 101" value={f.courseCode} onChange={(e) => set("courseCode", e.target.value)} onBlur={lookupPolicy} />
+            </div>
+            <div>
+              <label htmlFor="aiPolicy" className={labelCls}>The course&apos;s AI policy</label>
+              <select id="aiPolicy" className={inputCls} value={aiPolicy} onChange={(e) => setAiPolicy(e.target.value as AiPolicy)}>
+                {AI_POLICIES.map((p) => <option key={p} value={p}>{p === "unknown" ? "Not sure yet" : p[0].toUpperCase() + p.slice(1)}</option>)}
+              </select>
             </div>
           </div>
-        )}
-        <textarea className={inputCls} rows={3} placeholder="What did you work on?" value={workedOn} onChange={(e) => setWorkedOn(e.target.value)} />
-        <textarea className={inputCls} rows={3} placeholder="What did they struggle with?" value={struggles} onChange={(e) => setStruggles(e.target.value)} />
-        <textarea className={inputCls} rows={2} placeholder="What went well?" value={wentWell} onChange={(e) => setWentWell(e.target.value)} />
-        <input className={inputCls} placeholder="AI use that came up (optional): what the student said they used it for" value={aiUse} onChange={(e) => setAiUse(e.target.value)} />
-        <textarea className={inputCls} rows={2} placeholder="Private concern (optional, tutor only: never goes in the email or printout)" value={privateConcern} onChange={(e) => setPrivateConcern(e.target.value)} />
+          <div>
+            <label htmlFor="aiUse" className={labelCls}>AI use that came up (optional)</label>
+            <input id="aiUse" className={inputCls} placeholder="What the student said they used it for" value={f.aiUse} onChange={(e) => set("aiUse", e.target.value)} />
+          </div>
+          <ErrorBox error={lookupError} />
+          {onFile && <p className="text-sm text-stone-600">Saved policy on file for {onFile}. You can change it above.</p>}
+          <p className="text-sm text-stone-600">Not sure? The follow-up will suggest asking the professor. Nothing here judges the student&apos;s work.</p>
+        </fieldset>
+        <div>
+          <label htmlFor="privateConcern" className={labelCls}>Private concern (optional)</label>
+          <textarea id="privateConcern" className={inputCls} rows={2} placeholder="Only you see this. It never goes in the email, the printout or the AI request." value={f.privateConcern} onChange={(e) => set("privateConcern", e.target.value)} />
+        </div>
         <VoiceToggle on={voice} set={setVoice} />
-        <button className={btnCls} disabled={loading}>Generate follow-up</button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button className={`${btnCls} min-h-10`} disabled={loading}>Write the follow-up</button>
+          <span className="text-sm text-stone-600">Ctrl or Cmd + Enter also works.</span>
+        </div>
       </form>
       {loading && <Working label="Writing the follow-up" />}
-      <ErrorBox error={error} />
-
-      {o && result && (
-        <div className="space-y-4">
-          <p className="text-sm">
-            Saved. <Link className="text-indigo-700 underline" href={`/session/${result.id}`}>Open this session to add your reflection</Link>.
-          </p>
-          <Card title="Email draft" actions={<CopyButton text={email} />}>
-            <textarea className={inputCls} rows={12} value={email} onChange={(e) => setEmail(e.target.value)} />
-            <p className="mt-1 text-xs text-stone-500">Edit it, copy it, and send it from your own email.</p>
-          </Card>
-          {o.voiceFlags && o.voiceFlags.length > 0 && (
-            <Card title="Voice-first flags">
-              <ul className="list-disc pl-5 text-sm">{o.voiceFlags.map((f, i) => <li key={i}>{f}</li>)}</ul>
-            </Card>
-          )}
-          <Card title="Session note (for the center's records)" actions={<CopyButton text={sessionNote} />}>
-            <textarea className={inputCls} rows={8} value={sessionNote} onChange={(e) => setSessionNote(e.target.value)} />
-            <p className="mt-1 text-xs text-slate-500">Organized by the RWC rubric. Edit it, then copy it into your records.</p>
-          </Card>
-          <Card title="Next steps" actions={<Link className="text-sm text-indigo-700 underline" href={`/session/${result.id}/print`} target="_blank">Printable page</Link>}>
-            <ul className="list-disc space-y-1 pl-5 text-sm">{o.nextSteps.map((s, i) => <li key={i}>{s}</li>)}</ul>
-          </Card>
-          <Card title="Focus areas">
-            <div className="space-y-3 text-sm">
-              {o.focusAreas.map((f, i) => (
-                <div key={i}>
-                  <p className="font-medium">{f.skill}</p>
-                  <p className="text-stone-600">{f.why}</p>
-                  <p className="mt-1">{f.miniLesson}</p>
-                </div>
-              ))}
-            </div>
-          </Card>
-          <Card title="Use AI like a coach (prompts for the student)">
-            <ul className="space-y-3 text-sm">
-              {o.aiPrompts.map((p, i) => (
-                <li key={i} className="rounded bg-stone-50 p-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <code className="whitespace-pre-wrap">{p.prompt}</code>
-                    <CopyButton text={p.prompt} />
-                  </div>
-                  <p className="mt-1 text-xs text-stone-500">{p.whyItHelps}</p>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-3 text-sm font-medium">Don&apos;t ask AI to…</p>
-            <ul className="list-disc pl-5 text-sm">{o.dontAskAi.map((d, i) => <li key={i}>{d}</li>)}</ul>
-          </Card>
+      {error && (
+        <div className="space-y-3">
+          <ErrorBox error={error} />
+          <p className="text-sm text-stone-700">Your notes are still in the form.</p>
+          <button type="button" className={`${btn2Cls} min-h-10`} onClick={() => generate()} disabled={loading}>Try again</button>
         </div>
       )}
 
       {o && result && (
-        <Card title="Private, tutor only">
-          <div className="space-y-2 text-sm">
-            <p className="whitespace-pre-wrap">{privateConcern.trim() || "No private concern noted."}</p>
-            <button type="button" className="rounded border border-slate-300 px-3 py-1 text-sm hover:bg-slate-100" disabled={drafting} onClick={draftDirectorNote}>{drafting ? "Drafting…" : "Draft a note to the director"}</button>
-            {directorNote && (
-              <>
-                <textarea className={inputCls} rows={8} value={directorNote} onChange={(e) => setDirectorNote(e.target.value)} />
-                <CopyButton text={directorNote} />
-                {concernWithheld && (
-                  <p className="text-xs text-amber-700">Your private concern was not sent to the hosted AI model, so add it yourself if you want it in the note.</p>
-                )}
-                <p className="text-xs text-slate-500">Not saved anywhere. Copy it if you want to send it.</p>
-              </>
-            )}
-          </div>
-        </Card>
+        <div ref={resultRef} className="scroll-mt-20 space-y-6">
+          <p className="rounded-md border border-gold-300/70 bg-gold-50 px-4 py-3 text-sm text-stone-800">
+            Saved. <Link className="font-semibold text-ink underline underline-offset-4" href={`/session/${result.id}`}>Open this session to add your reflection</Link>.
+          </p>
+          <SessionOutputsView id={result.id} outputs={o} editable />
+        </div>
       )}
-
     </div>
   );
 }

@@ -12,29 +12,28 @@ export type ImpactWeek = {
   scripts: number;
 };
 
-/** Weekly counts (weeks start Monday) for one tutor, or for everyone when userId is null (the director). Only counts leave the database: no names, no text. */
-export function impactByWeek(userId: number | null): ImpactWeek[] {
+/** Weekly counts for everyone (weeks start Monday). Only counts leave the database: no names, no text. The route that serves this is director-only. */
+export function impactByWeek(): ImpactWeek[] {
   const db = getDb();
-  const weekOf = "date(created_at, 'weekday 0', '-6 days')";
   const sessions = db
     .prepare(
-      `SELECT ${weekOf} AS week, COUNT(*) AS sessions,
+      `SELECT date(created_at, 'weekday 0', '-6 days') AS week, COUNT(*) AS sessions,
         SUM(CASE WHEN COALESCE(TRIM(json_extract(notes, '$.aiUse')), '') != '' THEN 1 ELSE 0 END) AS aiDisclosed,
         SUM(CASE WHEN json_extract(notes, '$.aiPolicy') = 'allowed' THEN 1 ELSE 0 END) AS allowed,
         SUM(CASE WHEN json_extract(notes, '$.aiPolicy') = 'limited' THEN 1 ELSE 0 END) AS limited,
         SUM(CASE WHEN json_extract(notes, '$.aiPolicy') = 'banned' THEN 1 ELSE 0 END) AS banned,
         SUM(CASE WHEN COALESCE(json_extract(notes, '$.aiPolicy'), 'unknown') NOT IN ('allowed','limited','banned') THEN 1 ELSE 0 END) AS unknown
-       FROM sessions WHERE (? IS NULL OR user_id = ?) GROUP BY week`,
+       FROM sessions GROUP BY week`,
     )
-    .all(userId, userId) as Omit<ImpactWeek, "ownership" | "scripts">[];
+    .all() as Omit<ImpactWeek, "ownership" | "scripts">[];
   const usage = db
     .prepare(
       `SELECT date(at, 'weekday 0', '-6 days') AS week,
         SUM(CASE WHEN kind = 'ownership' THEN 1 ELSE 0 END) AS ownership,
         SUM(CASE WHEN kind = 'script' THEN 1 ELSE 0 END) AS scripts
-       FROM usage_events WHERE (? IS NULL OR user_id = ?) GROUP BY week`,
+       FROM usage_events GROUP BY week`,
     )
-    .all(userId, userId) as { week: string; ownership: number; scripts: number }[];
+    .all() as { week: string; ownership: number; scripts: number }[];
   const map = new Map<string, ImpactWeek>();
   const blank = (week: string): ImpactWeek => ({ week, sessions: 0, aiDisclosed: 0, allowed: 0, limited: 0, banned: 0, unknown: 0, ownership: 0, scripts: 0 });
   for (const r of sessions) map.set(r.week, { ...blank(r.week), ...r });

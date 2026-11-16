@@ -1,25 +1,48 @@
 "use client";
 import { useEffect, useState } from "react";
 
-type Status = { provider: string | null; label?: string; model?: string; note?: string; unavailable?: boolean };
+type Status = { provider: string | null; label?: string; model?: string; note?: string };
 
-/** One quiet line in the nav: which AI provider and model are answering. Fetched once per page load. */
+/** A small chip for staff: which AI provider and model answer. The server never sends a key. Fetched once per page load. */
 export default function ProviderStatus() {
   const [s, setS] = useState<Status | null>(null);
+  const [failed, setFailed] = useState(false);
   useEffect(() => {
     fetch("/api/provider")
       .then((r) => {
-        if (!r.ok) throw new Error("status unavailable");
+        if (!r.ok) throw new Error("status");
         return r.json();
       })
       .then(setS)
-      .catch(() => setS({ provider: null, unavailable: true }));
+      .catch(() => setFailed(true));
   }, []);
-  if (!s) return <span role="status" aria-busy="true" className="w-full text-xs text-stone-500 sm:w-auto sm:min-w-[16rem]">AI: checking…</span>;
-  const text = s.unavailable ? "AI: status unavailable" : s.model ? `AI: ${s.label} · ${s.model}` : `AI: ${s.note ?? "not set up"}`;
+  const box = "flex items-start gap-2 rounded-md border px-2.5 py-1.5 text-xs leading-snug";
+  if (failed) {
+    return (
+      <p role="alert" className={`${box} border-gold-300/60 text-gold-300`}>
+        <span aria-hidden className="mt-1 h-2 w-2 shrink-0 rounded-full bg-gold-300" />
+        <span className="min-w-0 break-words">AI: status unavailable</span>
+      </p>
+    );
+  }
+  if (!s) {
+    return (
+      <p role="status" aria-busy="true" className={`${box} border-white/15 text-indigo-200`}>
+        <span aria-hidden className="mt-1 h-2 w-2 shrink-0 rounded-full bg-indigo-200/40" />
+        <span className="min-w-0 break-words">AI: checking…</span>
+      </p>
+    );
+  }
+  const ok = !!s.model;
   return (
-    <span role={s.unavailable ? "alert" : undefined} className={`w-full text-xs sm:w-auto sm:min-w-[16rem] ${s.model ? "text-stone-500" : "text-amber-700"}`} title="Set GAIT_PROVIDER in .env.local to change it">
-      {text}
-    </span>
+    <p
+      className={`flex items-start gap-2 rounded-md border px-2.5 py-1.5 text-xs leading-snug ${
+        ok ? "border-white/15 text-indigo-200" : "border-gold-300/60 text-gold-300"
+      }`}
+      title="Set GAIT_PROVIDER in .env.local to change it"
+    >
+      <span aria-hidden className={`mt-1 h-2 w-2 shrink-0 rounded-full ${ok ? "bg-emerald-400" : "bg-gold-300"}`} />
+      <span className="min-w-0 break-words">{ok ? `AI: ${s.label} · ${s.model}` : `AI: ${s.note ?? "not set up"}`}</span>
+    </p>
   );
 }

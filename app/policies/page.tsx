@@ -1,8 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Card, ErrorBox, Loading, btnCls, inputCls } from "@/components/ui";
+import CopyButton from "@/components/CopyButton";
+import { Card, Chip, Empty, ErrorBox, PageHeader, btn2Cls, btnCls, inputCls, labelCls, submitOnCmdEnter } from "@/components/ui";
 import { get, post } from "@/lib/client";
-import { AI_POLICIES, type AiPolicy, type CoursePolicy } from "@/lib/types";
+import { AI_POLICIES, type AiPolicy, type CoursePolicy } from "@/lib/policy-types";
+
+const LABEL: Record<AiPolicy, string> = { allowed: "Allowed", limited: "Limited", banned: "Not allowed", unknown: "Not sure yet" };
 
 export default function PoliciesPage() {
   const [q, setQ] = useState("");
@@ -13,25 +16,30 @@ export default function PoliciesPage() {
   const [details, setDetails] = useState("");
   const [source, setSource] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  const load = (text: string) =>
-    get<{ policies: CoursePolicy[] }>(`/api/policies?q=${encodeURIComponent(text)}`).then((j) => { setError(null); setList(j.policies); }).catch((e) => setError(e.message)).finally(() => setLoading(false));
-  useEffect(() => { load(q); }, [q]);
+  useEffect(() => {
+    setError(null);
+    get<{ policies: CoursePolicy[] }>(`/api/policies?q=${encodeURIComponent(q)}`)
+      .then((j) => { setList(j.policies); setLoaded(true); })
+      .catch((e) => setError(e.message));
+  }, [q]);
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    setSaving(true);
+    setBusy(true);
     try {
       await post("/api/policies", { courseCode, professor, policy, details, source });
       setCourseCode(""); setProfessor(""); setPolicy("unknown"); setDetails(""); setSource("");
-      load(q);
+      setQ("");
+      const j = await get<{ policies: CoursePolicy[] }>("/api/policies?q=");
+      setList(j.policies);
     } catch (err) {
       setError((err as Error).message);
     } finally {
-      setSaving(false);
+      setBusy(false);
     }
   }
 
@@ -42,41 +50,65 @@ export default function PoliciesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Course AI policies</h1>
-        <p className="text-sm text-slate-600">What each course&apos;s syllabus says about AI. Saved on this computer and filled in on the After session page.</p>
-      </div>
+      <PageHeader title="Course AI policies">What each course&apos;s syllabus says about AI, so you can check it with a student. Only you see the policies you save.</PageHeader>
+      <Card tone="note">
+        <p className="text-sm text-stone-800"><Chip tone="gold">Draft: director to confirm</Chip> <span className="ml-1">The policy choices below are placeholders. Always confirm with the syllabus or the professor, not this list.</span></p>
+      </Card>
       <Card title="Add or edit a policy">
-        <form onSubmit={save} className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <input className={inputCls} placeholder="Course code (ENGL 101)" value={courseCode} onChange={(e) => setCourseCode(e.target.value)} />
-            <input className={inputCls} placeholder="Professor" value={professor} onChange={(e) => setProfessor(e.target.value)} />
-            <select className={inputCls} value={policy} onChange={(e) => setPolicy(e.target.value as AiPolicy)}>
-              {AI_POLICIES.map((p) => <option key={p}>{p}</option>)}
-            </select>
+        <form onSubmit={save} className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <label htmlFor="pol-code" className={labelCls}>Course code</label>
+              <input id="pol-code" className={`${inputCls} min-h-11`} placeholder="ENGL 101" value={courseCode} onChange={(e) => setCourseCode(e.target.value)} />
+            </div>
+            <div>
+              <label htmlFor="pol-prof" className={labelCls}>Professor</label>
+              <input id="pol-prof" className={`${inputCls} min-h-11`} value={professor} onChange={(e) => setProfessor(e.target.value)} />
+            </div>
+            <div>
+              <label htmlFor="pol-policy" className={labelCls}>AI policy</label>
+              <select id="pol-policy" className={`${inputCls} min-h-11`} value={policy} onChange={(e) => setPolicy(e.target.value as AiPolicy)}>
+                {AI_POLICIES.map((p) => <option key={p} value={p}>{LABEL[p]}</option>)}
+              </select>
+            </div>
           </div>
-          <textarea className={inputCls} rows={2} placeholder="Details (e.g. OK for brainstorming, must be disclosed)" value={details} onChange={(e) => setDetails(e.target.value)} />
-          <input className={inputCls} placeholder="Source (e.g. syllabus, fall 2026)" value={source} onChange={(e) => setSource(e.target.value)} />
-          <button className={btnCls} disabled={saving}>{saving ? "Saving…" : "Save policy"}</button>
+          <div>
+            <label htmlFor="pol-details" className={labelCls}>Details</label>
+            <textarea id="pol-details" className={inputCls} rows={2} placeholder="For example, OK for brainstorming, must be disclosed" value={details} onChange={(e) => setDetails(e.target.value)} onKeyDown={submitOnCmdEnter} />
+          </div>
+          <div>
+            <label htmlFor="pol-source" className={labelCls}>Source</label>
+            <input id="pol-source" className={`${inputCls} min-h-11`} placeholder="For example, syllabus, fall 2026" value={source} onChange={(e) => setSource(e.target.value)} />
+          </div>
+          <button className={`${btnCls} min-h-11`} disabled={busy}>{busy ? "Saving…" : "Save policy"}</button>
         </form>
       </Card>
       <ErrorBox error={error} />
-      <Card title="Search">
-        <input className={inputCls} placeholder="Search by course code or professor" value={q} onChange={(e) => setQ(e.target.value)} />
-        <ul className="mt-3 space-y-2 text-sm">
-          {loading && <li><Loading /></li>}
-          {!loading && !error && list.length === 0 && <li className="text-slate-500">No policies saved yet.</li>}
-          {list.map((p) => (
-            <li key={p.course_code} className="rounded bg-slate-50 p-2">
-              <div className="flex items-start justify-between gap-2">
-                <p><span className="font-medium">{p.course_code}</span> · {p.policy}{p.professor ? ` · ${p.professor}` : ""}</p>
-                <button className="text-xs text-indigo-700 underline" onClick={() => edit(p)}>Edit</button>
-              </div>
-              {p.details && <p className="text-slate-600">{p.details}</p>}
-              {p.source && <p className="text-xs text-slate-500">Source: {p.source} · updated {p.updated_at.slice(0, 10)}</p>}
-            </li>
-          ))}
-        </ul>
+      <Card title="Saved policies">
+        <label htmlFor="pol-search" className={labelCls}>Filter by course code</label>
+        <input id="pol-search" className={`${inputCls} min-h-11`} placeholder="For example, ENGL 101 (a professor's name works too)" value={q} onChange={(e) => setQ(e.target.value)} />
+        <div className="mt-4">
+          {!loaded && !error && <p className="text-sm text-stone-600">Loading…</p>}
+          {loaded && list.length === 0 && (q ? <Empty title={`No policy matches "${q}"`}>Check the course code, or add it above.</Empty> : <Empty title="No policies saved yet">Add a course above and it will show up here.</Empty>)}
+          {list.length > 0 && (
+            <ul className="grid gap-3 sm:grid-cols-2">
+              {list.map((p) => (
+                <li key={p.course_code} className="flex flex-col justify-between gap-3 rounded-lg border border-stone-200 bg-white p-4">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2"><h3 className="font-display text-lg font-semibold text-ink">{p.course_code}</h3><Chip tone={p.policy === "unknown" ? "plain" : "gold"}>{LABEL[p.policy]}</Chip></div>
+                    {p.professor && <p className="text-sm text-stone-600">{p.professor}</p>}
+                    {p.details && <p className="mt-2 break-words text-[15px] text-stone-800">{p.details}</p>}
+                    {p.source && <p className="mt-2 text-xs text-stone-600">Source: {p.source} · updated {p.updated_at.slice(0, 10)}</p>}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <CopyButton text={`${p.course_code}${p.professor ? ` (${p.professor})` : ""}: AI ${LABEL[p.policy].toLowerCase()}.${p.details ? ` ${p.details}` : ""}${p.source ? ` Source: ${p.source}.` : ""}`} label="Copy" />
+                    <button className={`${btn2Cls} min-h-10`} onClick={() => edit(p)}>Edit</button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </Card>
     </div>
   );

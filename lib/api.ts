@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getUserFromRequest, type User } from "./auth";
+import { aiContext, rateLimit } from "./limits";
 import { NotFoundError, UserFacingError } from "./claude";
 
 /** A user-facing error with its own status (413 too large, 429 too many requests). */
@@ -13,35 +14,24 @@ export function requireDirector(user: User) {
   if (user.role !== "director") throw new HttpError(403, "Only the director can do that.");
 }
 
-// Rate limit for AI routes: in memory, per user, fine for one v0 server.
+// Rate limit for AI routes: counted in the database (lib/limits.ts), so it is shared across processes and restarts.
 const AI_LIMIT = 20;
 const AI_WINDOW_MS = 60_000;
-const hits = new Map<string, { count: number; resetAt: number }>();
-
-export function rateLimit(key: string, max = AI_LIMIT, windowMs = AI_WINDOW_MS): boolean {
-  const now = Date.now();
-  if (hits.size > 1000) for (const [k, v] of hits) if (v.resetAt <= now) hits.delete(k);
-  const hit = hits.get(key);
-  if (!hit || hit.resetAt <= now) {
-    hits.set(key, { count: 1, resetAt: now + windowMs });
-    return true;
-  }
-  hit.count += 1;
-  return hit.count <= max;
-}
+export { rateLimit };
 
 /**
  * Wraps a route handler: signed-in users only (401 otherwise), JSON in and out, no internal error text.
  * `ai: true` also rate-limits the route (429).
  */
-export async function handle(req: Request, fn: (user: User) => Promise<unknown>, opts: { ai?: boolean } = {}) {
+export async function handle(req: Request, fn: (user: User) => Promise<unknown>, opts: { ai?: boolean; tutee?: boolean } = {}) {
   try {
     const user = getUserFromRequest(req);
     if (!user) return NextResponse.json({ error: "Please sign in to continue." }, { status: 401 });
-    if (opts.ai && !rateLimit(`ai:${user.id}`)) {
+    if (user.role === "tutee" && !opts.tutee) return NextResponse.json({ error: "That is for tutors. Ask the Reading/Writing Center director." }, { status: 403 });
+  if (opts.ai && !rateLimit(`ai:${user.id}`, AI_LIMIT, AI_WINDOW_MS)) {
       return NextResponse.json({ error: "Too many requests. Wait a minute and try again." }, { status: 429 });
     }
-    return NextResponse.json(await fn(user));
+    return NextResponse.json(await aiContext.run({ userId: user.id, calls: 0 }, () => fn(user)));
   } catch (e) {
     console.error(e);
     const known = e instanceof UserFacingError;
