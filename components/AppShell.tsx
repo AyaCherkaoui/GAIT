@@ -151,7 +151,15 @@ export default function AppShell({ user, testTools, children }: { user: ShellUse
         <nav aria-label="Main" className="min-h-0 flex-1 overflow-y-auto px-4 py-4 lg:py-3"><NavLinks role={user.role} path={path} /></nav>
         <div className="border-t border-white/15 px-7 py-4"><Who user={user} testTools={testTools} /></div>
       </aside>
-      <main id="main" tabIndex={-1} className="mx-auto w-full max-w-4xl px-4 pb-[calc(2.5rem+env(safe-area-inset-bottom))] pt-8 outline-none sm:px-8 sm:pt-10 lg:max-w-5xl">{children}</main>
+      <main
+        id="main"
+        tabIndex={-1}
+        className={path === "/search"
+          ? "w-full min-w-0 px-4 pb-[calc(2.5rem+env(safe-area-inset-bottom))] pt-5 outline-none sm:h-[calc(100dvh-4rem)] sm:p-0 lg:h-dvh"
+          : "mx-auto w-full max-w-4xl px-4 pb-[calc(2.5rem+env(safe-area-inset-bottom))] pt-8 outline-none sm:px-8 sm:pt-10 lg:max-w-5xl"}
+      >
+        {children}
+      </main>
     </div>
   );
 }

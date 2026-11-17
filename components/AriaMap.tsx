@@ -5,7 +5,7 @@
  * Canvas rendering with a smoothed camera, hover highlights, elastic drag (live physics on the
  * dragged file's neighbourhood) and fly-to. On phones it becomes the same levels as a list.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { forceLink, forceManyBody, forceSimulation, forceX, forceY, type Simulation, type SimulationNodeDatum } from "d3-force";
 import { get } from "@/lib/client";
 import type { AriaMap as MapData, AriaPreview } from "@/lib/aria-map-types";
@@ -76,7 +76,9 @@ const cleanName = (s: string) => s.replace(/\.[a-z0-9]{2,5}$/i, "");
 
 type Crumb = { topic: number | null; sub: number | null };
 
-export default function AriaMap({ picks = [], related = [], focusKey = 0 }: { picks?: string[]; related?: string[]; focusKey?: number }) {
+export type FocusDoc = { id: string; key: number } | null;
+
+export default function AriaMap({ picks = [], related = [], focusKey = 0, focusDoc = null, overlay = null }: { picks?: string[]; related?: string[]; focusKey?: number; focusDoc?: FocusDoc; overlay?: ReactNode }) {
   const [data, setData] = useState<MapData | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [narrow, setNarrow] = useState(false);
@@ -98,6 +100,13 @@ export default function AriaMap({ picks = [], related = [], focusKey = 0 }: { pi
 
   const g = useMemo(() => (data ? buildGraph(data) : null), [data]);
 
+  // On phones a picked search result opens straight away (the canvas does its own fly-in).
+  useEffect(() => {
+    if (!narrow || !g || !focusDoc) return;
+    const i = g.index.get(focusDoc.id);
+    if (i !== undefined) { setCrumb({ topic: null, sub: null }); setSel(i); }
+  }, [focusDoc?.key]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (sel === null || !g) { setPreview(null); return; }
     let live = true;
@@ -106,45 +115,49 @@ export default function AriaMap({ picks = [], related = [], focusKey = 0 }: { pi
     return () => { live = false; };
   }, [sel, g]);
 
-  if (error) return <p className="rounded-lg border border-margin/30 bg-white p-4 text-[15px] text-stone-800">The map could not load: {error}</p>;
-  if (data === undefined) return <MapSkeleton />;
-  if (!data || !g) {
+  // Phones get the same levels as a list, with the search box above it.
+  if (narrow && g) {
     return (
-      <div className="rounded-xl border border-stone-200 bg-white p-6 text-[15px] text-stone-700">
-        <p className="font-semibold text-ink">The map has not been built yet.</p>
-        <p className="mt-1">Run <code className="rounded bg-stone-100 px-1.5 py-0.5">npm run build-aria-map</code> once on this computer. It reads the ARIA index and draws the map with the local model.</p>
+      <div className="space-y-4">
+        {overlay}
+        <MapList g={g} crumb={crumb} setCrumb={setCrumb} sel={sel} setSel={setSel} preview={preview} picks={picks} />
       </div>
     );
   }
-  if (narrow) return <MapList g={g} crumb={crumb} setCrumb={setCrumb} sel={sel} setSel={setSel} preview={preview} picks={picks} />;
+  if (!g) {
+    const msg = error ? <>The map could not load: {error}</> : data === undefined ? (
+      <span className="flex items-center gap-3"><span className="h-2 w-2 animate-ping rounded-full bg-gold-300" />Drawing the ARIA Map…</span>
+    ) : (
+      <span>The map has not been built yet. Run <code className="rounded bg-white/10 px-1.5 py-0.5">npm run build-aria-map</code> once on this computer.</span>
+    );
+    return (
+      <div className={narrow ? "space-y-4" : `relative h-full w-full overflow-hidden ${SKY}`}>
+        {narrow ? overlay : <div className="absolute left-3 top-3 z-10 w-[min(30rem,calc(100%-1.5rem))]">{overlay}</div>}
+        <div className={narrow ? "rounded-xl bg-[#0a1430] p-5 text-sm text-indigo-100" : "grid h-full place-items-center p-6 text-sm text-indigo-100"}>{msg}</div>
+      </div>
+    );
+  }
   return (
     <MapCanvas
       g={g} crumb={crumb} setCrumb={setCrumb} sel={sel} setSel={setSel} preview={preview}
       picks={picks} related={related} focusKey={focusKey} filter={filter} setFilter={setFilter}
       full={full} setFull={setFull} hoverName={hoverName} setHoverName={setHoverName}
+      focusDoc={focusDoc} overlay={overlay}
     />
   );
 }
 
-function MapSkeleton() {
-  return (
-    <div className="relative grid h-[72vh] min-h-[480px] place-items-center overflow-hidden rounded-xl bg-[#0a1430]">
-      <div className="flex items-center gap-3 text-sm text-indigo-200">
-        <span className="h-2 w-2 animate-ping rounded-full bg-gold-300" />
-        Drawing the ARIA Map…
-      </div>
-    </div>
-  );
-}
+const SKY = "bg-[radial-gradient(ellipse_at_center,#13244d_0%,#0a1430_55%,#060c1f_100%)]";
 
 type CanvasProps = {
   g: Graph; crumb: Crumb; setCrumb: (c: Crumb) => void; sel: number | null; setSel: (i: number | null) => void; preview: AriaPreview | null;
   picks: string[]; related: string[]; focusKey: number; filter: string; setFilter: (s: string) => void;
   full: boolean; setFull: (b: boolean) => void; hoverName: string | null; setHoverName: (s: string | null) => void;
+  focusDoc: FocusDoc; overlay: ReactNode;
 };
 
 function MapCanvas(p: CanvasProps) {
-  const { g, crumb, setCrumb, sel, setSel, preview, picks, related, focusKey, filter, setFilter, full, setFull, setHoverName } = p;
+  const { g, crumb, setCrumb, sel, setSel, preview, picks, related, focusKey, filter, setFilter, full, setFull, setHoverName, focusDoc, overlay } = p;
   const wrap = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   // Everything the frame loop reads lives in one ref, so React renders never interrupt the animation.
@@ -697,6 +710,17 @@ function MapCanvas(p: CanvasProps) {
   const openSubRef = useRef(openSub); openSubRef.current = openSub;
   const selectFile = (i: number) => { setSel(i); flyTo({ x: g.hx[i], y: g.hy[i], k: Math.max(st.current.target.k, st.current.fitK * 5) }); };
 
+  // A search result was picked: fly to that file and open it.
+  useEffect(() => {
+    if (!focusDoc) return;
+    const i = g.index.get(focusDoc.id);
+    if (i === undefined) return;
+    setCrumb({ topic: null, sub: null });
+    st.current.crumb = { topic: null, sub: null };
+    setSel(i);
+    flyTo({ x: g.hx[i], y: g.hy[i], k: Math.max(st.current.target.k, st.current.fitK * 6) });
+  }, [focusDoc?.key]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Keyboard: Escape steps out; + and - zoom.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -718,17 +742,20 @@ function MapCanvas(p: CanvasProps) {
   return (
     <div
       ref={wrap}
-      className={`${full ? "fixed inset-0 z-50" : "relative h-[72vh] min-h-[480px] rounded-xl"} overflow-hidden bg-[radial-gradient(ellipse_at_center,#13244d_0%,#0a1430_55%,#060c1f_100%)] shadow-[0_20px_60px_-20px_rgba(10,20,48,0.6)]`}
+      className={`${full ? "fixed inset-0 z-50" : "relative h-full w-full"} overflow-hidden ${SKY}`}
     >
       <canvas ref={canvas} className="absolute inset-0 touch-none select-none" style={{ cursor: "grab" }} role="img" aria-label={`Map of ${g.n} ARIA files grouped into ${g.map.topics.length} topics. Use the topic list to explore by keyboard.`} />
 
-      {/* Path */}
-      <nav aria-label="Map path" className="pointer-events-auto absolute left-3 top-3 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-1 rounded-lg bg-[#081026]/70 px-2 py-1 text-sm text-indigo-100 backdrop-blur">
+      {/* Search box, then the path under it */}
+      <div className="pointer-events-none absolute left-3 top-3 z-10 flex w-[min(30rem,calc(100%-21rem))] min-w-[18rem] flex-col items-start gap-2">
+      {overlay && <div className="pointer-events-auto w-full">{overlay}</div>}
+      <nav aria-label="Map path" className="pointer-events-auto flex max-w-full flex-wrap items-center gap-1 rounded-lg bg-[#081026]/70 px-2 py-1 text-sm text-indigo-100 backdrop-blur">
         <button type="button" onClick={openAll} className="rounded px-1.5 py-1 hover:bg-white/10 hover:text-white">All files</button>
         {crumb.topic !== null && (<><span aria-hidden className="text-indigo-300">›</span><button type="button" onClick={() => openTopic(crumb.topic!)} className="rounded px-1.5 py-1 hover:bg-white/10 hover:text-white">{g.map.topics[crumb.topic].name}</button></>)}
         {crumb.sub !== null && g.map.subs[crumb.sub].name !== g.map.topics[crumb.topic ?? 0]?.name && (<><span aria-hidden className="text-indigo-300">›</span><span className="px-1.5 py-1 font-semibold text-white">{g.map.subs[crumb.sub].name}</span></>)}
         {sel !== null && (<><span aria-hidden className="text-indigo-300">›</span><span className="max-w-[16rem] truncate px-1.5 py-1 font-semibold text-gold-300">{cleanName(g.map.nodes.name[sel])}</span></>)}
       </nav>
+      </div>
 
       {/* Controls */}
       <div className="absolute right-3 top-3 flex items-center gap-2">
@@ -738,14 +765,14 @@ function MapCanvas(p: CanvasProps) {
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder="Light up by name…"
-          className="h-9 w-44 rounded-lg border border-white/15 bg-[#081026]/70 px-3 text-sm text-white placeholder:text-indigo-300 backdrop-blur focus:w-60 focus:outline-none focus:ring-2 focus:ring-gold-300 transition-[width]"
+          className="h-9 w-44 rounded-lg border border-white/15 bg-[#081026]/70 px-3 text-sm text-white placeholder:text-indigo-300 backdrop-blur focus:w-52 focus:outline-none focus:ring-2 focus:ring-gold-300 transition-[width]"
         />
         <button type="button" className={btn} onClick={() => setFull(!full)} aria-pressed={full}>{full ? "Exit full screen" : "Full screen"}</button>
       </div>
 
       {/* Topics legend (also the keyboard way in) */}
       {crumb.topic === null && sel === null && (
-        <ul aria-label="Topics" className="absolute bottom-3 left-3 hidden max-h-[46%] w-56 space-y-0.5 overflow-auto rounded-lg bg-[#081026]/70 p-2 text-sm backdrop-blur md:block">
+        <ul aria-label="Topics" className="absolute bottom-3 left-3 hidden max-h-[38%] w-56 space-y-0.5 overflow-auto rounded-lg bg-[#081026]/70 p-2 text-sm backdrop-blur md:block">
           {g.map.topics.map((t, i) => (
             <li key={i}>
               <button type="button" onClick={() => openTopic(i)} className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-indigo-100 hover:bg-white/10 hover:text-white">
@@ -758,7 +785,7 @@ function MapCanvas(p: CanvasProps) {
         </ul>
       )}
       {crumb.topic !== null && sel === null && (
-        <ul aria-label="Subtopics" className="absolute bottom-3 left-3 hidden max-h-[46%] w-56 space-y-0.5 overflow-auto rounded-lg bg-[#081026]/70 p-2 text-sm backdrop-blur md:block">
+        <ul aria-label="Subtopics" className="absolute bottom-3 left-3 hidden max-h-[38%] w-56 space-y-0.5 overflow-auto rounded-lg bg-[#081026]/70 p-2 text-sm backdrop-blur md:block">
           {g.map.subs.map((sb, i) => sb.topic !== crumb.topic ? null : (
             <li key={i}>
               <button type="button" onClick={() => openSub(i)} className={`flex w-full items-center gap-2 rounded px-2 py-1 text-left hover:bg-white/10 hover:text-white ${crumb.sub === i ? "bg-white/10 text-white" : "text-indigo-100"}`}>
