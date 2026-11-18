@@ -51,11 +51,13 @@ export function clock(ms: number) {
 }
 
 /** The live session and the current time, ticking every second while it runs. Updates when another tab changes it. */
-export function useLive(): { live: Live | null; now: number; update: (fn: (l: Live) => Live) => void } {
+export function useLive(): { live: Live | null; now: number; update: (fn: (l: Live) => Live) => void; ready: boolean } {
   const [live, setLive] = useState<Live | null>(null);
+  const [ready, setReady] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     setLive(readLive());
+    setReady(true);
     const onStorage = (e: StorageEvent) => (e.key === LIVE_KEY || e.key === null) && setLive(readLive());
     window.addEventListener("storage", onStorage);
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -72,7 +74,7 @@ export function useLive(): { live: Live | null; now: number; update: (fn: (l: Li
     setLive(next);
     setNow(Date.now());
   };
-  return { live, now, update };
+  return { live, now, update, ready };
 }
 
 export default function SessionTimer({ live, now, update }: { live: Live; now: number; update: (fn: (l: Live) => Live) => void }) {
