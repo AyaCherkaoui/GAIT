@@ -98,6 +98,15 @@ export function getDb(): DatabaseSync {
       UNIQUE (user_id, course_code)
     );
   `);
+  // English 101: one shared course row (id 1) the director sets; units are JSON [{title, goal, minutes}].
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS courses (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      syllabus_text TEXT NOT NULL DEFAULT '',
+      units TEXT NOT NULL DEFAULT '[]',
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+  `);
   // Tutees: one row per student first name per tutor (first names only). Sessions point at them through tutee_id.
   db.exec(`
     CREATE TABLE IF NOT EXISTS tutees (

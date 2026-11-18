@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Eng101Panel from "@/components/Eng101Panel";
 import SessionTimer, { elapsedMs, useLive } from "@/components/SessionTimer";
 import { Chip, PageHeader, btnBlueCls, inputCls, labelCls } from "@/components/ui";
 import { approachFor, DRAFT_CHIP } from "@/lib/approaches";
@@ -56,7 +57,9 @@ export default function LiveSession() {
       </PageHeader>
       <SessionTimer live={live} now={now} update={update} />
 
-      <section aria-labelledby="approach" className="space-y-3 rounded-xl border border-stone-200 bg-white p-5">
+      {live.type === "eng101" && <Eng101Panel live={live} now={now} update={update} />}
+
+      {live.type !== "eng101" && <section aria-labelledby="approach" className="space-y-3 rounded-xl border border-stone-200 bg-white p-5">
         <div className="flex flex-wrap items-center gap-3">
           <h2 id="approach" className="font-display text-[22px] text-ink">Approach</h2>
           <Chip tone="gold">{DRAFT_CHIP}</Chip>
@@ -70,7 +73,7 @@ export default function LiveSession() {
             </li>
           ))}
         </ol>
-      </section>
+      </section>}
 
       <div>
         <label htmlFor="live-notes" className={labelCls}>Notes</label>

@@ -12,13 +12,13 @@ type NavItem = readonly [href: string, label: string];
 type NavGroup = readonly [title: string, items: readonly NavItem[]];
 
 const TUTOR_GROUPS: readonly NavGroup[] = [
-  ["Today", [["/", "Home"], ["/session", "After session"], ["/history", "History"]]],
+  ["Today", [["/", "Home"], ["/session", "After session"], ["/history", "History"], ["/tutees", "Tutees"]]],
   ["Tools", [["/search", "ARIA search"], ["/taskforce", "Task force"], ["/practice", "Practice"], ["/policies", "Policies"], ["/ai-talk", "AI talk"]]],
   ["Learn", [["/news", "News"], ["/reading", "Reading"], ["/debrief", "Debrief"], ["/voice", "Voice-first"]]],
 ];
 const NAV: Record<Role, readonly NavGroup[]> = {
   tutor: TUTOR_GROUPS,
-  director: [...TUTOR_GROUPS, ["Admin", [["/impact", "Impact"], ["/admin/tutors", "Tutor list"], ["/admin/sessions", "Sessions"]]]],
+  director: [...TUTOR_GROUPS, ["Admin", [["/impact", "Impact"], ["/admin/tutors", "Tutor list"], ["/admin/sessions", "Sessions"], ["/admin/courses", "Courses"]]]],
   tutee: [["Today", [["/", "Home"], ["/coach", "Coach"]]]],
 };
 const ROLE_LABEL: Record<Role, string> = { director: "Director", tutor: "Tutor", tutee: "Student" };
