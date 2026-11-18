@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Chip, Empty } from "@/components/ui";
+import SessionStarter from "@/components/SessionStarter";
 import StudentHome from "@/components/StudentHome";
 import { fmtDate } from "@/components/format";
 import { getUser, type Role } from "@/lib/auth";
@@ -78,17 +79,7 @@ function StaffHome({ role, userId }: { role: Role; userId: number }) {
         </Link>
       )}
 
-      <Link href="/session" className="pad-dark group flex flex-wrap items-center justify-between gap-6 rounded-2xl p-7 pl-[4.5rem] text-white sm:p-8 sm:pl-[4.75rem]">
-        <div className="flex max-w-xl flex-col gap-2">
-          <span className="text-[13px] font-semibold uppercase tracking-[0.08em] text-gold-300">Just finished a session?</span>
-          <span className="font-display text-[clamp(1.75rem,3vw,2.125rem)] leading-tight">Log it in two minutes</span>
-          <span className="leading-relaxed text-stone-300">Paste your notes. Ink drafts the follow-up email, printable next steps and prompts that coach the student. It never rewrites their paper.</span>
-        </div>
-        <span className="inline-flex min-h-12 items-center gap-2 rounded-[10px] bg-gold-300 px-5 text-[15px] font-semibold text-ink transition group-hover:bg-gold-400">
-          Log a session
-          <svg aria-hidden width="16" height="16" viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
-        </span>
-      </Link>
+      {role !== "tutee" && <SessionStarter />}
 
       <div className="grid gap-6 sm:grid-cols-2">
         <section aria-labelledby="resume" className="flex flex-col gap-3">
