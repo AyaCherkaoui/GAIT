@@ -3,7 +3,7 @@ import Link from "next/link";
 import { use, useEffect, useState } from "react";
 import DirectorNote from "@/components/DirectorNote";
 import { fmtDate } from "@/components/format";
-import { Card, ErrorBox, PageHeader } from "@/components/ui";
+import { Card, ErrorBox, Loading, PageHeader } from "@/components/ui";
 import { get } from "@/lib/client";
 import type { SessionRecord } from "@/lib/types";
 
@@ -15,7 +15,7 @@ export default function DirectorSessionView({ params }: { params: Promise<{ id: 
     get<{ session: SessionRecord; tutor?: string; readOnly?: boolean }>(`/api/session/${id}`).then(setData).catch((e) => setError((e as Error).message));
   }, [id]);
 
-  if (!data) return <div className="space-y-4"><ErrorBox error={error} />{!error && <p className="text-sm text-stone-600">Loading…</p>}</div>;
+  if (!data) return <div className="space-y-4"><ErrorBox error={error} />{!error && <Loading />}</div>;
   const { session, tutor } = data;
   const n = session.notes;
   return (

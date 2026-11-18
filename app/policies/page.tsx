@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import CopyButton from "@/components/CopyButton";
-import { Card, Chip, Empty, ErrorBox, PageHeader, btn2Cls, btnCls, inputCls, labelCls, submitOnCmdEnter } from "@/components/ui";
+import { Card, Chip, Empty, ErrorBox, Loading, PageHeader, btn2Cls, btnCls, inputCls, labelCls, submitOnCmdEnter } from "@/components/ui";
 import { get, post } from "@/lib/client";
 import { AI_POLICIES, type AiPolicy, type CoursePolicy } from "@/lib/policy-types";
 
@@ -17,6 +17,7 @@ export default function PoliciesPage() {
   const [source, setSource] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     get<{ policies: CoursePolicy[] }>(`/api/policies?q=${encodeURIComponent(q)}`)
@@ -27,6 +28,7 @@ export default function PoliciesPage() {
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setSaving(true);
     try {
       await post("/api/policies", { courseCode, professor, policy, details, source });
       setCourseCode(""); setProfessor(""); setPolicy("unknown"); setDetails(""); setSource("");
@@ -35,6 +37,8 @@ export default function PoliciesPage() {
       setList(j.policies);
     } catch (err) {
       setError((err as Error).message);
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -75,7 +79,7 @@ export default function PoliciesPage() {
             <label htmlFor="pol-source" className={labelCls}>Source</label>
             <input id="pol-source" className={`${inputCls} min-h-11`} placeholder="For example, syllabus, fall 2026" value={source} onChange={(e) => setSource(e.target.value)} />
           </div>
-          <button className={`${btnCls} min-h-11`}>Save policy</button>
+          <button className={`${btnCls} min-h-11`} disabled={saving}>{saving ? "Saving…" : "Save policy"}</button>
         </form>
       </Card>
       <ErrorBox error={error} />
@@ -83,7 +87,7 @@ export default function PoliciesPage() {
         <label htmlFor="pol-search" className={labelCls}>Filter by course code</label>
         <input id="pol-search" className={`${inputCls} min-h-11`} placeholder="For example, ENGL 101 (a professor's name works too)" value={q} onChange={(e) => setQ(e.target.value)} />
         <div className="mt-4">
-          {!loaded && !error && <p className="text-sm text-stone-600">Loading…</p>}
+          {!loaded && !error && <Loading />}
           {loaded && list.length === 0 && (q ? <Empty title={`No policy matches "${q}"`}>Check the course code, or add it above.</Empty> : <Empty title="No policies saved yet">Add a course above and it will show up here.</Empty>)}
           {list.length > 0 && (
             <ul className="grid gap-3 sm:grid-cols-2">

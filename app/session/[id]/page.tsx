@@ -3,7 +3,7 @@ import Link from "next/link";
 import { use, useEffect, useRef, useState } from "react";
 import DirectorNote from "@/components/DirectorNote";
 import SessionOutputsView from "@/components/SessionOutputs";
-import { ErrorBox, PageHeader, Working, btn2Cls, btnBlueCls, inputCls, labelCls } from "@/components/ui";
+import { ErrorBox, Loading, PageHeader, Working, btn2Cls, btnBlueCls, inputCls, labelCls } from "@/components/ui";
 import { fmtDate } from "@/components/format";
 import { get, post } from "@/lib/client";
 import type { Reflection, SessionRecord, SessionSummary } from "@/lib/types";
@@ -91,7 +91,7 @@ export default function SessionDetail({ params }: { params: Promise<{ id: string
     }
   }
 
-  if (!session) return <div className="space-y-4"><ErrorBox error={error} />{!error && <p className="text-sm text-stone-600">Loading…</p>}</div>;
+  if (!session) return <div className="space-y-4"><ErrorBox error={error} />{!error && <Loading />}</div>;
   return (
     <div className="space-y-8">
       <nav aria-label="Breadcrumb" className="-mb-2 text-sm text-stone-600">

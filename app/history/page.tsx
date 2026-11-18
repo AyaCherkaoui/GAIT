@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Chip, Empty, PageHeader, btn2Cls, btnCls, inputCls, labelCls } from "@/components/ui";
+import { Chip, Empty, ErrorBox, Loading, PageHeader, btn2Cls, btnCls, inputCls, labelCls } from "@/components/ui";
 import { fmtDate } from "@/components/format";
 import { get } from "@/lib/client";
 import { readEmailSent } from "@/lib/local";
@@ -27,12 +27,13 @@ function EmailSentChip({ id }: { id: number }) {
 export default function HistoryPage() {
   const [sessions, setSessions] = useState<SessionSummary[] | null>(null);
   const [quizzes, setQuizzes] = useState<QuizResult[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [student, setStudent] = useState("");
   const [course, setCourse] = useState("");
   useEffect(() => {
-    get<{ sessions: SessionSummary[] }>("/api/session").then((j) => setSessions(j.sessions)).catch(() => setSessions([]));
-    get<{ results: QuizResult[] }>("/api/practice/results").then((j) => setQuizzes(j.results)).catch(() => {});
+    get<{ sessions: SessionSummary[] }>("/api/session").then((j) => setSessions(j.sessions)).catch((e) => { setSessions([]); setError((e as Error).message); });
+    get<{ results: QuizResult[] }>("/api/practice/results").then((j) => setQuizzes(j.results)).catch((e) => setError((e as Error).message));
   }, []);
 
   const students = useMemo(() => [...new Set((sessions ?? []).map((s) => s.student_name).filter(Boolean))].sort(), [sessions]);
@@ -59,7 +60,8 @@ export default function HistoryPage() {
 
       <section aria-labelledby="h-sessions" className="space-y-4">
         <h2 id="h-sessions" className="font-display text-2xl font-semibold text-ink">Sessions</h2>
-        {sessions === null && <p className="text-sm text-stone-600">Loading…</p>}
+        <ErrorBox error={error} />
+        {sessions === null && <Loading />}
         {sessions?.length === 0 && (
           <Empty title="No sessions yet">
             Log one after your next appointment and it will show here.

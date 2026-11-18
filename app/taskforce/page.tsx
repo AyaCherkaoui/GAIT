@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import CopyButton from "@/components/CopyButton";
-import { Chip, Empty, ErrorBox, PageHeader, Working, btn2Cls, btnCls, inputCls, labelCls, submitOnCmdEnter } from "@/components/ui";
+import { Chip, Empty, ErrorBox, Loading, PageHeader, Working, btn2Cls, btnCls, inputCls, labelCls, submitOnCmdEnter } from "@/components/ui";
 import { get, post } from "@/lib/client";
 import type { TaskRecord } from "@/lib/types";
 
@@ -115,7 +115,7 @@ export default function TaskForcePage() {
       </form>
       {loading && <Working label="Planning your task" />}
       <ErrorBox error={error} />
-      {tasks === null && <p className="text-sm text-stone-600">Loading…</p>}
+      {tasks === null && <Loading />}
       {tasks && tasks.length === 0 && !loading && <Empty title="No tasks yet">Add a title and details above, then plan the task. Your plans will be saved here.</Empty>}
       {tasks && tasks.length > 0 && (
         <section aria-label="Your tasks" className="space-y-2">
