@@ -298,7 +298,9 @@ async function main() {
 
   const courses: Step = async (page) => {
     await page.fill("#c-syllabus", "A pasted syllabus.");
+    const proposed = page.waitForResponse((r) => r.url().includes("/api/courses/propose"), { timeout: 30_000 });
     await page.getByRole("button", { name: "Propose units" }).click();
+    await proposed;
     await page.getByLabel("Unit 2 title").waitFor({ timeout: 30_000 });
     await page.fill("#u-title-1", "Finding a claim, edited");
     await page.getByRole("button", { name: "Save course" }).click();
@@ -438,7 +440,7 @@ async function main() {
 
       await flow("home (tutor): primary button, pick up, recent sessions, quick actions, tip", cookie(tutor), 1280, async (page) => {
         await page.goto(BASE + "/");
-        await page.getByRole("link", { name: /Log a session/ }).first().waitFor(T);
+        await page.getByRole("button", { name: "Start", exact: true }).first().waitFor(T);
         await page.getByRole("heading", { name: "Pick up where you left off" }).waitFor(T);
         await page.getByRole("heading", { name: "Recent sessions" }).waitFor(T);
         for (const l of ["Search ARIA", "Practice", "Task force"]) await page.getByRole("link", { name: new RegExp(l) }).first().waitFor(T);
