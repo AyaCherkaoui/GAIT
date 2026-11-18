@@ -56,6 +56,7 @@ export default function HistoryPage() {
   return (
     <div className="space-y-8">
       <PageHeader title="History">Your past sessions, your reflections, and your quiz scores.</PageHeader>
+      <Link href="/tutees" className="inline-flex min-h-10 items-center text-sm font-medium text-indigo-700 underline underline-offset-4">See sessions by tutee</Link>
 
       <section aria-labelledby="h-sessions" className="space-y-4">
         <h2 id="h-sessions" className="font-display text-2xl font-semibold text-ink">Sessions</h2>

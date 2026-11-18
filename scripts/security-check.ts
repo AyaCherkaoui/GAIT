@@ -380,6 +380,65 @@ async function main() {
     check("a tutor is sent away from /admin/sessions", [302, 303, 307, 308].includes((await call("/admin/sessions", {}, alice)).status));
     check("the director opens /admin/sessions", (await call("/admin/sessions", {}, carolC)).status === 200);
 
+    // Tutees: owner only
+    {
+      const put = (p: string, body: unknown, c?: string) => call(p, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }, c);
+      check("signed out: GET /api/tutees is 401", (await call("/api/tutees")).status === 401);
+      check("signed out: POST /api/tutees is 401", (await post("/api/tutees", { firstName: "Ana" })).status === 401);
+      check("a tutee gets 403 from /api/tutees", (await call("/api/tutees", {}, tuteeC)).status === 403);
+      check("tutees: missing name is 400", (await post("/api/tutees", {}, alice)).status === 400);
+      check("tutees: name that is not text is 400", (await post("/api/tutees", { firstName: 5 }, alice)).status === 400);
+      r = await post("/api/tutees", { firstName: "Ana Lopez" }, alice);
+      const tid = (await r.json()).id as number;
+      check("a tutor adds a tutee, first name only", r.status === 200 && Number.isInteger(tid));
+      const again = await (await post("/api/tutees", { firstName: "ana" }, alice)).json();
+      check("the same first name is the same tutee", again.id === tid);
+      check("the owner reads the timeline", (await call(`/api/tutees/${tid}`, {}, alice)).status === 200);
+      check("another tutor gets 404 on the tutee", (await call(`/api/tutees/${tid}`, {}, bobC)).status === 404);
+      check("another tutor cannot rename the tutee (404)", (await put(`/api/tutees/${tid}`, { firstName: "X" }, bobC)).status === 404);
+      check("the director cannot read a tutor's tutee (404)", (await call(`/api/tutees/${tid}`, {}, carolC)).status === 404);
+      check("the director cannot rename a tutor's tutee (404)", (await put(`/api/tutees/${tid}`, { firstName: "X" }, carolC)).status === 404);
+      check("the owner renames the tutee", (await put(`/api/tutees/${tid}`, { firstName: "Anna" }, alice)).status === 200);
+      check("rename with a bad body is 400", (await put(`/api/tutees/${tid}`, { firstName: 7 }, alice)).status === 400);
+      check("another tutor's list does not hold the tutee", !(await (await call("/api/tutees", {}, bobC)).text()).includes("Anna"));
+      check("a session cannot use another tutor's tutee (404)", (await post("/api/session", { studentName: "", tuteeId: tid, notes: { workedOn: "a" } }, bobC)).status === 404);
+    }
+
+    // English 101 course routes
+    {
+      // A second director, so the AI calls here do not count against carol's rate-limit check below.
+      db.prepare("INSERT INTO allowed_users (email, name, role, active) VALUES (?, ?, 'director', 1) ON CONFLICT(email) DO UPDATE SET role = 'director', active = 1").run("gail@augustana.edu", "Gail");
+      const gailC = sessionCookieValue(signInFromGoogle({ sub: "g-gail", email: "gail@augustana.edu", email_verified: true, name: "Gail" }));
+      const put = (body: unknown, c?: string) => call("/api/courses", { method: "PUT", headers: { "content-type": "application/json" }, body: typeof body === "string" ? body : JSON.stringify(body) }, c);
+      check("signed out: GET /api/courses is 401", (await call("/api/courses")).status === 401);
+      check("signed out: PUT /api/courses is 401", (await put({ syllabus: "x", units: [] })).status === 401);
+      check("signed out: exercise is 401", (await post("/api/courses/exercise", { unit: 0 })).status === 401);
+      check("a tutee gets 403 from /api/courses", (await call("/api/courses", {}, tuteeC)).status === 403);
+      check("a tutee gets 403 from the exercise route", (await post("/api/courses/exercise", { unit: 0 }, tuteeC)).status === 403);
+      check("a tutor reads the course", (await call("/api/courses", {}, alice)).status === 200);
+      check("a tutor cannot write the course (403)", (await put({ syllabus: "x", units: [] }, alice)).status === 403);
+      check("a tutor cannot propose units (403)", (await post("/api/courses/propose", { syllabus: "x" }, alice)).status === 403);
+      check("a tutor cannot load an ARIA file as the syllabus (403)", (await post("/api/courses/load", { driveId: "x" }, alice)).status === 403);
+      check("the director writes the course", (await put({ syllabus: "Week 1", units: [{ title: "Unit one", goal: "g", minutes: 20 }] }, carolC)).status === 200);
+      check("a tutor reads what the director saved", (await (await call("/api/courses", {}, alice)).text()).includes("Unit one"));
+      check("course: units that are not a list are 400", (await put({ syllabus: "x", units: "no" }, carolC)).status === 400);
+      check("course: a unit with bad minutes is 400", (await put({ syllabus: "x", units: [{ title: "a", goal: "", minutes: 0 }] }, carolC)).status === 400);
+      check("course: a unit with no title is 400", (await put({ syllabus: "x", units: [{ title: "", goal: "", minutes: 20 }] }, carolC)).status === 400);
+      check("course: a syllabus that is not text is 400", (await put({ syllabus: 5, units: [] }, carolC)).status === 400);
+      check("course: invalid JSON is 400", (await put("{not json", carolC)).status === 400);
+      check("course: a 90 KB syllabus is accepted", (await put({ syllabus: "a".repeat(90_000), units: [] }, carolC)).status === 200);
+      check("course: a 150 KB syllabus is accepted (limit is about 200 KB)", (await put({ syllabus: "a".repeat(150_000), units: [] }, carolC)).status === 200);
+      check("course: a syllabus over 200 KB is 413", (await put({ syllabus: "a".repeat(250_000), units: [] }, carolC)).status === 413);
+      const before = Date.now();
+      r = await post("/api/courses/propose", { syllabus: "a".repeat(250_000) }, gailC);
+      check("propose: an oversize syllabus is 413 before any AI call", r.status === 413 && Date.now() - before < 3000, `${r.status}`);
+      check("propose: no syllabus is 400", (await post("/api/courses/propose", {}, gailC)).status === 400);
+      check("exercise: a missing unit is 400", (await post("/api/courses/exercise", { unit: 99 }, alice)).status === 400);
+      check("exercise: a unit that is not a number is 400", (await post("/api/courses/exercise", { unit: "x" }, alice)).status === 400);
+      check("course page: a tutor is sent away from /admin/courses", [302, 303, 307, 308].includes((await call("/admin/courses", {}, alice)).status));
+      check("course page: the director opens /admin/courses", (await call("/admin/courses", {}, carolC)).status === 200);
+    }
+
     // 9. No internal text in server errors (the AI service is unreachable, so the handler fails)
     r = await post("/api/taskforce", { title: "t" }, alice);
     const body = await r.text();

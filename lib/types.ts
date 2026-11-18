@@ -20,6 +20,11 @@ export type SessionNotes = {
   aiPolicy?: AiPolicy;
   aiUse?: string;
   privateConcern?: string;
+  /** Set by the live session starter; missing on older rows. */
+  type?: string;
+  focus?: string[];
+  minutes?: number;
+  tutee_id?: number;
 };
 export type Reflection = { learned: string; wantToImprove: string; wentWell: string; goalNextTime: string; updatedAt: string };
 export type SessionSummary = { id: number; created_at: string; student_name: string; course: string; reflection: Reflection | null; focus?: string };
@@ -36,3 +41,6 @@ export type QuizQuestion = { q: string; choices: string[]; answer: number; why: 
 export type QuizResult = { id: number; created_at: string; score: number; total: number; topic: string };
 export type FeedItem = { title: string; url: string; source: string; date?: string };
 export type Book = { title: string; author: string; why: string; url?: string };
+
+export type Tutee = { id: number; first_name: string; sessions: number; last_at: string | null };
+export type TimelineEntry = { id: number; created_at: string; course: string; type?: string; focus?: string[]; minutes?: number; reflection: Reflection | null };
