@@ -41,6 +41,11 @@ export function ErrorBox({ error }: { error: string | null }) {
   );
 }
 
+/** Plain loading text for a page-load request. */
+export function Loading() {
+  return <p role="status" aria-busy="true" className="text-sm text-stone-600">Loading…</p>;
+}
+
 export function Empty({ title, children }: { title: string; children?: ReactNode }) {
   return (
     <div className="rounded-lg border border-dashed border-stone-300 px-5 py-8 text-center">

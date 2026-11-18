@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Card, Empty, ErrorBox, PageHeader, Working, btn2Cls, btnCls, inputCls, labelCls } from "@/components/ui";
+import { Card, Empty, ErrorBox, Loading, PageHeader, Working, btn2Cls, btnCls, inputCls, labelCls } from "@/components/ui";
 import { get, post } from "@/lib/client";
 import { QUIZ_TOPICS, SCENARIOS } from "@/lib/scenarios";
 import type { Feedback, QuizQuestion, QuizResult, Turn } from "@/lib/types";
@@ -242,8 +242,13 @@ function Quiz({ onSaved }: { onSaved: () => void }) {
 
 function History({ refresh }: { refresh: number }) {
   const [results, setResults] = useState<QuizResult[] | null>(null);
-  useEffect(() => { get<{ results: QuizResult[] }>("/api/practice/results").then((j) => setResults(j.results)).catch(() => setResults([])); }, [refresh]);
-  if (results === null) return null;
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    setError(null);
+    get<{ results: QuizResult[] }>("/api/practice/results").then((j) => setResults(j.results)).catch((e) => setError((e as Error).message));
+  }, [refresh]);
+  if (error) return <ErrorBox error={error} />;
+  if (results === null) return <Loading />;
   const pct = (r: QuizResult) => (r.total ? r.score / r.total : 0);
   const avg = (rs: QuizResult[]) => rs.reduce((a, r) => a + pct(r), 0) / rs.length;
   // results are newest first: compare the latest 3 with the 3 before them.

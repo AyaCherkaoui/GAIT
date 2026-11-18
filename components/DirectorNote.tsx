@@ -12,11 +12,12 @@ export default function DirectorNote({ sessionId }: { sessionId: string }) {
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     get<NoteState>(`/api/session/${sessionId}/director-note`)
       .then((s) => { setState(s); setDraft(s.note); })
-      .catch(() => setState(null));
+      .catch((e) => setLoadError((e as Error).message));
   }, [sessionId]);
 
   async function save(e: React.FormEvent) {
@@ -37,6 +38,7 @@ export default function DirectorNote({ sessionId }: { sessionId: string }) {
     }
   }
 
+  if (loadError) return <ErrorBox error={`Couldn't load the director's note. ${loadError}`} />;
   if (!state || (!state.canEdit && !state.note)) return null;
   return (
     <section aria-labelledby="dnote" className="space-y-3 border-t border-stone-200 pt-6">
@@ -48,7 +50,7 @@ export default function DirectorNote({ sessionId }: { sessionId: string }) {
             <textarea id="director-note" className={inputCls} rows={3} maxLength={2000} value={draft} onChange={(e) => { setDraft(e.target.value); setSaved(false); }} />
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <button className={`${btnCls} min-h-10`} disabled={busy}>Save note</button>
+            <button className={`${btnCls} min-h-10`} disabled={busy}>{busy ? "Saving…" : "Save note"}</button>
             {saved && <span role="status" className="text-sm text-stone-700">Saved.</span>}
           </div>
           <ErrorBox error={error} />

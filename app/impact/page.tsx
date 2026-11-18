@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Card, Empty, ErrorBox, PageHeader, btn2Cls } from "@/components/ui";
+import { Card, Empty, ErrorBox, Loading, PageHeader, btn2Cls } from "@/components/ui";
 import { get } from "@/lib/client";
 import type { ImpactWeek } from "@/lib/impact";
 
@@ -25,7 +25,7 @@ export default function ImpactPage() {
         A plain count of what is happening across the center. It has no student names, no tutor names and no notes.
       </PageHeader>
       <ErrorBox error={error} />
-      {!error && weeks === null && <p className="text-sm text-stone-600">Loading…</p>}
+      {!error && weeks === null && <Loading />}
       {weeks && weeks.length === 0 && <Empty title="Nothing counted yet">Counts appear here once tutors write up sessions. Nothing here ever shows a student or tutor name.</Empty>}
       {weeks && weeks.length > 0 && (
         <>

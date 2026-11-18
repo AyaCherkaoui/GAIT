@@ -6,13 +6,15 @@ type Status = { provider: string | null; label?: string; model?: string; note?: 
 /** A small chip for staff: which AI provider and model answer. The server never sends a key. Fetched once per page load. */
 export default function ProviderStatus() {
   const [s, setS] = useState<Status | null>(null);
+  const [failed, setFailed] = useState(false);
   useEffect(() => {
     fetch("/api/provider")
-      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => { if (!r.ok) throw new Error("status"); return r.json(); })
       .then(setS)
-      .catch(() => setS(null));
+      .catch(() => setFailed(true));
   }, []);
-  if (!s) return null;
+  if (failed) return <p role="alert" className="rounded-md border border-gold-300/60 px-2.5 py-1.5 text-xs leading-snug text-gold-300">AI status could not be loaded. Refresh to try again.</p>;
+  if (!s) return <p role="status" aria-busy="true" className="px-2.5 py-1.5 text-xs text-indigo-200">Checking AI…</p>;
   const ok = !!s.model;
   return (
     <p

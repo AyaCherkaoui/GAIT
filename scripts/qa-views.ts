@@ -507,6 +507,17 @@ async function main() {
         await page.goto(BASE + "/history");
         await page.getByRole("link", { name: "Log a session" }).waitFor(T);
       });
+      // A failed load request shows a visible alert instead of staying silent.
+      await flow("failed load: history shows an alert", cookie(tutor), 1280, async (page) => {
+        await page.route("**/api/session", (r) => r.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "Something went wrong. Try again." }) }));
+        await page.goto(BASE + "/history");
+        await page.getByRole("alert").filter({ hasText: "Something went wrong" }).first().waitFor(T);
+      });
+      await flow("failed load: debrief shows an alert", cookie(tutor), 1280, async (page) => {
+        await page.route("**/api/debrief", (r) => r.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "Something went wrong. Try again." }) }));
+        await page.goto(BASE + "/debrief");
+        await page.getByRole("alert").filter({ hasText: "Something went wrong" }).first().waitFor(T);
+      });
     }
 
     // A student must not reach tutor pages.
