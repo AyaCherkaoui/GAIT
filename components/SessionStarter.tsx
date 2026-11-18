@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { inputCls, labelCls } from "@/components/ui";
 import { clock, elapsedMs, readLive, startLive, type Live } from "@/components/SessionTimer";
+import { get } from "@/lib/client";
+import type { Tutee } from "@/lib/types";
 import { FOCUS_AREAS, SESSION_TYPES, type FocusId, type SessionType } from "@/lib/session-types";
 
 const chipBtn = (on: boolean) =>
@@ -14,9 +16,14 @@ export default function SessionStarter() {
   const [type, setType] = useState<SessionType>("tutoring");
   const [focus, setFocus] = useState<FocusId[]>([]);
   const [name, setName] = useState("");
+  const [tutees, setTutees] = useState<Tutee[]>([]);
+  const [tuteeId, setTuteeId] = useState("");
   const [live, setLive] = useState<Live | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
+  useEffect(() => {
+    get<{ tutees: Tutee[] }>("/api/tutees").then((j) => setTutees(j.tutees)).catch(() => {});
+  }, []);
   useEffect(() => {
     setLive(readLive());
     const t = setInterval(() => {
@@ -27,7 +34,8 @@ export default function SessionStarter() {
   }, []);
 
   const start = () => {
-    startLive({ type, focus: type === "tutoring" ? focus : [], firstName: name.trim() });
+    const picked = tutees.find((t) => String(t.id) === tuteeId);
+    startLive({ type, focus: type === "tutoring" ? focus : [], firstName: picked ? picked.first_name : name.trim(), tuteeId: picked?.id });
     router.push("/session/live");
   };
 
@@ -76,18 +84,30 @@ export default function SessionStarter() {
         )}
 
         <div className="flex flex-wrap items-end gap-3">
-          <div className="flex min-w-[12rem] flex-1 flex-col gap-1.5">
-            <label htmlFor="start-name" className={`${labelCls} text-white`}>Student first name</label>
-            <input id="start-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} className={`${inputCls} text-ink`} />
-          </div>
+          {tutees.length > 0 && (
+            <div className="flex min-w-[12rem] flex-1 flex-col gap-1.5">
+              <label htmlFor="start-tutee" className={`${labelCls} text-white`}>Tutee</label>
+              <select id="start-tutee" value={tuteeId} onChange={(e) => setTuteeId(e.target.value)} className={`${inputCls} text-ink`}>
+                <option value="">Someone new</option>
+                {tutees.map((t) => <option key={t.id} value={t.id}>{t.first_name}</option>)}
+              </select>
+            </div>
+          )}
+          {!tuteeId && (
+            <div className="flex min-w-[12rem] flex-1 flex-col gap-1.5">
+              <label htmlFor="start-name" className={`${labelCls} text-white`}>Student first name</label>
+              <input id="start-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} className={`${inputCls} text-ink`} />
+            </div>
+          )}
           <button type="button" onClick={start} className="inline-flex min-h-12 items-center rounded-[10px] bg-gold-300 px-6 text-[15px] font-semibold text-ink transition hover:bg-gold-400">
             Start
           </button>
         </div>
 
-        <Link href="/session" className="inline-flex min-h-10 items-center self-start text-sm text-stone-300 underline underline-offset-4">
-          Just finished one? Log a session
-        </Link>
+        <div className="flex flex-wrap gap-x-6">
+          <Link href="/session" className="inline-flex min-h-10 items-center text-sm text-stone-300 underline underline-offset-4">Just finished one? Log a session</Link>
+          <Link href="/tutees" className="inline-flex min-h-10 items-center text-sm text-stone-300 underline underline-offset-4">Your tutees</Link>
+        </div>
       </div>
     </section>
   );
