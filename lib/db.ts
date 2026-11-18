@@ -98,6 +98,31 @@ export function getDb(): DatabaseSync {
       UNIQUE (user_id, course_code)
     );
   `);
+  // Tutees: one row per student first name per tutor (first names only). Sessions point at them through tutee_id.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS tutees (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id),
+      first_name TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS tutees_user_name ON tutees (user_id, lower(first_name));
+  `);
+  if (!hasColumn("sessions", "tutee_id")) db.exec("ALTER TABLE sessions ADD COLUMN tutee_id INTEGER REFERENCES tutees(id)");
+  db.exec("CREATE INDEX IF NOT EXISTS sessions_tutee ON sessions (tutee_id)");
+  // One-time backfill from student_name (same "Last, First" split as the session route). Rows with no owner are skipped.
+  {
+    const rows = db.prepare("SELECT id, user_id, student_name FROM sessions WHERE tutee_id IS NULL AND user_id IS NOT NULL AND trim(student_name) != ''").all() as { id: number; user_id: number; student_name: string }[];
+    const add = db.prepare("INSERT OR IGNORE INTO tutees (user_id, first_name) VALUES (?, ?)");
+    const find = db.prepare("SELECT id FROM tutees WHERE user_id = ? AND lower(first_name) = lower(?)");
+    const link = db.prepare("UPDATE sessions SET tutee_id = ? WHERE id = ?");
+    for (const r of rows) {
+      const first = (r.student_name.includes(",") ? r.student_name.split(",")[1] : r.student_name).trim().split(/\s+/)[0];
+      if (!first) continue;
+      add.run(r.user_id, first);
+      link.run((find.get(r.user_id, first) as { id: number }).id, r.id);
+    }
+  }
   if (!hasColumn("users", "session_version")) db.exec("ALTER TABLE users ADD COLUMN session_version INTEGER NOT NULL DEFAULT 0");
   return db;
 }

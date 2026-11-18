@@ -6,10 +6,11 @@ import { ErrorBox, PageHeader, Working, btn2Cls, btnBlueCls, inputCls, labelCls 
 import VoiceToggle, { useVoiceFirst } from "@/components/VoiceToggle";
 import { get, post } from "@/lib/client";
 import { readLocal, writeLocal } from "@/lib/local";
+import { SESSION_TYPES } from "@/lib/session-types";
 import { AI_POLICIES, type AiPolicy, type SessionOutputs } from "@/lib/types";
 
 const DRAFT_KEY = "ink-draft-session";
-const EMPTY = { studentName: "", course: "", workedOn: "", struggles: "", wentWell: "", courseCode: "", aiUse: "", privateConcern: "" };
+const EMPTY = { studentName: "", course: "", workedOn: "", struggles: "", wentWell: "", courseCode: "", aiUse: "", privateConcern: "", sessionType: "", sessionFocus: "", sessionMinutes: "", tuteeId: "" };
 type Draft = typeof EMPTY;
 const NEED_NOTES = "Add what you worked on or what the student struggled with.";
 
@@ -26,7 +27,7 @@ export default function SessionPage() {
   const [result, setResult] = useState<{ id: number; outputs: SessionOutputs } | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
-  const set = (k: keyof Draft, v: string) => { setF((x) => ({ ...x, [k]: v })); if (fieldError) setFieldError(null); };
+  const set = (k: keyof Draft, v: string) => { setF((x) => ({ ...x, [k]: v, ...(k === "studentName" ? { tuteeId: "" } : {}) })); if (fieldError) setFieldError(null); };
 
   // Notes are kept in this browser as you type, so a reload or an error never loses them.
   useEffect(() => {
@@ -89,7 +90,13 @@ export default function SessionPage() {
     try {
       const r = await post<{ id: number; outputs: SessionOutputs }>("/api/session", {
         studentName: f.studentName, course: f.course, voice,
-        notes: { workedOn: f.workedOn, struggles: f.struggles, wentWell: f.wentWell, courseCode: f.courseCode, aiPolicy, aiUse: f.aiUse, privateConcern: f.privateConcern },
+        tuteeId: f.tuteeId ? Number(f.tuteeId) : undefined,
+        notes: {
+          workedOn: f.workedOn, struggles: f.struggles, wentWell: f.wentWell, courseCode: f.courseCode, aiPolicy, aiUse: f.aiUse, privateConcern: f.privateConcern,
+          type: f.sessionType || undefined,
+          focus: f.sessionFocus.split(",").map((x) => x.trim()).filter(Boolean),
+          minutes: Number(f.sessionMinutes) || undefined,
+        },
       });
       setResult(r);
       writeLocal(DRAFT_KEY, null); // saved on the server now
@@ -122,6 +129,23 @@ export default function SessionPage() {
           <div>
             <label htmlFor="course" className={labelCls}>Course or assignment</label>
             <input id="course" className={inputCls} placeholder="ENGL 101, argument essay" value={f.course} onChange={(e) => set("course", e.target.value)} />
+          </div>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div>
+            <label htmlFor="sessionType" className={labelCls}>Session type</label>
+            <select id="sessionType" className={inputCls} value={f.sessionType} onChange={(e) => set("sessionType", e.target.value)}>
+              <option value="">Not set</option>
+              {SESSION_TYPES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="sessionFocus" className={labelCls}>Focus (optional)</label>
+            <input id="sessionFocus" className={inputCls} placeholder="thesis, citations" value={f.sessionFocus} onChange={(e) => set("sessionFocus", e.target.value)} />
+          </div>
+          <div>
+            <label htmlFor="sessionMinutes" className={labelCls}>Minutes</label>
+            <input id="sessionMinutes" inputMode="numeric" className={inputCls} value={f.sessionMinutes} onChange={(e) => set("sessionMinutes", e.target.value.replace(/\D/g, "").slice(0, 3))} />
           </div>
         </div>
         <div>

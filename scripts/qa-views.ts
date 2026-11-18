@@ -116,6 +116,8 @@ async function main() {
   const ins = db.prepare("INSERT INTO sessions (student_name, course, notes, outputs, user_id) VALUES (?, ?, ?, ?, ?)");
   const sid = Number(ins.run("Sam", "ENGL 101", JSON.stringify(notes), JSON.stringify(outputs), tutor.id).lastInsertRowid);
   ins.run("Alex", "HIST 210", JSON.stringify(notes), JSON.stringify(outputs), tutor.id);
+  const tid = Number(db.prepare("INSERT INTO tutees (user_id, first_name) VALUES (?, ?)").run(tutor.id, "Sam").lastInsertRowid);
+  db.prepare("UPDATE sessions SET tutee_id = ?, notes = ? WHERE id = ?").run(tid, JSON.stringify({ ...notes, type: "tutoring", focus: ["thesis"], minutes: 40, tutee_id: tid }), sid);
   const dsid = Number(ins.run("Jo", "BIOL 120", JSON.stringify(notes), JSON.stringify(outputs), director.id).lastInsertRowid);
   db.prepare("INSERT INTO quiz_results (score, total, topic, user_id) VALUES (4, 5, 'Thesis statements', ?)").run(tutor.id);
   db.prepare("INSERT INTO quiz_results (score, total, topic, user_id) VALUES (2, 5, 'MLA and APA citations', ?)").run(tutor.id);
@@ -287,8 +289,8 @@ async function main() {
     { name: "new", cookie: cookie(fresh), views: [{ path: "/welcome", steps: welcome }] },
     { name: "student", cookie: cookie(tutee), views: [{ path: "/" }, { path: "/coach", steps: coach }] },
     { name: "student-pending", cookie: cookie(pending), views: [{ path: "/" }, { path: "/coach" }] },
-    { name: "tutor", cookie: cookie(tutor), views: staff("tutor") },
-    { name: "director", cookie: cookie(director), views: [...staff("director"), { path: "/admin/tutors" }, { path: "/impact" }, { path: "/admin/sessions" }, { path: `/admin/sessions/${sid}` }] },
+    { name: "tutor", cookie: cookie(tutor), views: [...staff("tutor"), { path: "/tutees" }, { path: `/tutees/${tid}` }] },
+    { name: "director", cookie: cookie(director), views: [...staff("director"), { path: "/tutees" }, { path: "/admin/tutors" }, { path: "/impact" }, { path: "/admin/sessions" }, { path: `/admin/sessions/${sid}` }] },
     { name: "out", views: [{ path: "/login" }, { path: "/login?error=domain" }] },
   ];
 
@@ -555,6 +557,18 @@ async function main() {
         await page.getByText("Draft restored.").waitFor(T);
         if ((await page.inputValue("#studentName")) !== "Maya") throw new Error("first name was not prefilled");
         if (!(await page.inputValue("#workedOn")).includes("thesis claim")) throw new Error("notes were not prefilled");
+      });
+      await flow("tutees: list, per-tutee timeline with type, focus and minutes, rename", cookie(tutor), 1280, async (page) => {
+        await page.goto(BASE + "/tutees");
+        await page.getByRole("link", { name: /Sam/ }).first().click();
+        await page.waitForURL(/\/tutees\/\d+$/, T);
+        await page.getByText("Normal tutoring").waitFor(T);
+        await page.getByText("thesis", { exact: true }).waitFor(T);
+        await page.getByText("40 min").waitFor(T);
+        await page.fill("#t-rename", "Samuel");
+        await page.getByRole("button", { name: "Rename" }).click();
+        await page.getByText("Saved.").waitFor(T);
+        await page.getByRole("heading", { name: "Samuel" }).waitFor(T);
       });
       await flow("home (tutor): a running session shows a Resume card", cookie(tutor), 1280, async (page) => {
         await page.addInitScript(() => localStorage.setItem("ink-live-session", JSON.stringify({ type: "tutoring", focus: [], minutes: 45, firstName: "Maya", startedAt: Date.now() - 23 * 60_000 - 10_000, pausedAt: null, pausedMs: 0, notes: "" })));

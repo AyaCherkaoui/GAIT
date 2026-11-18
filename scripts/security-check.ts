@@ -380,6 +380,30 @@ async function main() {
     check("a tutor is sent away from /admin/sessions", [302, 303, 307, 308].includes((await call("/admin/sessions", {}, alice)).status));
     check("the director opens /admin/sessions", (await call("/admin/sessions", {}, carolC)).status === 200);
 
+    // Tutees: owner only
+    {
+      const put = (p: string, body: unknown, c?: string) => call(p, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }, c);
+      check("signed out: GET /api/tutees is 401", (await call("/api/tutees")).status === 401);
+      check("signed out: POST /api/tutees is 401", (await post("/api/tutees", { firstName: "Ana" })).status === 401);
+      check("a tutee gets 403 from /api/tutees", (await call("/api/tutees", {}, tuteeC)).status === 403);
+      check("tutees: missing name is 400", (await post("/api/tutees", {}, alice)).status === 400);
+      check("tutees: name that is not text is 400", (await post("/api/tutees", { firstName: 5 }, alice)).status === 400);
+      r = await post("/api/tutees", { firstName: "Ana Lopez" }, alice);
+      const tid = (await r.json()).id as number;
+      check("a tutor adds a tutee, first name only", r.status === 200 && Number.isInteger(tid));
+      const again = await (await post("/api/tutees", { firstName: "ana" }, alice)).json();
+      check("the same first name is the same tutee", again.id === tid);
+      check("the owner reads the timeline", (await call(`/api/tutees/${tid}`, {}, alice)).status === 200);
+      check("another tutor gets 404 on the tutee", (await call(`/api/tutees/${tid}`, {}, bobC)).status === 404);
+      check("another tutor cannot rename the tutee (404)", (await put(`/api/tutees/${tid}`, { firstName: "X" }, bobC)).status === 404);
+      check("the director cannot read a tutor's tutee (404)", (await call(`/api/tutees/${tid}`, {}, carolC)).status === 404);
+      check("the director cannot rename a tutor's tutee (404)", (await put(`/api/tutees/${tid}`, { firstName: "X" }, carolC)).status === 404);
+      check("the owner renames the tutee", (await put(`/api/tutees/${tid}`, { firstName: "Anna" }, alice)).status === 200);
+      check("rename with a bad body is 400", (await put(`/api/tutees/${tid}`, { firstName: 7 }, alice)).status === 400);
+      check("another tutor's list does not hold the tutee", !(await (await call("/api/tutees", {}, bobC)).text()).includes("Anna"));
+      check("a session cannot use another tutor's tutee (404)", (await post("/api/session", { studentName: "", tuteeId: tid, notes: { workedOn: "a" } }, bobC)).status === 404);
+    }
+
     // 9. No internal text in server errors (the AI service is unreachable, so the handler fails)
     r = await post("/api/taskforce", { title: "t" }, alice);
     const body = await r.text();
