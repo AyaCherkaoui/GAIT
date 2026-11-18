@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Card, Empty, ErrorBox, PageHeader, btnCls, inputCls, labelCls, submitOnCmdEnter } from "@/components/ui";
+import { Card, Empty, ErrorBox, Loading, PageHeader, btnCls, inputCls, labelCls, submitOnCmdEnter } from "@/components/ui";
 import { get, post } from "@/lib/client";
 
 type Week = { week: string; shifts: number; avg: number; draining: number };
@@ -79,7 +79,7 @@ export default function DebriefPage() {
       )}
       <Card title="Your weeks">
         {weeks === null ? (
-          <p className="text-sm text-stone-600">Loading…</p>
+          error ? <p className="text-sm text-stone-600">Your weeks could not be loaded.</p> : <Loading />
         ) : weeks.length === 0 ? (
           <Empty title="No debriefs yet">Your check-ins will show here, by week.</Empty>
         ) : (
