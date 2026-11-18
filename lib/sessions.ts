@@ -31,11 +31,17 @@ export function getSession(id: number, userId: number): SessionRecord | null {
   };
 }
 
+/** The first clause of "worked on", short enough for a table cell. */
+function shortFocus(v: string | null): string {
+  const t = (v ?? "").trim().split(/[.;\n]/)[0].trim();
+  return t.length > 48 ? `${t.slice(0, 47).trimEnd()}…` : t;
+}
+
 export function listSessions(userId: number): SessionSummary[] {
   const rows = getDb()
-    .prepare("SELECT id, created_at, student_name, course, reflection FROM sessions WHERE user_id = ? ORDER BY id DESC LIMIT 50")
-    .all(userId) as Omit<Row, "notes" | "outputs">[];
-  return rows.map((r) => ({ ...r, reflection: parseReflection(r.reflection) }));
+    .prepare("SELECT id, created_at, student_name, course, reflection, json_extract(notes, '$.workedOn') AS focus FROM sessions WHERE user_id = ? ORDER BY id DESC LIMIT 50")
+    .all(userId) as (Omit<Row, "notes" | "outputs"> & { focus: string | null })[];
+  return rows.map((r) => ({ ...r, focus: shortFocus(r.focus), reflection: parseReflection(r.reflection) }));
 }
 
 /** The tutor's own words are kept private: the director never gets the private concern, and sees only the student's first name. */

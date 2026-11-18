@@ -36,9 +36,9 @@ export default function ImpactPage() {
               [sum("banned") + sum("limited"), "Sessions in classes that limit or ban AI", "A good moment for the AI talk."],
               [sum("ownership") + sum("scripts"), "Times tutors used the AI talk tools", "Ownership questions and the script bank."],
             ].map(([n, label, hint]) => (
-              <div key={label as string} className="rounded-lg border border-stone-200 bg-white p-5">
-                <p className="font-display text-4xl font-semibold tabular-nums text-ink">{n}</p>
-                <p className="mt-1 font-semibold text-stone-900">{label}</p>
+              <div key={label as string} className="rounded-xl border border-stone-200 bg-white p-5">
+                <p className="font-display text-5xl tabular-nums text-ink">{n}</p>
+                <p className="mt-2 text-[15px] font-semibold text-ink">{label}</p>
                 <p className="text-sm text-stone-600">{hint}</p>
               </div>
             ))}
@@ -47,7 +47,7 @@ export default function ImpactPage() {
             <div className="-mx-1 overflow-x-auto px-1">
               <table className="w-full min-w-[40rem] text-left text-sm">
                 <thead>
-                  <tr className="border-b border-stone-200 text-stone-600">
+                  <tr className="border-b border-stone-100 text-[13px] text-stone-600">
                     {COLS.map(([k, label]) => <th key={k} scope="col" className="py-2 pr-4 font-semibold">{label}</th>)}
                   </tr>
                 </thead>

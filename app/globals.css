@@ -2,71 +2,81 @@
 
 /*
  * Ink design system.
- * Ink navy and highlighter gold (Augustana's colors), on cool paper. Newsreader (serif) for voice, Figtree for UI.
+ * Warm paper, near-black ink, a yellow highlighter and one blue for actions. Bricolage Grotesque for headings, Inter for UI.
  * The existing `indigo-*` and `stone-*` utilities are remapped here, so every page recolors from this one file:
- *   indigo = ink navy (actions, links)   stone = cool paper and slate (surfaces, text)
+ *   indigo = action blue (links, primary sends)   stone = warm paper and graphite (surfaces, text)
  */
 @theme {
-  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
-  --font-serif: var(--font-newsreader), ui-serif, Georgia, serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
 
-  --color-stone-50: #f5f6f9;
-  --color-stone-100: #eceef3;
-  --color-stone-200: #dde0e8;
-  --color-stone-300: #c2c8d4;
-  --color-stone-400: #9199a9;
-  --color-stone-500: #6a7286;
-  --color-stone-600: #4f566a;
-  --color-stone-700: #3a4054;
-  --color-stone-800: #252a3b;
-  --color-stone-900: #141a2b;
+  --color-stone-50: #f7f6f2;
+  --color-stone-100: #f0eee8;
+  --color-stone-200: #e3e1da;
+  --color-stone-300: #d5d2c8;
+  --color-stone-400: #a9a79f;
+  --color-stone-500: #7a7d88;
+  --color-stone-600: #5b6070;
+  --color-stone-700: #3a3e4a;
+  --color-stone-800: #262932;
+  --color-stone-900: #15171c;
 
-  --color-indigo-50: #eef1f9;
-  --color-indigo-100: #dce3f3;
-  --color-indigo-200: #b8c6e6;
-  --color-indigo-300: #8ea4d3;
-  --color-indigo-400: #5f7cba;
-  --color-indigo-500: #3f5d9f;
-  --color-indigo-600: #2c4784;
-  --color-indigo-700: #1f356a;
-  --color-indigo-800: #172a55;
-  --color-indigo-900: #111d3b;
+  --color-indigo-50: #eef1fd;
+  --color-indigo-100: #dde3fb;
+  --color-indigo-200: #b9c5f5;
+  --color-indigo-300: #8fa2ee;
+  --color-indigo-400: #5f79e3;
+  --color-indigo-500: #3d5cdc;
+  --color-indigo-600: #2747d6;
+  --color-indigo-700: #1f39b0;
+  --color-indigo-800: #1e2f8a;
+  --color-indigo-900: #15206a;
 
-  --color-gold-50: #fff8dc;
-  --color-gold-100: #ffefb0;
-  --color-gold-300: #ffd84d;
-  --color-gold-400: #f5c518;
-  --color-gold-600: #a67c00;
-  --color-ink: #111d3b;
-  --color-paper: #f5f6f9;
+  --color-gold-50: #fff8e0;
+  --color-gold-100: #fff4cc;
+  --color-gold-300: #ffe27a;
+  --color-gold-400: #f5d14a;
+  --color-gold-600: #6b5300;
+  --color-ink: #15171c;
+  --color-paper: #f7f6f2;
+  --color-side: #fbfaf7;
   --color-margin: #c8372d;
 }
 
 html { scroll-behavior: smooth; }
 body {
   @apply bg-stone-50 text-stone-900 antialiased;
-  font-family: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   font-size: 16px;
   line-height: 1.55;
 }
 h1, h2, h3 { text-wrap: balance; }
 p { text-wrap: pretty; }
-.font-display { font-family: var(--font-newsreader), ui-serif, Georgia, serif; font-optical-sizing: auto; }
+.font-display { font-family: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif; font-weight: 700; letter-spacing: -0.025em; }
+a { text-underline-offset: 3px; }
 
 :focus-visible { outline: 3px solid var(--color-gold-400); outline-offset: 2px; border-radius: 4px; }
 
-/* Ruled legal-pad texture with a red margin line: used on the sign-in page and the home hero only. */
+/* Ruled legal-pad paper with a red margin line: the writing feel. Used on sign-in, the home hero, session notes and the coach. */
 .pad {
-  background-color: #fbfcfe;
+  background-color: #fffdf6;
   background-image:
-    linear-gradient(to right, transparent 3.25rem, rgba(200, 55, 45, 0.45) 3.25rem, rgba(200, 55, 45, 0.45) calc(3.25rem + 1px), transparent calc(3.25rem + 1px)),
-    repeating-linear-gradient(to bottom, transparent 0, transparent 1.9rem, rgba(63, 93, 159, 0.14) 1.9rem, rgba(63, 93, 159, 0.14) calc(1.9rem + 1px));
+    linear-gradient(to right, transparent 3.25rem, rgba(200, 55, 45, 0.4) 3.25rem, rgba(200, 55, 45, 0.4) calc(3.25rem + 1px), transparent calc(3.25rem + 1px)),
+    repeating-linear-gradient(to bottom, transparent 0, transparent 1.9rem, rgba(39, 71, 214, 0.11) 1.9rem, rgba(39, 71, 214, 0.11) calc(1.9rem + 1px));
 }
 .pad-dark {
   background-color: var(--color-ink);
   background-image:
-    linear-gradient(to right, transparent 3.25rem, rgba(255, 216, 77, 0.35) 3.25rem, rgba(255, 216, 77, 0.35) calc(3.25rem + 1px), transparent calc(3.25rem + 1px)),
-    repeating-linear-gradient(to bottom, transparent 0, transparent 1.9rem, rgba(255, 255, 255, 0.06) 1.9rem, rgba(255, 255, 255, 0.06) calc(1.9rem + 1px));
+    linear-gradient(to right, transparent 3.25rem, rgba(255, 226, 122, 0.32) 3.25rem, rgba(255, 226, 122, 0.32) calc(3.25rem + 1px), transparent calc(3.25rem + 1px)),
+    repeating-linear-gradient(to bottom, transparent 0, transparent 1.9rem, rgba(255, 255, 255, 0.05) 1.9rem, rgba(255, 255, 255, 0.05) calc(1.9rem + 1px));
+}
+/* Ruled lines inside a text box, one rule per line of text (line-height 1.75rem). */
+.ruled {
+  line-height: 1.75rem;
+  background-color: #fffdf6;
+  background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(1.75rem - 1px), rgba(39, 71, 214, 0.13) calc(1.75rem - 1px), rgba(39, 71, 214, 0.13) 1.75rem);
+  background-attachment: local;
+  background-position: 0 0.625rem;
 }
 /* Highlighter swipe behind text. */
 .mark {
@@ -87,5 +97,5 @@ p { text-wrap: pretty; }
 
 @media print {
   body { background: white; }
-  .pad, .pad-dark { background-image: none; }
+  .pad, .pad-dark, .ruled { background-image: none; }
 }

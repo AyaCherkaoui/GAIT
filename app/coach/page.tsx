@@ -1,6 +1,6 @@
 "use client";
 import { useRef, useState } from "react";
-import { ErrorBox, PageHeader, Working, btnCls, inputCls, labelCls } from "@/components/ui";
+import { ErrorBox, PageHeader, Working, btnBlueCls, inputCls, labelCls } from "@/components/ui";
 import { post } from "@/lib/client";
 
 type Msg = { role: "user" | "assistant"; content: string };
@@ -40,11 +40,11 @@ export default function CoachPage() {
       </PageHeader>
       {messages.length === 0 && (
         <section aria-labelledby="try" className="space-y-2">
-          <h2 id="try" className="font-display text-xl font-semibold text-ink">Try one of these</h2>
+          <h2 id="try" className="font-display text-[22px] text-ink">Try one of these</h2>
           <ul className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             {STARTERS.map((s) => (
               <li key={s}>
-                <button type="button" className="min-h-11 w-full rounded-md border border-stone-300 bg-white px-4 py-2 text-left text-sm font-medium text-stone-800 hover:border-stone-400 hover:bg-stone-100 sm:w-auto" onClick={() => send(s)} disabled={busy}>{s}</button>
+                <button type="button" className="min-h-11 w-full rounded-full border border-stone-200 bg-white px-4 py-2 text-left text-sm font-medium text-stone-800 hover:border-stone-400 hover:bg-stone-100 sm:w-auto" onClick={() => send(s)} disabled={busy}>{s}</button>
               </li>
             ))}
           </ul>
@@ -53,8 +53,8 @@ export default function CoachPage() {
       {messages.length > 0 && (
         <ol aria-label="Conversation" className="space-y-3">
           {messages.map((m, i) => (
-            <li key={i} className={`max-w-prose whitespace-pre-wrap rounded-lg p-4 text-[15px] ${m.role === "user" ? "ml-auto border border-stone-200 bg-white text-stone-900" : "border border-gold-300/70 bg-gold-50 text-stone-800"}`}>
-              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-600">{m.role === "user" ? "You" : "Coach"}</span>
+            <li key={i} className={`max-w-prose whitespace-pre-wrap rounded-xl p-4 text-[15px] ${m.role === "user" ? "ml-auto bg-ink text-white" : "border border-stone-200 bg-white text-stone-800"}`}>
+              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide opacity-70">{m.role === "user" ? "You" : "Coach"}</span>
               {m.content}
             </li>
           ))}
@@ -65,10 +65,10 @@ export default function CoachPage() {
       <form onSubmit={(e) => { e.preventDefault(); send(draft); }} className="max-w-prose space-y-3">
         <div>
           <label htmlFor="coach-q" className={labelCls}>{messages.length ? "Your reply" : "Your question"}</label>
-          <textarea id="coach-q" className={inputCls} rows={3} maxLength={2000} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="I have a history paper due Friday and I'm stuck on the introduction." />
+          <textarea id="coach-q" className={`${inputCls} ruled`} rows={3} maxLength={2000} value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="I have a history paper due Friday and I'm stuck on the introduction." />
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <button className={`${btnCls} min-h-11`} disabled={busy || !draft.trim()}>Ask the coach</button>
+          <button className={`${btnBlueCls} min-h-11`} disabled={busy || !draft.trim()}>Ask the coach</button>
           {messages.length > 0 && <button type="button" className="min-h-11 text-sm text-stone-700 underline underline-offset-4" onClick={() => { setMessages([]); setError(null); }}>Start over</button>}
         </div>
       </form>

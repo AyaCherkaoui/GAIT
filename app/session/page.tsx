@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import SessionOutputsView from "@/components/SessionOutputs";
-import { ErrorBox, PageHeader, Working, btn2Cls, btnCls, inputCls, labelCls } from "@/components/ui";
+import { ErrorBox, PageHeader, Working, btn2Cls, btnBlueCls, inputCls, labelCls } from "@/components/ui";
 import VoiceToggle, { useVoiceFirst } from "@/components/VoiceToggle";
 import { get, post } from "@/lib/client";
 import { readLocal, writeLocal } from "@/lib/local";
@@ -107,7 +107,7 @@ export default function SessionPage() {
   return (
     <div className="space-y-8">
       <PageHeader title="After session">Write up your notes and get a follow-up for the student.</PageHeader>
-      <form ref={formRef} onSubmit={generate} onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); formRef.current?.requestSubmit(); } }} className="space-y-4 rounded-lg border border-stone-200 bg-white p-5 sm:p-6">
+      <form ref={formRef} onSubmit={generate} onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); formRef.current?.requestSubmit(); } }} className="space-y-4 rounded-xl border border-stone-200 bg-white p-5 sm:p-6">
         {restored && (
           <p role="status" className="flex flex-wrap items-center gap-x-3 rounded-md bg-gold-50 px-3 py-2 text-sm text-stone-800">
             Draft restored.
@@ -126,18 +126,18 @@ export default function SessionPage() {
         </div>
         <div>
           <label htmlFor="workedOn" className={labelCls}>What did you work on?</label>
-          <textarea id="workedOn" className={inputCls} rows={3} aria-invalid={!!fieldError} aria-describedby={err} value={f.workedOn} onChange={(e) => set("workedOn", e.target.value)} />
+          <textarea id="workedOn" className={`${inputCls} ruled`} rows={3} aria-invalid={!!fieldError} aria-describedby={err} value={f.workedOn} onChange={(e) => set("workedOn", e.target.value)} />
         </div>
         <div>
           <label htmlFor="struggles" className={labelCls}>What did they struggle with?</label>
-          <textarea id="struggles" className={inputCls} rows={3} aria-invalid={!!fieldError} aria-describedby={err} value={f.struggles} onChange={(e) => set("struggles", e.target.value)} />
+          <textarea id="struggles" className={`${inputCls} ruled`} rows={3} aria-invalid={!!fieldError} aria-describedby={err} value={f.struggles} onChange={(e) => set("struggles", e.target.value)} />
           {fieldError && <p id="notes-error" role="alert" className="mt-1 text-sm font-medium text-margin">{fieldError}</p>}
         </div>
         <div>
           <label htmlFor="wentWell" className={labelCls}>What went well?</label>
-          <textarea id="wentWell" className={inputCls} rows={2} value={f.wentWell} onChange={(e) => set("wentWell", e.target.value)} />
+          <textarea id="wentWell" className={`${inputCls} ruled`} rows={2} value={f.wentWell} onChange={(e) => set("wentWell", e.target.value)} />
         </div>
-        <fieldset className="space-y-4 rounded-md border border-stone-200 p-4">
+        <fieldset className="space-y-4 rounded-lg border border-stone-200 p-4">
           <legend className="px-1 text-sm font-semibold text-ink">AI in this course</legend>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
@@ -160,11 +160,11 @@ export default function SessionPage() {
         </fieldset>
         <div>
           <label htmlFor="privateConcern" className={labelCls}>Private concern (optional)</label>
-          <textarea id="privateConcern" className={inputCls} rows={2} placeholder="Only you see this. It never goes in the email, the printout or the AI request." value={f.privateConcern} onChange={(e) => set("privateConcern", e.target.value)} />
+          <textarea id="privateConcern" className={`${inputCls} ruled`} rows={2} placeholder="Only you see this. It never goes in the email, the printout or the AI request." value={f.privateConcern} onChange={(e) => set("privateConcern", e.target.value)} />
         </div>
         <VoiceToggle on={voice} set={setVoice} />
         <div className="flex flex-wrap items-center gap-3">
-          <button className={`${btnCls} min-h-10`} disabled={loading}>Write the follow-up</button>
+          <button className={`${btnBlueCls} min-h-10`} disabled={loading}>Write the follow-up</button>
           <span className="text-sm text-stone-600">Ctrl or Cmd + Enter also works.</span>
         </div>
       </form>
@@ -179,7 +179,7 @@ export default function SessionPage() {
 
       {o && result && (
         <div ref={resultRef} className="scroll-mt-20 space-y-6">
-          <p className="rounded-md border border-gold-300/70 bg-gold-50 px-4 py-3 text-sm text-stone-800">
+          <p className="rounded-xl border border-gold-300 bg-gold-100/70 px-4 py-3 text-sm text-stone-800">
             Saved. <Link className="font-semibold text-ink underline underline-offset-4" href={`/session/${result.id}`}>Open this session to add your reflection</Link>.
           </p>
           <SessionOutputsView id={result.id} outputs={o} editable />

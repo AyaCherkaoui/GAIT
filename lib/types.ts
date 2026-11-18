@@ -22,7 +22,7 @@ export type SessionNotes = {
   privateConcern?: string;
 };
 export type Reflection = { learned: string; wantToImprove: string; wentWell: string; goalNextTime: string; updatedAt: string };
-export type SessionSummary = { id: number; created_at: string; student_name: string; course: string; reflection: Reflection | null };
+export type SessionSummary = { id: number; created_at: string; student_name: string; course: string; reflection: Reflection | null; focus?: string };
 export type SessionRecord = SessionSummary & { notes: SessionNotes; outputs: SessionOutputs };
 
 export type Hit = { driveId: string; name: string; url: string; snippet: string; reason?: string };

@@ -10,8 +10,8 @@ import { forceLink, forceManyBody, forceSimulation, forceX, forceY, type Simulat
 import { get } from "@/lib/client";
 import type { AriaMap as MapData, AriaPreview } from "@/lib/aria-map-types";
 
-const PALETTE = ["#8fb3ff", "#7ee0c3", "#f59fb0", "#c3a6ff", "#ffb37a", "#6fd3ff", "#a8e07a", "#ff8f8f", "#e6c9ff", "#9fe6f0", "#d7e08a", "#b8c4d9"];
-const GOLD = "#ffd84d";
+const PALETTE = ["#6b86e8", "#2fa386", "#d9667f", "#8e6fd1", "#e08a45", "#3a9fc9", "#6fa83a", "#d95f5f", "#a874c9", "#3fa9b5", "#a8a02f", "#7b86a0"];
+const GOLD = "#2747d6";
 const KINDS = ["Doc", "PDF", "Slides", "Sheet", "Image", "File"];
 const FONT = "Figtree, ui-sans-serif, system-ui, sans-serif";
 
@@ -128,12 +128,12 @@ export default function AriaMap({ picks = [], related = [], focusKey = 0, focusD
     const msg = error ? <>The map could not load: {error}</> : data === undefined ? (
       <span className="flex items-center gap-3"><span className="h-2 w-2 animate-ping rounded-full bg-gold-300" />Drawing the ARIA Map…</span>
     ) : (
-      <span>The map has not been built yet. Run <code className="rounded bg-white/10 px-1.5 py-0.5">npm run build-aria-map</code> once on this computer.</span>
+      <span>The map has not been built yet. Run <code className="rounded bg-stone-100 px-1.5 py-0.5">npm run build-aria-map</code> once on this computer.</span>
     );
     return (
       <div className={narrow ? "space-y-4" : `relative h-full w-full overflow-hidden ${SKY}`}>
         {narrow ? overlay : <div className="absolute left-3 top-3 z-10 w-[min(30rem,calc(100%-1.5rem))]">{overlay}</div>}
-        <div className={narrow ? "rounded-xl bg-[#0a1430] p-5 text-sm text-indigo-100" : "grid h-full place-items-center p-6 text-sm text-indigo-100"}>{msg}</div>
+        <div className={narrow ? "rounded-xl border border-stone-200 bg-white p-5 text-sm text-stone-700" : "grid h-full place-items-center p-6 text-sm text-stone-700"}>{msg}</div>
       </div>
     );
   }
@@ -147,7 +147,7 @@ export default function AriaMap({ picks = [], related = [], focusKey = 0, focusD
   );
 }
 
-const SKY = "bg-[radial-gradient(ellipse_at_center,#13244d_0%,#0a1430_55%,#060c1f_100%)]";
+const SKY = "bg-[#f7f6f2]";
 
 type CanvasProps = {
   g: Graph; crumb: Crumb; setCrumb: (c: Crumb) => void; sel: number | null; setSel: (i: number | null) => void; preview: AriaPreview | null;
@@ -415,7 +415,7 @@ function MapCanvas(p: CanvasProps) {
       // Links.
       const baseLink = 0.05 + 0.13 * smooth(-0.5, 2.5, zoom);
       ctx.lineWidth = Math.min(1.4, Math.max(0.5, 0.35 * Math.sqrt(k / s.fitK)));
-      ctx.strokeStyle = `rgba(170,190,235,${baseLink * (1 - 0.7 * dim)})`;
+      ctx.strokeStyle = `rgba(91,96,112,${baseLink * (1 - 0.7 * dim)})`;
       ctx.beginPath();
       const L = g.map.links;
       for (let l = 0; l < L.length; l += 2) {
@@ -434,7 +434,7 @@ function MapCanvas(p: CanvasProps) {
           if (focus >= 0 && a !== focus && b !== focus && !(s.gold[a] && s.gold[b])) continue;
           ctx.moveTo(sx(g.px[a]), sy(g.py[a])); ctx.lineTo(sx(g.px[b]), sy(g.py[b]));
         }
-        ctx.strokeStyle = focus >= 0 ? `rgba(255,255,255,${0.55 * dim})` : `rgba(255,216,77,${0.4 * dim})`;
+        ctx.strokeStyle = focus >= 0 ? `rgba(21,23,28,${0.55 * dim})` : `rgba(39,71,214,${0.4 * dim})`;
         ctx.lineWidth = 1.2;
         ctx.stroke();
       }
@@ -464,7 +464,7 @@ function MapCanvas(p: CanvasProps) {
 
       // Search results in gold, best matches pulse.
       ctx.beginPath();
-      ctx.fillStyle = "rgba(255,216,77,0.22)";
+      ctx.fillStyle = "rgba(255,226,122,0.7)";
       for (let i = 0; i < g.n; i++) if (s.gold[i]) { const x = sx(g.px[i]), y = sy(g.py[i]), r = rad(i) * 2.6; ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, Math.PI * 2); }
       ctx.fill();
       ctx.beginPath();
@@ -473,7 +473,7 @@ function MapCanvas(p: CanvasProps) {
       ctx.fill();
       if (picks.length) {
         const ph = s.pulse / 1.6;
-        ctx.strokeStyle = `rgba(255,216,77,${0.8 * (1 - ph)})`;
+        ctx.strokeStyle = `rgba(39,71,214,${0.8 * (1 - ph)})`;
         ctx.lineWidth = 2;
         ctx.beginPath();
         for (let i = 0; i < g.n; i++) if (s.gold[i] === 2) { const x = sx(g.px[i]), y = sy(g.py[i]), r = rad(i) * (1.6 + ph * 3.5); ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, Math.PI * 2); }
@@ -484,7 +484,7 @@ function MapCanvas(p: CanvasProps) {
       if (focus >= 0) {
         const x = sx(g.px[focus]), y = sy(g.py[focus]), r = rad(focus) + 3.5;
         ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
-        ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
+        ctx.strokeStyle = "#15171c"; ctx.lineWidth = 2; ctx.stroke();
       }
 
       // Labels: topics far out, subtopics in the middle, files up close.
@@ -494,7 +494,7 @@ function MapCanvas(p: CanvasProps) {
         placed.push({ x, y, w, h });
         return true;
       };
-      const label = (text: string, x: number, y: number, size: number, weight: number, alpha: number, color = "255,255,255", force = false, pill = false) => {
+      const label = (text: string, x: number, y: number, size: number, weight: number, alpha: number, color = "21,23,28", force = false, pill = false) => {
         if (alpha < 0.03) return;
         ctx.font = `${weight} ${size}px ${FONT}`;
         const w = ctx.measureText(text).width;
@@ -503,17 +503,17 @@ function MapCanvas(p: CanvasProps) {
         if (!fits(lx - px, ly - py, w + px * 2, size + py * 2) && !force) return;
         ctx.globalAlpha = alpha;
         if (pill) {
-          ctx.fillStyle = "rgba(8,16,38,0.78)";
+          ctx.fillStyle = "rgba(255,255,255,0.92)";
           ctx.beginPath();
           ctx.roundRect(lx - px, ly - py, w + px * 2, size + py * 2, (size + py * 2) / 2);
           ctx.fill();
-          ctx.strokeStyle = "rgba(255,255,255,0.14)";
+          ctx.strokeStyle = "rgba(21,23,28,0.16)";
           ctx.lineWidth = 1;
           ctx.stroke();
         } else {
           ctx.lineJoin = "round";
           ctx.lineWidth = 4;
-          ctx.strokeStyle = "rgba(8,16,38,0.85)";
+          ctx.strokeStyle = "rgba(247,246,242,0.92)";
           ctx.strokeText(text, lx, y + size * 0.35);
         }
         ctx.fillStyle = `rgb(${color})`;
@@ -523,7 +523,7 @@ function MapCanvas(p: CanvasProps) {
       const fileA = smooth(1.6, 2.6, zoom);
       if (focus >= 0) {
         const x = sx(g.px[focus]), y = sy(g.py[focus]) - rad(focus) - 14;
-        label(cleanName(g.map.nodes.name[focus]), x, y, 14, 600, 1, "255,255,255", true);
+        label(cleanName(g.map.nodes.name[focus]), x, y, 14, 600, 1, "21,23,28", true);
       }
       if (fileA > 0.02 || s.hasMark) {
         const cand: number[] = [];
@@ -536,7 +536,7 @@ function MapCanvas(p: CanvasProps) {
         cand.sort((a, b) => (s.gold[b] - s.gold[a]) || (s.mark[b] - s.mark[a]) || (g.deg[b] - g.deg[a]));
         for (const i of cand.slice(0, 90)) {
           const a = s.mark[i] || s.gold[i] ? 1 : fileA * (1 - 0.8 * dim);
-          label(cleanName(g.map.nodes.name[i]).slice(0, 42), sx(g.px[i]), sy(g.py[i]) + rad(i) + 10, 12, s.gold[i] ? 600 : 500, a, s.gold[i] ? "255,226,122" : "226,232,245");
+          label(cleanName(g.map.nodes.name[i]).slice(0, 42), sx(g.px[i]), sy(g.py[i]) + rad(i) + 10, 12, s.gold[i] ? 600 : 500, a, s.gold[i] ? "39,71,214" : "58,62,74");
         }
       }
       const subA = smooth(0.5, 1.2, zoom) * (1 - smooth(2.4, 3.2, zoom));
@@ -549,14 +549,14 @@ function MapCanvas(p: CanvasProps) {
           const x = sx(sb.x), y = sy(sb.y);
           if (!onScreen(x, y)) continue;
           const mine = open === null || sb.topic === open;
-          label(sb.name, x, y, mine ? 14 : 12, mine ? 650 : 500, subA * (mine ? 1 : 0.38) * (1 - 0.5 * dim), "236,240,250", false, mine);
+          label(sb.name, x, y, mine ? 14 : 12, mine ? 650 : 500, subA * (mine ? 1 : 0.38) * (1 - 0.5 * dim), "21,23,28", false, mine);
         }
       }
       const topA = 1 - smooth(0.6, 1.3, zoom);
       if (topA > 0.02) {
         g.map.topics.forEach((tp, i) => {
           const hovered = s.hoverTopic === i;
-          label(tp.name, sx(tp.x), sy(tp.y), hovered ? 21 : 18, 700, topA * (hovered ? 1 : 1 - 0.5 * dim), "255,255,255");
+          label(tp.name, sx(tp.x), sy(tp.y), hovered ? 21 : 18, 700, topA * (hovered ? 1 : 1 - 0.5 * dim), "21,23,28");
         });
       }
     };
@@ -737,7 +737,7 @@ function MapCanvas(p: CanvasProps) {
   });
 
   const selNeighbors = sel !== null ? neighbors(g, sel) : [];
-  const btn = "inline-flex min-h-9 items-center rounded-lg border border-white/15 bg-white/10 px-3 text-sm text-white backdrop-blur transition hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold-300";
+  const btn = "inline-flex min-h-9 items-center rounded-lg border border-stone-200 bg-white/95 px-3 text-sm text-ink backdrop-blur transition hover:bg-stone-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold-300";
 
   return (
     <div
@@ -749,11 +749,11 @@ function MapCanvas(p: CanvasProps) {
       {/* Search box, then the path under it */}
       <div className="pointer-events-none absolute left-3 top-3 z-10 flex w-[min(30rem,calc(100%-21rem))] min-w-[18rem] flex-col items-start gap-2">
       {overlay && <div className="pointer-events-auto w-full">{overlay}</div>}
-      <nav aria-label="Map path" className="pointer-events-auto flex max-w-full flex-wrap items-center gap-1 rounded-lg bg-[#081026]/70 px-2 py-1 text-sm text-indigo-100 backdrop-blur">
-        <button type="button" onClick={openAll} className="rounded px-1.5 py-1 hover:bg-white/10 hover:text-white">All files</button>
-        {crumb.topic !== null && (<><span aria-hidden className="text-indigo-300">›</span><button type="button" onClick={() => openTopic(crumb.topic!)} className="rounded px-1.5 py-1 hover:bg-white/10 hover:text-white">{g.map.topics[crumb.topic].name}</button></>)}
-        {crumb.sub !== null && g.map.subs[crumb.sub].name !== g.map.topics[crumb.topic ?? 0]?.name && (<><span aria-hidden className="text-indigo-300">›</span><span className="px-1.5 py-1 font-semibold text-white">{g.map.subs[crumb.sub].name}</span></>)}
-        {sel !== null && (<><span aria-hidden className="text-indigo-300">›</span><span className="max-w-[16rem] truncate px-1.5 py-1 font-semibold text-gold-300">{cleanName(g.map.nodes.name[sel])}</span></>)}
+      <nav aria-label="Map path" className="pointer-events-auto flex max-w-full flex-wrap items-center gap-1 rounded-lg bg-white/90 border border-stone-200 px-2 py-1 text-sm text-stone-700 backdrop-blur">
+        <button type="button" onClick={openAll} className="rounded px-1.5 py-1 hover:bg-stone-100 hover:text-ink">All files</button>
+        {crumb.topic !== null && (<><span aria-hidden className="text-stone-600">›</span><button type="button" onClick={() => openTopic(crumb.topic!)} className="rounded px-1.5 py-1 hover:bg-stone-100 hover:text-ink">{g.map.topics[crumb.topic].name}</button></>)}
+        {crumb.sub !== null && g.map.subs[crumb.sub].name !== g.map.topics[crumb.topic ?? 0]?.name && (<><span aria-hidden className="text-stone-600">›</span><span className="px-1.5 py-1 font-semibold text-ink">{g.map.subs[crumb.sub].name}</span></>)}
+        {sel !== null && (<><span aria-hidden className="text-stone-600">›</span><span className="max-w-[16rem] truncate px-1.5 py-1 font-semibold text-indigo-600">{cleanName(g.map.nodes.name[sel])}</span></>)}
       </nav>
       </div>
 
@@ -765,33 +765,33 @@ function MapCanvas(p: CanvasProps) {
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder="Light up by name…"
-          className="h-9 w-44 rounded-lg border border-white/15 bg-[#081026]/70 px-3 text-sm text-white placeholder:text-indigo-300 backdrop-blur focus:w-52 focus:outline-none focus:ring-2 focus:ring-gold-300 transition-[width]"
+          className="h-9 w-44 rounded-lg border border-stone-200 bg-white/90 px-3 text-sm text-ink placeholder:text-stone-500 backdrop-blur focus:w-52 focus:outline-none focus:ring-2 focus:ring-gold-300 transition-[width]"
         />
         <button type="button" className={btn} onClick={() => setFull(!full)} aria-pressed={full}>{full ? "Exit full screen" : "Full screen"}</button>
       </div>
 
       {/* Topics legend (also the keyboard way in) */}
       {crumb.topic === null && sel === null && (
-        <ul aria-label="Topics" className="absolute bottom-3 left-3 hidden max-h-[38%] w-56 space-y-0.5 overflow-auto rounded-lg bg-[#081026]/70 p-2 text-sm backdrop-blur md:block">
+        <ul aria-label="Topics" className="absolute bottom-3 left-3 hidden max-h-[38%] w-56 space-y-0.5 overflow-auto rounded-lg bg-white/90 border border-stone-200 p-2 text-sm backdrop-blur md:block">
           {g.map.topics.map((t, i) => (
             <li key={i}>
-              <button type="button" onClick={() => openTopic(i)} className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-indigo-100 hover:bg-white/10 hover:text-white">
+              <button type="button" onClick={() => openTopic(i)} className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-stone-700 hover:bg-stone-100 hover:text-ink">
                 <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: PALETTE[i % PALETTE.length] }} />
                 <span className="min-w-0 flex-1 truncate">{t.name}</span>
-                <span className="text-xs tabular-nums text-indigo-300">{t.n}</span>
+                <span className="text-xs tabular-nums text-stone-600">{t.n}</span>
               </button>
             </li>
           ))}
         </ul>
       )}
       {crumb.topic !== null && sel === null && (
-        <ul aria-label="Subtopics" className="absolute bottom-3 left-3 hidden max-h-[38%] w-56 space-y-0.5 overflow-auto rounded-lg bg-[#081026]/70 p-2 text-sm backdrop-blur md:block">
+        <ul aria-label="Subtopics" className="absolute bottom-3 left-3 hidden max-h-[38%] w-56 space-y-0.5 overflow-auto rounded-lg bg-white/90 border border-stone-200 p-2 text-sm backdrop-blur md:block">
           {g.map.subs.map((sb, i) => sb.topic !== crumb.topic ? null : (
             <li key={i}>
-              <button type="button" onClick={() => openSub(i)} className={`flex w-full items-center gap-2 rounded px-2 py-1 text-left hover:bg-white/10 hover:text-white ${crumb.sub === i ? "bg-white/10 text-white" : "text-indigo-100"}`}>
+              <button type="button" onClick={() => openSub(i)} className={`flex w-full items-center gap-2 rounded px-2 py-1 text-left hover:bg-stone-100 hover:text-ink ${crumb.sub === i ? "bg-stone-100 text-ink" : "text-stone-700"}`}>
                 <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: PALETTE[sb.topic % PALETTE.length] }} />
                 <span className="min-w-0 flex-1 truncate">{sb.name}</span>
-                <span className="text-xs tabular-nums text-indigo-300">{sb.n}</span>
+                <span className="text-xs tabular-nums text-stone-600">{sb.n}</span>
               </button>
             </li>
           ))}
@@ -800,28 +800,28 @@ function MapCanvas(p: CanvasProps) {
 
       {/* File preview */}
       {sel !== null && (
-        <aside aria-label="File preview" className="map-panel absolute bottom-3 right-3 top-14 flex w-[min(22rem,calc(100%-1.5rem))] flex-col overflow-hidden rounded-xl border border-white/10 bg-[#0b1736]/90 text-white shadow-2xl backdrop-blur">
-          <div className="flex items-start justify-between gap-3 border-b border-white/10 p-4">
+        <aside aria-label="File preview" className="map-panel absolute bottom-3 right-3 top-14 flex w-[min(22rem,calc(100%-1.5rem))] flex-col overflow-hidden rounded-xl border border-stone-200 bg-white/95 text-ink shadow-[0_18px_50px_-16px_rgba(21,23,28,0.25)] backdrop-blur">
+          <div className="flex items-start justify-between gap-3 border-b border-stone-100 p-4">
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wider text-indigo-300">{KINDS[g.map.nodes.kind[sel]] ?? "File"} · {g.map.subs[g.map.nodes.sub[sel]]?.name}</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-stone-600">{KINDS[g.map.nodes.kind[sel]] ?? "File"} · {g.map.subs[g.map.nodes.sub[sel]]?.name}</p>
               <h3 className="mt-1 break-words font-display text-lg font-semibold leading-snug">{cleanName(g.map.nodes.name[sel])}</h3>
             </div>
-            <button type="button" onClick={() => setSel(null)} aria-label="Close preview" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-indigo-200 hover:bg-white/10 hover:text-white">✕</button>
+            <button type="button" onClick={() => setSel(null)} aria-label="Close preview" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-stone-600 hover:bg-stone-100 hover:text-ink">✕</button>
           </div>
           <div className="min-h-0 flex-1 space-y-4 overflow-auto p-4">
             {preview ? (
-              preview.snippet ? <p className="text-sm leading-relaxed text-indigo-100">{preview.snippet}…</p> : <p className="text-sm text-indigo-300">No text preview for this file.</p>
+              preview.snippet ? <p className="text-sm leading-relaxed text-stone-700">{preview.snippet}…</p> : <p className="text-sm text-stone-600">No text preview for this file.</p>
             ) : (
-              <div className="space-y-2" aria-hidden><div className="h-3 animate-pulse rounded bg-white/10" /><div className="h-3 w-5/6 animate-pulse rounded bg-white/10" /><div className="h-3 w-2/3 animate-pulse rounded bg-white/10" /></div>
+              <div className="space-y-2" aria-hidden><div className="h-3 animate-pulse rounded bg-stone-100" /><div className="h-3 w-5/6 animate-pulse rounded bg-stone-100" /><div className="h-3 w-2/3 animate-pulse rounded bg-stone-100" /></div>
             )}
-            {preview && <a href={preview.url} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center rounded-lg bg-gold-300 px-4 text-sm font-semibold text-ink transition hover:bg-gold-400">Open in Drive</a>}
+            {preview && <a href={preview.url} target="_blank" rel="noreferrer" className="inline-flex min-h-10 items-center rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white transition hover:bg-indigo-700">Open in Drive</a>}
             {selNeighbors.length > 0 && (
               <div>
-                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-indigo-300">Nearest files</p>
+                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-stone-600">Nearest files</p>
                 <ul className="space-y-0.5">
                   {selNeighbors.slice(0, 10).map((j) => (
                     <li key={j}>
-                      <button type="button" onClick={() => selectFile(j)} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-indigo-100 hover:bg-white/10 hover:text-white">
+                      <button type="button" onClick={() => selectFile(j)} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-stone-700 hover:bg-stone-100 hover:text-ink">
                         <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: PALETTE[g.topic[j] % PALETTE.length] }} />
                         <span className="min-w-0 flex-1 truncate">{cleanName(g.map.nodes.name[j])}</span>
                       </button>
@@ -834,7 +834,7 @@ function MapCanvas(p: CanvasProps) {
         </aside>
       )}
 
-      <p className="pointer-events-none absolute bottom-3 right-3 text-xs text-indigo-300/80" hidden={sel !== null}>
+      <p className="pointer-events-none absolute bottom-3 right-3 text-xs text-stone-600" hidden={sel !== null}>
         Scroll to zoom · drag to move · drag a file to pull its neighbours · click a topic to go in · Esc steps out
       </p>
     </div>
@@ -858,7 +858,7 @@ function MapList({ g, crumb, setCrumb, sel, setSel, preview, picks }: { g: Graph
           <p className="text-xs font-semibold uppercase tracking-wider text-stone-500">{KINDS[g.map.nodes.kind[sel]] ?? "File"}</p>
           <h3 className="break-words font-display text-lg font-semibold text-ink">{cleanName(g.map.nodes.name[sel])}</h3>
           {preview?.snippet && <p className="text-sm text-stone-700">{preview.snippet}…</p>}
-          {preview && <a href={preview.url} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center rounded-lg bg-ink px-4 text-sm font-semibold text-white">Open in Drive</a>}
+          {preview && <a href={preview.url} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white">Open in Drive</a>}
           <p className="pt-2 text-xs font-semibold uppercase tracking-wider text-stone-500">Nearest files</p>
           <ul className="space-y-1.5">{neighbors(g, sel).slice(0, 8).map((j) => <li key={j}><button type="button" className={row} onClick={() => setSel(j)}>{cleanName(g.map.nodes.name[j])}</button></li>)}</ul>
           <button type="button" className="text-sm text-stone-600 underline" onClick={() => setSel(null)}>Back to the list</button>

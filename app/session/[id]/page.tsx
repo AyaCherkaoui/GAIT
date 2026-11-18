@@ -3,7 +3,7 @@ import Link from "next/link";
 import { use, useEffect, useRef, useState } from "react";
 import DirectorNote from "@/components/DirectorNote";
 import SessionOutputsView from "@/components/SessionOutputs";
-import { ErrorBox, PageHeader, Working, btn2Cls, btnCls, inputCls, labelCls } from "@/components/ui";
+import { ErrorBox, PageHeader, Working, btn2Cls, btnBlueCls, inputCls, labelCls } from "@/components/ui";
 import { fmtDate } from "@/components/format";
 import { get, post } from "@/lib/client";
 import type { Reflection, SessionRecord, SessionSummary } from "@/lib/types";
@@ -104,13 +104,13 @@ export default function SessionDetail({ params }: { params: Promise<{ id: string
 
       <section aria-labelledby="refl" className="space-y-4">
         <h2 id="refl" className="font-display text-2xl font-semibold text-ink">My reflection</h2>
-        <form onSubmit={(e) => { e.preventDefault(); save(form); }} className="max-w-prose space-y-4 rounded-lg border border-stone-200 bg-white p-5 sm:p-6">
+        <form onSubmit={(e) => { e.preventDefault(); save(form); }} className="max-w-prose space-y-4 rounded-xl border border-stone-200 bg-white p-5 sm:p-6">
           {FIELDS.map(([key, label]) => (
             <div key={key}>
               <label htmlFor={`f-${key}`} className={labelCls}>{label}</label>
               <textarea
                 id={`f-${key}`}
-                className={inputCls}
+                className={`${inputCls} ruled`}
                 rows={2}
                 value={form[key]}
                 onChange={(e) => { dirty.current = true; setForm({ ...form, [key]: e.target.value }); }}
@@ -118,7 +118,7 @@ export default function SessionDetail({ params }: { params: Promise<{ id: string
             </div>
           ))}
           <div className="flex flex-wrap items-center gap-3">
-            <button className={`${btnCls} min-h-10`} disabled={saving}>Save reflection</button>
+            <button className={`${btnBlueCls} min-h-10`} disabled={saving}>Save reflection</button>
             <span role="status" className="text-sm text-stone-600">
               {saving ? "Saving…" : saveError ? "" : savedAt ? `Saved ${new Date(savedAt).toLocaleString()}` : "Saves as you type."}
             </span>
@@ -135,12 +135,12 @@ export default function SessionDetail({ params }: { params: Promise<{ id: string
         <form onSubmit={help} className="max-w-prose space-y-3">
           <div>
             <label htmlFor="question" className={labelCls}>Your question</label>
-            <textarea id="question" className={inputCls} rows={2} placeholder="They kept saying 'it's fine'. How can I get them talking?" value={question} onChange={(e) => setQuestion(e.target.value)} />
+            <textarea id="question" className={`${inputCls} ruled`} rows={2} placeholder="They kept saying 'it's fine'. How can I get them talking?" value={question} onChange={(e) => setQuestion(e.target.value)} />
           </div>
           <button className={`${btn2Cls} min-h-10`} disabled={helping}>{helping ? "Thinking…" : "Ask for coaching"}</button>
           {helping && <Working label="Thinking about your question" />}
           <ErrorBox error={helpError} />
-          {answer && <p className="whitespace-pre-wrap rounded-lg border border-gold-300/70 bg-gold-50 p-4 text-[15px] text-stone-800">{answer}</p>}
+          {answer && <p className="whitespace-pre-wrap rounded-xl border border-gold-300 bg-gold-100/70 p-4 text-[15px] text-stone-800">{answer}</p>}
         </form>
       </section>
 

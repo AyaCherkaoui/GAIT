@@ -45,7 +45,7 @@ export default function DirectorNote({ sessionId }: { sessionId: string }) {
         <form onSubmit={save} className="max-w-prose space-y-3">
           <div>
             <label htmlFor="director-note" className={labelCls}>Your note for the tutor</label>
-            <textarea id="director-note" className={inputCls} rows={3} maxLength={2000} value={draft} onChange={(e) => { setDraft(e.target.value); setSaved(false); }} />
+            <textarea id="director-note" className={`${inputCls} ruled`} rows={3} maxLength={2000} value={draft} onChange={(e) => { setDraft(e.target.value); setSaved(false); }} />
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <button className={`${btnCls} min-h-10`} disabled={busy}>Save note</button>

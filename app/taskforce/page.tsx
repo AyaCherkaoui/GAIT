@@ -106,7 +106,7 @@ export default function TaskForcePage() {
         </div>
         <div>
           <label htmlFor="tf-desc" className={labelCls}>Task details</label>
-          <textarea id="tf-desc" className={inputCls} rows={4} placeholder="Goal, audience, deadline, anything you were told" value={description} onChange={(e) => setDescription(e.target.value)} onKeyDown={submitOnCmdEnter} />
+          <textarea id="tf-desc" className={`${inputCls} ruled`} rows={4} placeholder="Goal, audience, deadline, anything you were told" value={description} onChange={(e) => setDescription(e.target.value)} onKeyDown={submitOnCmdEnter} />
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <button className={`${btnCls} min-h-11`} disabled={loading}>Plan this task</button>

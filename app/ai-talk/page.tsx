@@ -62,7 +62,7 @@ function Scripts() {
         <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); tailor(); }}>
           <div>
             <label htmlFor="talk-context" className={labelCls}>Context (optional)</label>
-            <textarea id="talk-context" className={inputCls} rows={3} placeholder="Course, what the student said, how the session is going. No full names." value={context} onChange={(e) => setContext(e.target.value)} onKeyDown={submitOnCmdEnter} />
+            <textarea id="talk-context" className={`${inputCls} ruled`} rows={3} placeholder="Course, what the student said, how the session is going. No full names." value={context} onChange={(e) => setContext(e.target.value)} onKeyDown={submitOnCmdEnter} />
           </div>
           <button className={`${btnCls} min-h-11`} disabled={loading}>Tailor it</button>
           {loading && <Working label="Tailoring the wording" />}
@@ -106,7 +106,7 @@ function Ownership() {
         <p className="max-w-prose text-[15px] text-stone-700">Paste a paragraph. You get questions only, which help the writer explain their claim, evidence and word choices. The text is not saved.</p>
         <div>
           <label htmlFor="own-text" className={labelCls}>Paragraph</label>
-          <textarea id="own-text" className={inputCls} rows={6} placeholder="Paste one paragraph" value={text} onChange={(e) => setText(e.target.value)} onKeyDown={submitOnCmdEnter} />
+          <textarea id="own-text" className={`${inputCls} ruled`} rows={6} placeholder="Paste one paragraph" value={text} onChange={(e) => setText(e.target.value)} onKeyDown={submitOnCmdEnter} />
         </div>
         <div>
           <label htmlFor="own-disc" className={labelCls}>Discipline (optional)</label>

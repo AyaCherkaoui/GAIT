@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { btn2Cls, btnCls, Card, Chip, Empty, ErrorBox, inputCls, labelCls, PageHeader, Working } from "@/components/ui";
+import { btn2Cls, btnBlueCls, btnCls, Card, Chip, Empty, ErrorBox, inputCls, labelCls, PageHeader, Working } from "@/components/ui";
 import { get, post } from "@/lib/client";
 
 type Tutor = { email: string; name: string | null; role: "tutor" | "director"; active: number; added_at: string };
@@ -103,7 +103,7 @@ export default function TutorsClient({ myEmail }: { myEmail: string }) {
                   <p className="text-sm text-stone-600">{r.name ? `${r.name} · ` : ""}wants to be a {r.role}</p>
                 </div>
                 <div className="flex gap-2">
-                  <button type="button" className={`${btnCls} min-h-10`} disabled={busy} onClick={() => answer(r.id, "approve")}>Approve</button>
+                  <button type="button" className={`${btnBlueCls} min-h-10`} disabled={busy} onClick={() => answer(r.id, "approve")}>Approve</button>
                   <button type="button" className={`${btn2Cls} min-h-10`} disabled={busy} onClick={() => answer(r.id, "decline")}>Decline</button>
                 </div>
               </li>
@@ -144,7 +144,7 @@ export default function TutorsClient({ myEmail }: { myEmail: string }) {
         {!!tutors?.length && shown.length === 0 && <Empty title="No match">No one on the list matches that search.</Empty>}
         {shown.length > 0 && (
           <table className="block w-full text-left text-sm sm:table">
-            <thead className="hidden border-b border-stone-200 text-stone-600 sm:table-header-group">
+            <thead className="hidden border-b border-stone-100 text-[13px] text-stone-600 sm:table-header-group">
               <tr>
                 <th className="py-2 pr-4 font-semibold">Email</th>
                 <th className="pr-4 font-semibold">Name</th>
@@ -154,13 +154,13 @@ export default function TutorsClient({ myEmail }: { myEmail: string }) {
                 <th><span className="sr-only">Actions</span></th>
               </tr>
             </thead>
-            <tbody className="block divide-y divide-stone-200 sm:table-row-group">
+            <tbody className="block divide-y divide-stone-100 sm:table-row-group">
               {shown.map((t) => (
                 <tr key={t.email} className={`flex flex-wrap items-center gap-x-3 gap-y-2 py-3 sm:table-row ${t.active ? "text-stone-900" : "bg-stone-50 text-stone-600"}`}>
                   <td className="w-full break-all font-medium sm:table-cell sm:w-auto sm:py-3 sm:pr-4">{t.email}</td>
                   <td className="sm:table-cell sm:pr-4">{t.name ?? ""}</td>
                   <td className="sm:table-cell sm:pr-4"><Chip tone={t.role === "director" ? "gold" : "plain"}>{t.role === "director" ? "Director" : "Tutor"}</Chip></td>
-                  <td className="sm:table-cell sm:pr-4">{t.active ? "Active" : <span className="font-semibold">Inactive</span>}</td>
+                  <td className="sm:table-cell sm:pr-4">{t.active ? <Chip tone="green">Active</Chip> : <Chip>Inactive</Chip>}</td>
                   <td className="hidden whitespace-nowrap sm:table-cell sm:pr-4">{t.added_at}</td>
                   <td className="ml-auto sm:table-cell sm:text-right">
                     {t.email !== myEmail && (

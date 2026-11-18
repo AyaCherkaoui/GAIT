@@ -30,7 +30,7 @@ export default function SessionOutputsView({ id, outputs: o, editable = false }:
       </div>
 
       {o.voiceFlags && o.voiceFlags.length > 0 && (
-        <section aria-label="Voice flags" className="rounded-lg border-l-4 border-gold-400 bg-gold-50 px-4 py-3">
+        <section aria-label="Voice flags" className="rounded-xl border-l-4 border-gold-400 bg-gold-100/70 px-4 py-3">
           <p className="text-sm font-semibold text-ink">Check these against the student&apos;s own voice</p>
           <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-stone-800">{o.voiceFlags.map((f, i) => <li key={i}>{f}</li>)}</ul>
         </section>
@@ -56,17 +56,17 @@ export default function SessionOutputsView({ id, outputs: o, editable = false }:
       {tab === "email" && (
         <section role="tabpanel" id="panel-email" aria-labelledby="tab-email" className="space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="font-display text-2xl font-semibold text-ink">Email draft</h2>
+            <h2 className="font-display text-[22px] text-ink">Email draft</h2>
             <CopyButton text={email} />
           </div>
           {editable ? (
             <>
               <label htmlFor="emailDraft" className="sr-only">Email draft</label>
-              <textarea id="emailDraft" className={inputCls} rows={12} value={email} onChange={(e) => setEmail(e.target.value)} />
+              <textarea id="emailDraft" className={`${inputCls} ruled`} rows={12} value={email} onChange={(e) => setEmail(e.target.value)} />
               <p className="text-sm text-stone-600">Edit it, copy it, and send it from your own email.</p>
             </>
           ) : (
-            <p className="max-w-prose whitespace-pre-wrap rounded-lg border border-stone-200 bg-white p-4 text-[15px] text-stone-800">{email}</p>
+            <p className="max-w-prose whitespace-pre-wrap rounded-xl border border-stone-200 bg-white p-4 text-[15px] text-stone-800">{email}</p>
           )}
         </section>
       )}
@@ -74,12 +74,12 @@ export default function SessionOutputsView({ id, outputs: o, editable = false }:
       {tab === "steps" && (
         <section role="tabpanel" id="panel-steps" aria-labelledby="tab-steps" className="space-y-5">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="font-display text-2xl font-semibold text-ink">Next steps</h2>
+            <h2 className="font-display text-[22px] text-ink">Next steps</h2>
             <CopyButton text={steps} />
           </div>
           <ul className="max-w-prose list-disc space-y-1.5 pl-5 text-[15px] text-stone-800">{o.nextSteps.map((s, i) => <li key={i}>{s}</li>)}</ul>
           <h3 className="font-display text-xl font-semibold text-ink">Focus areas</h3>
-          <ul className="divide-y divide-stone-200 rounded-lg border border-stone-200 bg-white">
+          <ul className="divide-y divide-stone-100 rounded-xl border border-stone-200 bg-white">
             {o.focusAreas.map((f, i) => (
               <li key={i} className="max-w-prose px-5 py-4 text-[15px]">
                 <p className="font-semibold text-ink"><span className="mark">{f.skill}</span></p>
@@ -95,7 +95,7 @@ export default function SessionOutputsView({ id, outputs: o, editable = false }:
         <section role="tabpanel" id="panel-ai" aria-labelledby="tab-ai" className="space-y-3">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <h2 className="font-display text-2xl font-semibold text-ink">{o.aiPrompts.length ? "Use AI like a coach" : "AI and this course"}</h2>
+              <h2 className="font-display text-[22px] text-ink">{o.aiPrompts.length ? "Use AI like a coach" : "AI and this course"}</h2>
               <p className="mt-1 text-sm text-stone-600">
                 {o.aiPrompts.length
                   ? "Prompts the student can paste into an AI tool. Each one keeps them doing the writing."
@@ -106,7 +106,7 @@ export default function SessionOutputsView({ id, outputs: o, editable = false }:
           </div>
           <ul className="space-y-3">
             {o.aiPrompts.map((p, i) => (
-              <li key={i} className="rounded-lg border border-stone-200 bg-white p-4">
+              <li key={i} className="rounded-xl border border-stone-200 bg-white p-4">
                 <div className="flex items-start justify-between gap-3">
                   <code className="min-w-0 whitespace-pre-wrap break-words text-sm text-stone-900">{p.prompt}</code>
                   <CopyButton text={p.prompt} />
@@ -115,7 +115,7 @@ export default function SessionOutputsView({ id, outputs: o, editable = false }:
               </li>
             ))}
           </ul>
-          <div className="rounded-lg border-l-4 border-margin bg-red-50 px-4 py-3">
+          <div className="rounded-xl border-l-4 border-margin bg-red-50 px-4 py-3">
             <p className="text-sm font-semibold text-margin">Don&apos;t ask AI to…</p>
             <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-stone-800">{o.dontAskAi.map((d, i) => <li key={i}>{d}</li>)}</ul>
           </div>
@@ -125,17 +125,17 @@ export default function SessionOutputsView({ id, outputs: o, editable = false }:
       {tab === "note" && (
         <section role="tabpanel" id="panel-note" aria-labelledby="tab-note" className="space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="font-display text-2xl font-semibold text-ink">Session note for the center&apos;s records</h2>
+            <h2 className="font-display text-[22px] text-ink">Session note for the center&apos;s records</h2>
             <CopyButton text={note} />
           </div>
           {editable ? (
             <>
               <label htmlFor="sessionNote" className="sr-only">Session note</label>
-              <textarea id="sessionNote" className={inputCls} rows={8} value={note} onChange={(e) => setNote(e.target.value)} />
+              <textarea id="sessionNote" className={`${inputCls} ruled`} rows={8} value={note} onChange={(e) => setNote(e.target.value)} />
               <p className="text-sm text-stone-600">Organized by the RWC rubric. Edit it, then copy it into your records.</p>
             </>
           ) : (
-            <p className="max-w-prose whitespace-pre-wrap rounded-lg border border-stone-200 bg-white p-4 text-[15px] text-stone-800">{note}</p>
+            <p className="max-w-prose whitespace-pre-wrap rounded-xl border border-stone-200 bg-white p-4 text-[15px] text-stone-800">{note}</p>
           )}
         </section>
       )}

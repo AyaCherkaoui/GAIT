@@ -18,7 +18,7 @@ export default async function SessionsPage() {
         {sessions.length === 0 ? (
           <Empty title="No sessions yet">Sessions appear here as tutors write them up.</Empty>
         ) : (
-          <ul className="divide-y divide-stone-200">
+          <ul className="divide-y divide-stone-100">
             {sessions.map((s) => (
               <li key={s.id}>
                 <Link href={`/admin/sessions/${s.id}`} className="flex min-h-12 flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-3 hover:bg-stone-50">

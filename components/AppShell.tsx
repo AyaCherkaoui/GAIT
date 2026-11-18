@@ -25,18 +25,19 @@ const ROLE_LABEL: Record<Role, string> = { director: "Director", tutor: "Tutor",
 
 function Wordmark() {
   return (
-    <Link href="/" className="font-display inline-flex min-h-10 items-center text-2xl font-semibold tracking-tight text-white">
-      Ink<span className="text-gold-300">.</span>
+    <Link href="/" className="inline-flex min-h-10 items-center gap-2.5 px-2 text-ink">
+      <svg aria-hidden width="28" height="28" viewBox="0 0 28 28"><path d="M14 3 L22 13 L14 25 L6 13 Z" fill="currentColor" /><circle cx="14" cy="14" r="2.2" fill="#FFE27A" /></svg>
+      <span className="font-display text-[26px] leading-none">Ink</span>
     </Link>
   );
 }
 
 function NavLinks({ role, path, onGo }: { role: Role; path: string; onGo?: () => void }) {
   return (
-    <div className="space-y-5 lg:space-y-2.5">
+    <div className="space-y-5">
       {NAV[role].map(([title, items]) => (
         <div key={title}>
-          <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-indigo-300">{title}</p>
+          <p className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-stone-600">{title}</p>
           <ul className="space-y-0.5">
             {items.map(([href, label]) => {
               const active = href === "/" ? path === "/" : path === href || path.startsWith(href + "/");
@@ -46,11 +47,10 @@ function NavLinks({ role, path, onGo }: { role: Role; path: string; onGo?: () =>
                     href={href}
                     onClick={onGo}
                     aria-current={active ? "page" : undefined}
-                    className={`flex min-h-10 items-center gap-3 rounded-md px-3 py-1.5 text-[15px] transition lg:min-h-7 lg:py-0.5 lg:text-sm focus-visible:outline-gold-300 ${
-                      active ? "bg-white/10 font-semibold text-white" : "text-indigo-200 hover:bg-white/5 hover:text-white"
+                    className={`flex min-h-10 items-center rounded-lg px-3 text-[15px] transition lg:min-h-9 lg:text-sm ${
+                      active ? "bg-ink font-semibold text-white" : "text-stone-700 hover:bg-stone-100 hover:text-ink"
                     }`}
                   >
-                    <span aria-hidden className={`h-4 w-1 rounded-full ${active ? "bg-gold-300" : "bg-transparent"}`} />
                     {label}
                   </Link>
                 </li>
@@ -78,7 +78,7 @@ function ResetRole() {
           setBusy(false);
         }
       }}
-      className="block min-h-10 text-sm text-gold-300 underline decoration-gold-300/50 underline-offset-4 hover:text-white"
+      className="block min-h-9 text-sm text-gold-600 underline underline-offset-4 hover:text-ink"
     >
       {busy ? "Resetting…" : "Reset role (testing)"}
     </button>
@@ -89,16 +89,18 @@ function Who({ user, testTools }: { user: ShellUser; testTools?: boolean }) {
   return (
     <div className="space-y-3">
       {user.role !== "tutee" && <ProviderStatus />}
-      <div className="min-w-0">
-        <p className="truncate text-sm font-semibold text-white">{user.name || user.email}</p>
-        <p className="text-xs text-gold-300">{ROLE_LABEL[user.role]}</p>
+      <div className="flex items-center justify-between gap-3 rounded-[10px] border border-stone-200 bg-white px-3 py-2.5">
+        <div className="min-w-0">
+          <p className="text-xs text-stone-600">Signed in as {ROLE_LABEL[user.role]}</p>
+          <p className="truncate text-sm font-semibold text-ink">{user.name || user.email}</p>
+        </div>
+        <form method="post" action="/api/auth/logout" className="shrink-0">
+          <button type="submit" className="min-h-9 whitespace-nowrap rounded-lg border border-stone-300 bg-stone-50 px-3 text-[13px] text-ink hover:bg-stone-100">
+            Sign out
+          </button>
+        </form>
       </div>
       {testTools && <ResetRole />}
-      <form method="post" action="/api/auth/logout">
-        <button type="submit" className="min-h-10 text-sm text-indigo-200 underline decoration-indigo-400 underline-offset-4 hover:text-white">
-          Sign out
-        </button>
-      </form>
     </div>
   );
 }
@@ -119,7 +121,7 @@ export default function AppShell({ user, testTools, children }: { user: ShellUse
   if (printing) return <main className="mx-auto max-w-3xl px-6 py-8">{children}</main>;
 
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[15.5rem_1fr]">
+    <div className="min-h-dvh bg-paper lg:grid lg:grid-cols-[16.5rem_1fr]">
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-gold-300 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-ink"
@@ -127,36 +129,36 @@ export default function AppShell({ user, testTools, children }: { user: ShellUse
         Skip to content
       </a>
       {/* Phones and tablets: a slim bar with a menu. */}
-      <header className="sticky top-0 z-30 flex items-center justify-between bg-ink px-4 py-3 lg:hidden print:hidden">
+      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-stone-200 bg-side/95 px-4 py-3 backdrop-blur lg:hidden print:hidden">
         <Wordmark />
         <button
           type="button"
           aria-expanded={open}
           aria-controls="mobile-nav"
           onClick={() => setOpen((o) => !o)}
-          className="min-h-10 rounded-md border border-white/25 px-4 text-sm font-medium text-white hover:bg-white/10"
+          className="min-h-11 rounded-[10px] border border-stone-200 bg-white px-4 text-sm font-medium text-ink hover:bg-stone-100"
         >
           {open ? "Close" : "Menu"}
         </button>
       </header>
       {open && (
-        <nav id="mobile-nav" aria-label="Main" className="sticky top-16 z-20 flex max-h-[calc(100dvh-4rem)] flex-col overflow-y-auto bg-ink lg:hidden print:hidden">
+        <nav id="mobile-nav" aria-label="Main" className="sticky top-[4.3rem] z-20 flex max-h-[calc(100dvh-4.3rem)] flex-col overflow-y-auto border-b border-stone-200 bg-side lg:hidden print:hidden">
           <div className="px-4 pb-4 pt-1"><NavLinks role={user.role} path={path} onGo={() => setOpen(false)} /></div>
-          <div className="sticky bottom-0 mt-auto border-t border-white/15 bg-ink px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4"><Who user={user} testTools={testTools} /></div>
+          <div className="sticky bottom-0 mt-auto border-t border-stone-200 bg-side px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4"><Who user={user} testTools={testTools} /></div>
         </nav>
       )}
       {/* Desktop: a fixed ink sidebar. */}
-      <aside className="hidden bg-ink lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col print:hidden">
-        <div className="px-7 pt-6"><Wordmark /></div>
-        <nav aria-label="Main" className="min-h-0 flex-1 overflow-y-auto px-4 py-4 lg:py-3"><NavLinks role={user.role} path={path} /></nav>
-        <div className="border-t border-white/15 px-7 py-4"><Who user={user} testTools={testTools} /></div>
+      <aside className="hidden border-r border-stone-200 bg-side lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col print:hidden">
+        <div className="px-4 pt-6"><Wordmark /></div>
+        <nav aria-label="Main" className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 pt-5"><NavLinks role={user.role} path={path} /></nav>
+        <div className="border-t border-stone-200 px-4 pb-5 pt-4"><Who user={user} testTools={testTools} /></div>
       </aside>
       <main
         id="main"
         tabIndex={-1}
         className={path === "/search"
-          ? "w-full min-w-0 px-4 pb-[calc(2.5rem+env(safe-area-inset-bottom))] pt-5 outline-none sm:h-[calc(100dvh-4rem)] sm:p-0 lg:h-dvh"
-          : "mx-auto w-full max-w-4xl px-4 pb-[calc(2.5rem+env(safe-area-inset-bottom))] pt-8 outline-none sm:px-8 sm:pt-10 lg:max-w-5xl"}
+          ? "w-full min-w-0 px-4 pb-[calc(2.5rem+env(safe-area-inset-bottom))] pt-5 outline-none sm:h-[calc(100dvh-4.3rem)] sm:p-0 lg:h-dvh"
+          : "mx-auto w-full max-w-[1160px] px-4 pb-[calc(4rem+env(safe-area-inset-bottom))] pt-8 outline-none sm:px-[clamp(1rem,4vw,4rem)] sm:pt-10"}
       >
         {children}
       </main>
