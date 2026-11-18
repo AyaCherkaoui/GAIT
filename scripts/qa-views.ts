@@ -528,6 +528,39 @@ async function main() {
         await page.goto(BASE + "/debrief");
         await page.getByRole("alert").filter({ hasText: "Something went wrong" }).first().waitFor(T);
       });
+      await flow("live session: start panel, timer survives pause and reload, finish prefills After session", cookie(tutor), 1280, async (page) => {
+        await page.clock.install({ time: new Date("2026-01-05T10:00:00Z") });
+        await page.goto(BASE + "/");
+        await page.getByRole("heading", { name: "Start a session" }).waitFor(T);
+        await page.getByRole("radio", { name: /Normal tutoring/ }).click();
+        await page.getByRole("button", { name: "thesis", exact: true }).click();
+        await page.fill("#start-name", "Maya");
+        await page.getByRole("button", { name: "Start", exact: true }).click();
+        await page.waitForURL("**/session/live", T);
+        await page.getByText("Draft: director to confirm").first().waitFor(T);
+        await page.getByRole("timer").waitFor(T);
+        await page.clock.runFor(5 * 60_000 + 2000);
+        const text = async () => (await page.getByRole("timer").textContent())?.trim();
+        if (!/^5:0\d$/.test((await text()) || "")) throw new Error("timer reads " + (await text()) + " after 5 minutes");
+        await page.getByRole("button", { name: "Pause" }).click();
+        const frozen = await text();
+        await page.clock.runFor(60_000);
+        if ((await text()) !== frozen) throw new Error("timer moved while paused");
+        await page.reload();
+        await page.getByRole("timer").waitFor(T);
+        if ((await text()) !== frozen) throw new Error("timer changed after reload: " + (await text()) + " vs " + frozen);
+        await page.fill("#live-notes", "Worked on the thesis claim.");
+        await page.getByRole("button", { name: "Finish and write it up" }).click();
+        await page.waitForURL("**/session", T);
+        await page.getByText("Draft restored.").waitFor(T);
+        if ((await page.inputValue("#studentName")) !== "Maya") throw new Error("first name was not prefilled");
+        if (!(await page.inputValue("#workedOn")).includes("thesis claim")) throw new Error("notes were not prefilled");
+      });
+      await flow("home (tutor): a running session shows a Resume card", cookie(tutor), 1280, async (page) => {
+        await page.addInitScript(() => localStorage.setItem("ink-live-session", JSON.stringify({ type: "tutoring", focus: [], minutes: 45, firstName: "Maya", startedAt: Date.now() - 23 * 60_000 - 10_000, pausedAt: null, pausedMs: 0, notes: "" })));
+        await page.goto(BASE + "/");
+        await page.getByRole("link", { name: /Resume 23:1\d/ }).waitFor(T);
+      });
     }
 
     // A student must not reach tutor pages.
