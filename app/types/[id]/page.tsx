@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Card, PageHeader, btnCls } from "@/components/ui";
-import { CENTER_BASICS, SESSION_TYPES, getSessionType } from "@/lib/session-types";
+import { SESSION_TYPES, getSessionType } from "@/lib/session-types";
 import { SCENARIOS } from "@/lib/scenarios";
 import Checklist from "./Checklist";
+import CenterBasics from "@/components/CenterBasics";
 
 export function generateStaticParams() {
   return SESSION_TYPES.map((t) => ({ id: t.id }));
@@ -78,25 +79,7 @@ export default async function TypePage({ params }: { params: Promise<{ id: strin
         </div>
       </Card>
 
-      <details className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
-        <summary className="cursor-pointer font-semibold text-stone-900">Center basics</summary>
-        <div className="mt-3 space-y-3 text-sm">
-          <ul className="space-y-1">
-            {CENTER_BASICS.contacts.map((c) => (
-              <li key={c.phone} className="break-words">
-                {c.label}: <a className="text-indigo-700 underline" href={`tel:${c.phone.replace(/-/g, "")}`}>{c.phone}</a>
-              </li>
-            ))}
-          </ul>
-          <ul className="list-disc space-y-1 pl-5">
-            {CENTER_BASICS.links.map((l) => (
-              <li key={l.url} className="break-words">
-                <a className="text-indigo-700 underline" href={l.url} target="_blank" rel="noreferrer">{l.label}</a>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </details>
+      <CenterBasics />
     </div>
   );
 }

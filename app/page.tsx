@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/ui";
 import { SESSION_TYPES } from "@/lib/session-types";
+import CenterBasics from "@/components/CenterBasics";
 
 const TOOLS = [
   ["/session", "Write-up (any session)", "Turn your notes into a follow-up email, printable next steps, and AI prompts that coach the student instead of writing for them."],
@@ -31,6 +32,7 @@ export default function Home() {
           </Link>
         ))}
       </div>
+      <CenterBasics />
       <h2 className="text-lg font-semibold text-stone-800">Other tools</h2>
       <div className="grid gap-4 sm:grid-cols-2">
         {TOOLS.map(([href, title, text]) => (

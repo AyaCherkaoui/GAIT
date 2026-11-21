@@ -191,7 +191,7 @@ export const SESSION_TYPES: SessionType[] = [
     subbing: [
       { text: "If you must miss your shift, meet your regular during your other shift if you can." },
       { text: "Otherwise tell them another tutor will meet them, and tell the substitute which lesson they are on." },
-      { text: "Ask the substitute to take brief notes and email them to the regular's tutor (you)." },
+      { text: "If you are the substitute: take brief notes and email them to the student's regular tutor, so they know what happened this week." },
     ],
     noShow: "Follow the Starfish no-show rule: after 10-15 minutes check \"Student missed appointment\" on the Outcomes tab.",
     starfish: "Never reschedule a regular as an ENGL101/102 appointment: it creates recurring appointments for the rest of the semester that can never be fully erased from the student's profile.",
