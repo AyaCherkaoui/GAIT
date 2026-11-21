@@ -9,6 +9,7 @@ import { google, type drive_v3 } from "googleapis";
 import mammoth from "mammoth";
 import { extractText, getDocumentProxy } from "unpdf";
 import { getDb } from "../lib/db";
+import { removeTagsOfMissingDocs, tagIfNeeded } from "../lib/aria-tags";
 
 try {
   process.loadEnvFile(".env.local");
@@ -60,7 +61,8 @@ async function authorize() {
   return client;
 }
 
-async function* walk(drive: drive_v3.Drive, folderId: string): AsyncGenerator<drive_v3.Schema$File> {
+/** Yields every file with the names of the folders it sits in, e.g. "ARIA/Party/Flyers". */
+async function* walk(drive: drive_v3.Drive, folderId: string, path = ""): AsyncGenerator<drive_v3.Schema$File & { folder: string }> {
   let pageToken: string | undefined;
   do {
     const res = await drive.files.list({
@@ -72,8 +74,8 @@ async function* walk(drive: drive_v3.Drive, folderId: string): AsyncGenerator<dr
       includeItemsFromAllDrives: true,
     });
     for (const f of res.data.files ?? []) {
-      if (f.mimeType === FOLDER) yield* walk(drive, f.id!);
-      else yield f;
+      if (f.mimeType === FOLDER) yield* walk(drive, f.id!, `${path}/${f.name ?? ""}`);
+      else yield { ...f, folder: path };
     }
     pageToken = res.data.nextPageToken ?? undefined;
   } while (pageToken);
@@ -126,17 +128,24 @@ async function main() {
   let failed = 0;
   for await (const f of walk(drive, folderId)) {
     seen.add(f.id!);
-    let text = "";
-    try {
-      text = (await extract(drive, f)).slice(0, MAX_CHARS);
-    } catch (e) {
-      failed++;
-      console.warn(`  could not read "${f.name}": ${(e as Error).message}`);
+    const old = db.prepare("SELECT modified, text FROM aria_docs WHERE drive_id = ?").get(f.id!) as { modified: string; text: string } | undefined;
+    const unchanged = !!old && old.modified === (f.modifiedTime ?? "");
+    let text = old?.text ?? "";
+    if (!unchanged) {
+      text = "";
+      try {
+        text = (await extract(drive, f)).slice(0, MAX_CHARS);
+      } catch (e) {
+        failed++;
+        console.warn(`  could not read "${f.name}": ${(e as Error).message}`);
+      }
+      del.run(f.id!);
+      ins.run(f.id!, f.name ?? "", f.mimeType ?? "", f.webViewLink ?? "", f.modifiedTime ?? "", text);
     }
     if (text.trim()) withText++;
     else nameOnly++;
-    del.run(f.id!);
-    ins.run(f.id!, f.name ?? "", f.mimeType ?? "", f.webViewLink ?? "", f.modifiedTime ?? "", text);
+    // A new or changed file is tagged again; the director's tag is kept.
+    await tagIfNeeded(f.id!, f.name ?? "", text, f.folder, !unchanged);
     process.stdout.write(`\rindexed ${seen.size} files`);
   }
   const existing = db.prepare("SELECT drive_id FROM aria_docs").all() as { drive_id: string }[];
@@ -147,6 +156,7 @@ async function main() {
       removed++;
     }
   }
+  removeTagsOfMissingDocs();
   console.log(`\nDone: ${withText} with text, ${nameOnly} by name only, ${failed} unreadable, ${removed} removed.`);
 }
 

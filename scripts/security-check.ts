@@ -482,6 +482,16 @@ async function main() {
     check("the director places a tutor in RWC Scholars", (await call("/api/task-forces", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "bob@augustana.edu", key: "rwc-scholars" }) }, carolC)).status === 200);
     check("the director removes a tutor from their task force", (await call("/api/task-forces", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "bob@augustana.edu", key: null }) }, carolC)).status === 200 && !db.prepare("SELECT 1 FROM task_force_members WHERE user_id = ?").get(bob.id));
 
+    // 10c. Tagging an ARIA file: director only
+    db.prepare("INSERT OR REPLACE INTO aria_docs (drive_id, name, mime, url, modified, text) VALUES ('tagdoc', 'Tag test', 'text/plain', 'https://example.test/t', '2026-01-01', 'x')").run();
+    const tagPost = (cookie: string | undefined, body: unknown) => post("/api/aria/tag", body, cookie);
+    check("signed out: POST /api/aria/tag is 401", (await tagPost(undefined, { driveId: "tagdoc", key: "party-planners" })).status === 401);
+    check("a tutor cannot tag a file (403)", (await tagPost(alice, { driveId: "tagdoc", key: "party-planners" })).status === 403);
+    check("the director's tag with an unknown task force is 400", (await tagPost(carolC, { driveId: "tagdoc", key: "nope" })).status === 400);
+    check("the director's tag on an unknown file is 404", (await tagPost(carolC, { driveId: "missing", key: "party-planners" })).status === 404);
+    check("the director tags a file", (await tagPost(carolC, { driveId: "tagdoc", key: "party-planners" })).status === 200 && (db.prepare("SELECT task_force_key AS k, source FROM aria_doc_tags WHERE drive_id = 'tagdoc'").get() as { k: string; source: string }).source === "director");
+    check("the director clears a file's tag", (await tagPost(carolC, { driveId: "tagdoc", key: null })).status === 200 && (db.prepare("SELECT task_force_key AS k FROM aria_doc_tags WHERE drive_id = 'tagdoc'").get() as { k: string | null }).k === null);
+
     // 11. Logout ends the session on the server (#16)
     r = await call("/api/auth/logout", { method: "POST" });
     check("logout clears the cookie and goes to /login", /gait_session=;/.test(r.headers.get("set-cookie") ?? "") && (r.headers.get("location") ?? "").endsWith("/login"));

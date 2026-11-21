@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { get, post } from "@/lib/client";
 import type { Hit } from "@/lib/types";
 import type { FocusDoc } from "@/components/AriaMap";
+import { TASK_FORCES } from "@/lib/task-forces";
 
 const EXAMPLES = [
   "A handout on integrating quotes for ESL students",
@@ -53,6 +54,7 @@ export default function SearchPage() {
   const [focused, setFocused] = useState(true);
   const [open, setOpen] = useState(true);
   const [picked, setPicked] = useState<string | null>(null);
+  const [force, setForce] = useState<string | null>(null);
   const box = useRef<HTMLInputElement | null>(null);
   // The map swaps the box into a new place when it learns the screen is narrow, so focus every time the box mounts.
   const boxRef = useCallback((el: HTMLInputElement | null) => { box.current = el; el?.focus(); }, []);
@@ -102,6 +104,7 @@ export default function SearchPage() {
 
   const pick = (h: Hit) => { setPicked(h.driveId); setFocusDoc({ id: h.driveId, key: Date.now() }); };
   const chip = "min-h-10 rounded-full border border-stone-200 bg-stone-50 px-3 py-1.5 text-left text-sm text-ink transition hover:bg-stone-100";
+  const shown = hits ? hits.filter((h) => !force || h.taskForce === force) : null;
   const showIdeas = focused && !q.trim() && !loading;
 
   const panel = (
@@ -130,6 +133,20 @@ export default function SearchPage() {
         <button disabled={loading || !q.trim()} className="h-10 shrink-0 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-40">Find</button>
       </form>
 
+      <div role="group" aria-label="Task force" className="flex flex-wrap gap-1.5 border-t border-stone-100 px-3 py-2">
+        {[{ key: null as string | null, name: "All" }, ...TASK_FORCES].map((t) => (
+          <button
+            key={t.key ?? "all"}
+            type="button"
+            aria-pressed={force === t.key}
+            onClick={() => setForce(t.key)}
+            className={`min-h-10 rounded-full border px-3 text-sm transition ${force === t.key ? "border-ink bg-ink text-white" : "border-stone-200 bg-stone-50 text-ink hover:bg-stone-100"}`}
+          >
+            {t.name}
+          </button>
+        ))}
+      </div>
+
       {showIdeas && (
         <div className="space-y-3 border-t border-stone-100 px-4 py-3">
           <p className="text-xs text-stone-600">
@@ -151,22 +168,22 @@ export default function SearchPage() {
       {loading && <Stage />}
       {error && <p role="alert" className="border-t border-stone-100 px-4 py-3 text-sm text-red-800">{error}</p>}
 
-      {hits && !loading && !showIdeas && (
+      {shown && hits && !loading && !showIdeas && (
         <div className="border-t border-stone-100">
           <div className="flex items-center justify-between gap-3 px-4 py-2">
             <p className="min-w-0 truncate text-xs text-stone-600">
-              {hits.length ? <><span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-gold-300 align-middle" />Best {hits.length} for &ldquo;{asked}&rdquo;</> : <>Nothing matched &ldquo;{asked}&rdquo;</>}
+              {shown.length ? <><span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-gold-300 align-middle" />Best {shown.length} for &ldquo;{asked}&rdquo;</> : <>Nothing matched &ldquo;{asked}&rdquo;</>}
             </p>
-            {hits.length > 0 && (
+            {shown.length > 0 && (
               <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="shrink-0 rounded px-1.5 py-0.5 text-xs font-semibold text-stone-600 hover:bg-stone-100 hover:text-ink">{open ? "Hide" : "Show"}</button>
             )}
           </div>
-          {hits.length === 0 && (
+          {shown.length === 0 && (
             <p className="px-4 pb-3 text-sm text-stone-700">Try describing the situation instead of a file name, or use fewer, simpler words.</p>
           )}
-          {open && hits.length > 0 && (
+          {open && shown.length > 0 && (
             <ol className="max-h-[38vh] space-y-0.5 overflow-auto px-2 pb-2">
-              {hits.map((h, i) => (
+              {shown.map((h, i) => (
                 <li key={h.driveId} className="group relative">
                   <button
                     type="button"
@@ -193,7 +210,7 @@ export default function SearchPage() {
   return (
     <div className="sm:h-full">
       <h1 className="sr-only">ARIA search</h1>
-      <AriaMap picks={hits?.map((h) => h.driveId) ?? []} related={related} focusKey={focusKey} focusDoc={focusDoc} overlay={panel} />
+      <AriaMap picks={hits?.map((h) => h.driveId) ?? []} related={related} focusKey={focusKey} focusDoc={focusDoc} overlay={panel} taskForce={force} />
     </div>
   );
 }

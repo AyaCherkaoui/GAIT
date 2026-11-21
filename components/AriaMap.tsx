@@ -9,9 +9,13 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { forceLink, forceManyBody, forceSimulation, forceX, forceY, type Simulation, type SimulationNodeDatum } from "d3-force";
 import { get } from "@/lib/client";
 import type { AriaMap as MapData, AriaPreview } from "@/lib/aria-map-types";
+import { TASK_FORCES } from "@/lib/task-forces";
 
 const PALETTE = ["#6b86e8", "#2fa386", "#d9667f", "#8e6fd1", "#e08a45", "#3a9fc9", "#6fa83a", "#d95f5f", "#a874c9", "#3fa9b5", "#a8a02f", "#7b86a0"];
 const GOLD = "#2747d6";
+/** One colour per task force (same order as TASK_FORCES); files with no task force are grey. */
+const TF_COLOURS = ["#6b86e8", "#2fa386", "#d9667f", "#e08a45", "#8e6fd1", "#3a9fc9", "#a8a02f"];
+const TF_NONE = "#b8b6ae";
 const KINDS = ["Doc", "PDF", "Slides", "Sheet", "Image", "File"];
 const FONT = "Figtree, ui-sans-serif, system-ui, sans-serif";
 
@@ -20,7 +24,7 @@ type Graph = {
   map: MapData;
   n: number;
   hx: Float32Array; hy: Float32Array; px: Float32Array; py: Float32Array;
-  topic: Int16Array; rad: Float32Array; deg: Int32Array;
+  topic: Int16Array; tf: Int8Array; rad: Float32Array; deg: Int32Array;
   adjStart: Int32Array; adj: Int32Array;
   index: Map<string, number>;
   all: Box; topicBox: Box[]; subBox: Box[];
@@ -40,11 +44,13 @@ function boxOf(idx: Iterable<number>, xs: Float32Array, ys: Float32Array): Box {
   return b;
 }
 
-function buildGraph(map: MapData): Graph {
+function buildGraph(map: MapData, tags: (string | null)[]): Graph {
   const n = map.nodes.id.length;
   const hx = Float32Array.from(map.nodes.x), hy = Float32Array.from(map.nodes.y);
   const topic = new Int16Array(n);
   map.nodes.sub.forEach((s, i) => (topic[i] = map.subs[s]?.topic ?? 0));
+  const tf = new Int8Array(n).fill(-1);
+  tags.forEach((k, i) => { if (i < n) tf[i] = TASK_FORCES.findIndex((t) => t.key === k); });
   const deg = new Int32Array(n);
   for (const v of map.links) deg[v]++;
   const adjStart = new Int32Array(n + 1);
@@ -63,7 +69,7 @@ function buildGraph(map: MapData): Graph {
   for (let i = 0; i < n; i++) { byTopic[topic[i]].push(i); bySub[map.nodes.sub[i]].push(i); }
   const all = Array.from({ length: n }, (_, i) => i);
   return {
-    map, n, hx, hy, px: hx.slice(), py: hy.slice(), topic, rad, deg, adjStart, adj,
+    map, n, hx, hy, px: hx.slice(), py: hy.slice(), topic, tf, rad, deg, adjStart, adj,
     index: new Map(map.nodes.id.map((id, i) => [id, i])),
     all: boxOf(all, hx, hy), topicBox: byTopic.map((g) => boxOf(g, hx, hy)), subBox: bySub.map((g) => boxOf(g, hx, hy)),
     lower: map.nodes.name.map((s) => s.toLowerCase()),
@@ -78,8 +84,10 @@ type Crumb = { topic: number | null; sub: number | null };
 
 export type FocusDoc = { id: string; key: number } | null;
 
-export default function AriaMap({ picks = [], related = [], focusKey = 0, focusDoc = null, overlay = null }: { picks?: string[]; related?: string[]; focusKey?: number; focusDoc?: FocusDoc; overlay?: ReactNode }) {
+export default function AriaMap({ picks = [], related = [], focusKey = 0, focusDoc = null, overlay = null, taskForce = null }: { picks?: string[]; related?: string[]; focusKey?: number; focusDoc?: FocusDoc; overlay?: ReactNode; taskForce?: string | null }) {
   const [data, setData] = useState<MapData | null | undefined>(undefined);
+  const [tags, setTags] = useState<(string | null)[]>([]);
+  const [byForce, setByForce] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [narrow, setNarrow] = useState(false);
   const [crumb, setCrumb] = useState<Crumb>({ topic: null, sub: null });
@@ -90,7 +98,7 @@ export default function AriaMap({ picks = [], related = [], focusKey = 0, focusD
   const [hoverName, setHoverName] = useState<string | null>(null);
 
   useEffect(() => {
-    get<{ map: MapData | null }>("/api/search/map").then((j) => setData(j.map)).catch((e) => setError((e as Error).message));
+    get<{ map: MapData | null; tags?: (string | null)[] }>("/api/search/map").then((j) => { setTags(j.tags ?? []); setData(j.map); }).catch((e) => setError((e as Error).message));
     const mq = window.matchMedia("(max-width: 639px)");
     const on = () => setNarrow(mq.matches);
     on();
@@ -98,7 +106,7 @@ export default function AriaMap({ picks = [], related = [], focusKey = 0, focusD
     return () => mq.removeEventListener("change", on);
   }, []);
 
-  const g = useMemo(() => (data ? buildGraph(data) : null), [data]);
+  const g = useMemo(() => (data ? buildGraph(data, tags) : null), [data, tags]);
 
   // On phones a picked search result opens straight away (the canvas does its own fly-in).
   useEffect(() => {
@@ -142,7 +150,7 @@ export default function AriaMap({ picks = [], related = [], focusKey = 0, focusD
       g={g} crumb={crumb} setCrumb={setCrumb} sel={sel} setSel={setSel} preview={preview}
       picks={picks} related={related} focusKey={focusKey} filter={filter} setFilter={setFilter}
       full={full} setFull={setFull} hoverName={hoverName} setHoverName={setHoverName}
-      focusDoc={focusDoc} overlay={overlay}
+      focusDoc={focusDoc} overlay={overlay} byForce={byForce || !!taskForce} setByForce={setByForce} taskForce={taskForce}
     />
   );
 }
@@ -153,11 +161,11 @@ type CanvasProps = {
   g: Graph; crumb: Crumb; setCrumb: (c: Crumb) => void; sel: number | null; setSel: (i: number | null) => void; preview: AriaPreview | null;
   picks: string[]; related: string[]; focusKey: number; filter: string; setFilter: (s: string) => void;
   full: boolean; setFull: (b: boolean) => void; hoverName: string | null; setHoverName: (s: string | null) => void;
-  focusDoc: FocusDoc; overlay: ReactNode;
+  focusDoc: FocusDoc; overlay: ReactNode; byForce: boolean; setByForce: (b: boolean) => void; taskForce: string | null;
 };
 
 function MapCanvas(p: CanvasProps) {
-  const { g, crumb, setCrumb, sel, setSel, preview, picks, related, focusKey, filter, setFilter, full, setFull, setHoverName, focusDoc, overlay } = p;
+  const { g, crumb, setCrumb, sel, setSel, preview, picks, related, focusKey, filter, setFilter, full, setFull, setHoverName, focusDoc, overlay, byForce, setByForce, taskForce } = p;
   const wrap = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   // Everything the frame loop reads lives in one ref, so React renders never interrupt the animation.
@@ -173,7 +181,7 @@ function MapCanvas(p: CanvasProps) {
     pan: null as null | { x: number; y: number; moved: boolean; vx: number; vy: number; t: number },
     pinch: null as null | { d: number; k: number },
     downNode: -1, downAt: { x: 0, y: 0 }, dragMoved: false,
-    pulse: 0,
+    pulse: 0, byForce: false,
   });
 
   const fitBox = useCallback((b: Box, pad = 60): Cam => {
@@ -191,6 +199,8 @@ function MapCanvas(p: CanvasProps) {
     s.mark.fill(0);
     s.gold.fill(0);
     let any = false;
+    const tfi = taskForce ? TASK_FORCES.findIndex((t) => t.key === taskForce) : -1;
+    if (tfi >= 0) for (let i = 0; i < g.n; i++) if (g.tf[i] === tfi) { s.mark[i] = 1; any = true; }
     const q = filter.trim().toLowerCase();
     if (q.length > 1) for (let i = 0; i < g.n; i++) if (g.lower[i].includes(q)) { s.mark[i] = 1; any = true; }
     for (const id of related) { const i = g.index.get(id); if (i !== undefined) { s.gold[i] = 1; s.mark[i] = Math.max(s.mark[i], 1); any = true; } }
@@ -206,11 +216,12 @@ function MapCanvas(p: CanvasProps) {
     }
     s.hasMark = any;
     s.dirty = true;
-  }, [g, filter, picks, related]);
+  }, [g, filter, picks, related, taskForce]);
 
   useEffect(() => { recomputeMarks(); }, [recomputeMarks]);
   useEffect(() => { st.current.sel = sel ?? -1; recomputeMarks(); }, [sel, recomputeMarks]);
   useEffect(() => { st.current.crumb = crumb; }, [crumb]);
+  useEffect(() => { st.current.byForce = byForce; st.current.dirty = true; }, [byForce]);
 
   // Fly to search results.
   useEffect(() => {
@@ -443,10 +454,11 @@ function MapCanvas(p: CanvasProps) {
       const rScale = Math.pow(k / s.fitK, 0.55) * s.fitK;
       const rad = (i: number) => Math.min(16, Math.max(1.3, g.rad[i] * rScale * 2.2));
       for (let pass = 0; pass < 2; pass++) {
-        for (let t = 0; t < g.map.topics.length; t++) {
+        const groups = s.byForce ? TASK_FORCES.length + 1 : g.map.topics.length;
+        for (let t = 0; t < groups; t++) {
           ctx.beginPath();
           for (let i = 0; i < g.n; i++) {
-            if (g.topic[i] !== t || s.gold[i]) continue;
+            if ((s.byForce ? g.tf[i] + 1 : g.topic[i]) !== t || s.gold[i]) continue;
             const marked = s.mark[i] > 0;
             if ((pass === 1) !== marked) continue;
             const x = sx(g.px[i]), y = sy(g.py[i]);
@@ -456,7 +468,7 @@ function MapCanvas(p: CanvasProps) {
             ctx.arc(x, y, r, 0, Math.PI * 2);
           }
           ctx.globalAlpha = pass === 0 ? 1 - 0.85 * dim : 1;
-          ctx.fillStyle = PALETTE[t % PALETTE.length];
+          ctx.fillStyle = s.byForce ? (t === 0 ? TF_NONE : TF_COLOURS[t - 1]) : PALETTE[t % PALETTE.length];
           ctx.fill();
         }
       }
@@ -767,11 +779,23 @@ function MapCanvas(p: CanvasProps) {
           placeholder="Light up by name…"
           className="h-9 w-44 rounded-lg border border-stone-200 bg-white/90 px-3 text-sm text-ink placeholder:text-stone-500 backdrop-blur focus:w-52 focus:outline-none focus:ring-2 focus:ring-gold-300 transition-[width]"
         />
+        <button type="button" className={btn} onClick={() => setByForce(!byForce)} aria-pressed={byForce}>Colour by task force</button>
         <button type="button" className={btn} onClick={() => setFull(!full)} aria-pressed={full}>{full ? "Exit full screen" : "Full screen"}</button>
       </div>
 
+      {byForce && (
+        <ul aria-label="Task forces" className="absolute bottom-3 left-3 hidden w-56 space-y-0.5 rounded-lg border border-stone-200 bg-white/90 p-2 text-sm backdrop-blur md:block">
+          {TASK_FORCES.map((t, i) => (
+            <li key={t.key} className="flex items-center gap-2 px-2 py-0.5 text-stone-700">
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: TF_COLOURS[i] }} />
+              <span className="min-w-0 flex-1 truncate">{t.name}</span>
+            </li>
+          ))}
+          <li className="flex items-center gap-2 px-2 py-0.5 text-stone-600"><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: TF_NONE }} />No task force</li>
+        </ul>
+      )}
       {/* Topics legend (also the keyboard way in) */}
-      {crumb.topic === null && sel === null && (
+      {!byForce && crumb.topic === null && sel === null && (
         <ul aria-label="Topics" className="absolute bottom-3 left-3 hidden max-h-[38%] w-56 space-y-0.5 overflow-auto rounded-lg bg-white/90 border border-stone-200 p-2 text-sm backdrop-blur md:block">
           {g.map.topics.map((t, i) => (
             <li key={i}>

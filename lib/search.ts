@@ -2,6 +2,13 @@ import { getDb } from "./db";
 import { askJson } from "./claude";
 import type { Hit } from "./types";
 import { semanticSearch } from "./aria-embed";
+import { tagsFor } from "./aria-tags";
+
+/** Adds each file's task force (null when it has none). */
+function tagged(hits: Hit[]): Hit[] {
+  const t = tagsFor(hits.map((h) => h.driveId));
+  return hits.map((h) => ({ ...h, taskForce: t.get(h.driveId) ?? null }));
+}
 
 export function docCount(): number {
   const row = getDb().prepare("SELECT count(*) AS n FROM aria_docs").get() as { n: number };
@@ -31,7 +38,7 @@ export function keywordSearch(terms: string[], limit = 25): Hit[] {
        FROM aria_docs WHERE aria_docs MATCH ? ORDER BY rank LIMIT ?`,
     )
     .all(q, limit) as { drive_id: string; name: string; url: string; snippet: string }[];
-  return rows.map((r) => ({ driveId: r.drive_id, name: r.name, url: r.url, snippet: r.snippet }));
+  return tagged(rows.map((r) => ({ driveId: r.drive_id, name: r.name, url: r.url, snippet: r.snippet })));
 }
 
 /** Claude expands the question, the index finds candidates, Claude picks the best few. */
@@ -93,5 +100,5 @@ export async function smartSearch(question: string): Promise<{ hits: Hit[]; term
     seen.add(i);
     hits.push({ ...candidates[i], reason: typeof p.reason === "string" ? p.reason : undefined });
   }
-  return { hits: hits.length ? hits.slice(0, 5) : fallback(), terms, indexEmpty: false, related };
+  return { hits: tagged(hits.length ? hits.slice(0, 5) : fallback()), terms, indexEmpty: false, related };
 }

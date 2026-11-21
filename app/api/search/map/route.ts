@@ -2,6 +2,7 @@ import { handle } from "@/lib/api";
 import { NotFoundError } from "@/lib/claude";
 import { getDb } from "@/lib/db";
 import { ensureVecTables } from "@/lib/aria-embed";
+import { allTags } from "@/lib/aria-tags";
 import type { AriaMap, AriaPreview } from "@/lib/aria-map-types";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +21,12 @@ function readMap(): AriaMap | null {
 export async function GET(req: Request) {
   return handle(req, async () => {
     const doc = new URL(req.url).searchParams.get("doc");
-    if (!doc) return { map: readMap() };
+    if (!doc) {
+      const map = readMap();
+      // Tags change without the map being rebuilt, so they are joined here, outside the cache.
+      const t = allTags();
+      return { map, tags: map ? map.nodes.id.map((id) => t.get(id) ?? null) : [] };
+    }
     const r = getDb().prepare("SELECT drive_id, name, url, mime, text FROM aria_docs WHERE drive_id = ?").get(doc) as
       | { drive_id: string; name: string; url: string; mime: string; text: string }
       | undefined;
