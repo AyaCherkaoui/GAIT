@@ -1,6 +1,7 @@
 import { handle, readJson, str } from "@/lib/api";
 import { ask, NotFoundError, UserFacingError } from "@/lib/claude";
 import { getSession } from "@/lib/sessions";
+import { getSessionType } from "@/lib/session-types";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       model: "fast",
       maxTokens: 700,
       system:
-        "You are a writing-center trainer coaching a tutor about one of their own past sessions. Answer in plain text, at most 200 words, with 2-4 concrete tutoring moves (for example open questions to ask, or how to hand the pen back to the student). The tutor does the thinking: suggest approaches, never write the student's work.",
+        "You are a writing-center trainer coaching a tutor about one of their own past sessions. Answer in plain text, at most 200 words, with 2-4 concrete tutoring moves (for example open questions to ask, or how to hand the pen back to the student). The tutor does the thinking: suggest approaches, never write the student's work." + (getSessionType(session.session_type) ? ` Context: ${getSessionType(session.session_type)!.helpHint}` : ""),
       messages: [
         {
           role: "user",

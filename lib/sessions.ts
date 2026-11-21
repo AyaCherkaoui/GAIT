@@ -3,7 +3,7 @@ import type { Reflection, SessionRecord, SessionSummary } from "./types";
 
 type Row = {
   id: number; created_at: string; student_name: string; course: string;
-  notes: string; outputs: string; reflection: string | null;
+  notes: string; outputs: string; reflection: string | null; session_type: string | null;
 };
 
 export function parseReflection(raw: string | null): Reflection | null {
@@ -17,7 +17,7 @@ export function parseReflection(raw: string | null): Reflection | null {
 
 export function getSession(id: number, userId: number): SessionRecord | null {
   const row = getDb()
-    .prepare("SELECT id, created_at, student_name, course, notes, outputs, reflection FROM sessions WHERE id = ? AND user_id = ?")
+    .prepare("SELECT id, created_at, student_name, course, notes, outputs, reflection, session_type FROM sessions WHERE id = ? AND user_id = ?")
     .get(id, userId) as Row | undefined;
   if (!row) return null;
   return {
@@ -28,12 +28,13 @@ export function getSession(id: number, userId: number): SessionRecord | null {
     notes: JSON.parse(row.notes),
     outputs: JSON.parse(row.outputs),
     reflection: parseReflection(row.reflection),
+    session_type: row.session_type,
   };
 }
 
 export function listSessions(userId: number): SessionSummary[] {
   const rows = getDb()
-    .prepare("SELECT id, created_at, student_name, course, reflection FROM sessions WHERE user_id = ? ORDER BY id DESC LIMIT 50")
+    .prepare("SELECT id, created_at, student_name, course, reflection, session_type FROM sessions WHERE user_id = ? ORDER BY id DESC LIMIT 50")
     .all(userId) as Omit<Row, "notes" | "outputs">[];
   return rows.map((r) => ({ ...r, reflection: parseReflection(r.reflection) }));
 }

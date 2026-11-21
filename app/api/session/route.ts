@@ -3,6 +3,7 @@ import { askJson, UserFacingError } from "@/lib/claude";
 import { getDb } from "@/lib/db";
 import { getPolicy } from "@/lib/policies";
 import { listSessions } from "@/lib/sessions";
+import { getSessionType } from "@/lib/session-types";
 import { logUsage } from "@/lib/usage";
 import { AI_POLICIES, type AiPolicy, type SessionNotes, type SessionOutputs } from "@/lib/types";
 
@@ -40,7 +41,11 @@ function sanitizeOutputs(o: SessionOutputs, policy: AiPolicy): SessionOutputs {
     voiceFlags: Array.isArray(o.voiceFlags) ? o.voiceFlags.filter((x) => typeof x === "string" && x.trim()) : [],
     email: typeof o.email === "string" ? o.email : "",
     sessionNote: typeof o.sessionNote === "string" ? o.sessionNote : "",
+    typeOutputs: Array.isArray(o.typeOutputs)
+      ? o.typeOutputs.filter((t) => t && typeof t.title === "string" && typeof t.text === "string").slice(0, 4)
+      : [],
   };
+  if (!out.typeOutputs?.length) delete out.typeOutputs;
   if (policy === "banned") {
     out.aiPrompts = [];
     if (!out.nextSteps.some((s) => /syllabus/i.test(s)))
@@ -83,9 +88,17 @@ export async function POST(req: Request) {
       throw new UserFacingError("Add at least what you worked on or what the student struggled with.");
     }
     const policyText = `${policy}${saved && saved.policy === policy && saved.details ? ` (${saved.details})` : ""}`;
+    const type = getSessionType(str(body.sessionType, 40));
+    const typeText = type
+      ? `\n\nSession type: ${type.name}. ${type.aiFocus}` +
+        (type.extraOutputs.length
+          ? `\nAlso add this key to the JSON: "typeOutputs": [{"title": "...", "text": "..."}] with exactly these items:\n` +
+            type.extraOutputs.map((e) => `- title "${e.title}": ${e.instruction}`).join("\n")
+          : "")
+      : "";
     // privateConcern is deliberately left out of the prompt.
     const generated = await askJson<SessionOutputs>({
-      system: SYSTEM + (body.voice === true ? VOICE_RULES : ""),
+      system: SYSTEM + typeText + (body.voice === true ? VOICE_RULES : ""),
       messages: [
         {
           role: "user",
@@ -101,8 +114,8 @@ AI use the student disclosed or the tutor noticed: ${notes.aiUse?.trim() || "(no
     });
     const outputs = sanitizeOutputs(generated, policy);
     const info = getDb()
-      .prepare("INSERT INTO sessions (student_name, course, notes, outputs, user_id) VALUES (?, ?, ?, ?, ?)")
-      .run(body.studentName as string, body.course as string, JSON.stringify(notes), JSON.stringify(outputs), user.id);
+      .prepare("INSERT INTO sessions (student_name, course, notes, outputs, user_id, session_type) VALUES (?, ?, ?, ?, ?, ?)")
+      .run(body.studentName as string, body.course as string, JSON.stringify(notes), JSON.stringify(outputs), user.id, type?.id ?? null);
     logUsage("session", user.id);
     return { id: Number(info.lastInsertRowid), outputs };
   }, { ai: true });

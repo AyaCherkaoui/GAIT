@@ -9,6 +9,9 @@ export const SCENARIOS = [
   { id: "accepts-ai", label: "Accepts everything the AI says", brief: "A student who pastes every AI suggestion into their paper without questioning it, including a claim they can't explain. They say 'the AI said it's better' when asked why." },
   { id: "policy-unknown", label: "Doesn't know if AI is allowed", brief: "A student who used an AI tool for part of an assignment and has no idea whether the professor allows it. They haven't read the syllabus and are a little afraid to ask." },
   { id: "quiet", label: "Quiet student who says \"it's fine\"", brief: "A shy student sent by their professor. They answer most questions with 'it's fine' or 'I don't know'." },
+  { id: "regular-101", label: "ENGL 101 regular who didn't do this week's peer lesson", brief: "A first-year ENGL 101 regular who comes to the weekly session without having done this week's peer lesson. They are a bit embarrassed and say they were busy." },
+  { id: "wf-conference", label: "Writing Fellow conference, student wants to know what grade they'll get", brief: "A student in a fellowed class at a Writing Fellow conference. They keep asking what grade the draft will get and how the professor will mark it." },
+  { id: "online-camera-off", label: "Google Meet session, camera off, doc not shared yet", brief: "A student in a Google Meet session with their camera off who has not shared their document yet. They answer briefly and seem unsure about the technology." },
 ] as const;
 
 export const QUIZ_TOPICS = [
