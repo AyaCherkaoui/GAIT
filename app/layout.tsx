@@ -10,7 +10,8 @@ export const metadata: Metadata = {
 };
 
 const NAV = [
-  ["/session", "After session"],
+  ["/", "Sessions"],
+  ["/session", "Write-up"],
   ["/history", "History"],
   ["/search", "ARIA search"],
   ["/taskforce", "Task force"],

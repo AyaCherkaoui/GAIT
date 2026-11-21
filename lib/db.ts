@@ -70,6 +70,7 @@ export function getDb(): DatabaseSync {
   const hasColumn = (table: string, column: string) =>
     (db!.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).some((c) => c.name === column);
   if (!hasColumn("sessions", "reflection")) db.exec("ALTER TABLE sessions ADD COLUMN reflection TEXT");
+  if (!hasColumn("sessions", "session_type")) db.exec("ALTER TABLE sessions ADD COLUMN session_type TEXT");
   // Each tutor sees only their own rows. Rows from before sign-in existed keep user_id NULL until the director signs in and takes them over (lib/auth.ts).
   if (db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'course_policies_old'").get()) {
     db.exec(`INSERT INTO course_policies (course_code, professor, policy, details, source, updated_at)

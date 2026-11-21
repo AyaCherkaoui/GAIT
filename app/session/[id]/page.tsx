@@ -3,7 +3,9 @@ import Link from "next/link";
 import { use, useEffect, useState } from "react";
 import CopyButton from "@/components/CopyButton";
 import { Card, ErrorBox, PageHeader, Loading, Working, btn2Cls, btnCls, inputCls } from "@/components/ui";
+import TypeCards from "@/components/TypeCards";
 import { get, post } from "@/lib/client";
+import { getSessionType } from "@/lib/session-types";
 import type { Reflection, SessionRecord } from "@/lib/types";
 
 const FIELDS: [keyof Omit<Reflection, "updatedAt">, string][] = [
@@ -68,9 +70,13 @@ export default function SessionDetail({ params }: { params: Promise<{ id: string
 
   if (!session) return <div className="space-y-4"><ErrorBox error={error} />{!error && <Loading />}</div>;
   const o = session.outputs;
+  const type = getSessionType(session.session_type);
   return (
     <div className="space-y-6">
-      <PageHeader title={`${session.student_name || "Student"} · ${session.course || "no course"}`}>{session.created_at}</PageHeader>
+      <PageHeader title={`${session.student_name || "Student"} · ${session.course || "no course"}`}>
+        {session.created_at}
+        {type && <> · <Link className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700 hover:underline" href={`/types/${type.id}`}>{type.name}</Link></>}
+      </PageHeader>
       <ErrorBox error={error} />
 
       <Card title="My reflection">
@@ -103,9 +109,12 @@ export default function SessionDetail({ params }: { params: Promise<{ id: string
         </Card>
       )}
 
-      <Card title="Email draft" actions={<CopyButton text={o.email} />}>
-        <p className="whitespace-pre-wrap text-sm">{o.email}</p>
-      </Card>
+      {!type?.hideEmail && (
+        <Card title="Email draft" actions={<CopyButton text={o.email} />}>
+          <p className="whitespace-pre-wrap text-sm">{o.email}</p>
+        </Card>
+      )}
+      <TypeCards outputs={o} typeId={session.session_type} />
       <Card title="Next steps" actions={<Link className="text-sm text-indigo-700 underline" href={`/session/${session.id}/print`} target="_blank">Printable page</Link>}>
         <ul className="list-disc space-y-1 pl-5 text-sm">{o.nextSteps.map((s, i) => <li key={i}>{s}</li>)}</ul>
       </Card>

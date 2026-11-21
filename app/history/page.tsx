@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Card, ErrorBox, Loading, PageHeader } from "@/components/ui";
 import { get } from "@/lib/client";
+import { getSessionType } from "@/lib/session-types";
 import type { QuizResult, SessionSummary } from "@/lib/types";
 
 export default function HistoryPage() {
@@ -24,13 +25,14 @@ export default function HistoryPage() {
       <ErrorBox error={error} />
       <Card title="Sessions">
         {loading && <Loading />}
-        {!loading && sessions?.length === 0 && <p className="text-sm text-stone-500">No sessions yet. Write one up on the After session page.</p>}
+        {!loading && sessions?.length === 0 && <p className="text-sm text-stone-500">No sessions yet. Write one up on the Write-up page.</p>}
         <ul className="divide-y divide-stone-100 text-sm">
           {sessions?.map((s) => (
             <li key={s.id} className="py-2">
               <Link className="font-medium text-indigo-700 hover:underline" href={`/session/${s.id}`}>
                 {s.student_name || "Student"} · {s.course || "no course"}
               </Link>
+              {getSessionType(s.session_type) && <span className="text-stone-600"> · {getSessionType(s.session_type)!.name}</span>}
               <span className="text-stone-500"> · {s.created_at}</span>
               {s.reflection ? (
                 <p className="mt-1 text-stone-600">

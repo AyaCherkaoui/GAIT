@@ -6,7 +6,7 @@
  * The real Google round trip needs a browser and cannot be tested here; the callback is tested by
  * feeding signInFromGoogle() a stand-in ID-token payload.
  */
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -247,7 +247,21 @@ async function main() {
     check("rate limit returns 429 after 20 requests", codes.slice(0, 20).every((c) => c === 400) && codes.slice(20).every((c) => c === 429), codes.join(","));
     check("rate limit is per user", (await post("/api/search", { q: "" }, bobC)).status === 400);
 
-    // 11. Logout
+    // 11. No private contact details or shared passwords in tracked files (the repo is public)
+    const cell = ["519", "7796"].join("-");
+    const sharedPw = new RegExp("\\b" + ["augus", "tana"].join("") + "1\\b", "i");
+    const tracked = execFileSync("git", ["ls-files"], { encoding: "utf8" }).split("\n").filter(Boolean);
+    const leaks = tracked.filter((f) => {
+      try {
+        const text = fs.readFileSync(f, "utf8");
+        return text.includes(cell) || sharedPw.test(text);
+      } catch {
+        return false;
+      }
+    });
+    check("no tracked file holds the Director cell number or the shared password", leaks.length === 0, leaks.join(", "));
+
+    // 12. Logout
     r = await call("/api/auth/logout", { method: "POST" });
     check("logout clears the cookie and goes to /login", /gait_session=;/.test(r.headers.get("set-cookie") ?? "") && (r.headers.get("location") ?? "").endsWith("/login"));
   } finally {

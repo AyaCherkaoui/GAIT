@@ -8,6 +8,7 @@ export type SessionOutputs = {
   dontAskAi: string[];
   sessionNote?: string;
   voiceFlags?: string[];
+  typeOutputs?: { title: string; text: string }[];
 };
 export type AiPolicy = "allowed" | "limited" | "banned" | "unknown";
 export const AI_POLICIES: AiPolicy[] = ["allowed", "limited", "banned", "unknown"];
@@ -30,7 +31,7 @@ export type SessionNotes = {
   privateConcern?: string;
 };
 export type Reflection = { learned: string; wantToImprove: string; wentWell: string; goalNextTime: string; updatedAt: string };
-export type SessionSummary = { id: number; created_at: string; student_name: string; course: string; reflection: Reflection | null };
+export type SessionSummary = { id: number; created_at: string; student_name: string; course: string; reflection: Reflection | null; session_type: string | null };
 export type SessionRecord = SessionSummary & { notes: SessionNotes; outputs: SessionOutputs };
 
 export type Hit = { driveId: string; name: string; url: string; snippet: string; reason?: string };
