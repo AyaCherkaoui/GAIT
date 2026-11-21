@@ -2,8 +2,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { btn2Cls, btnBlueCls, btnCls, Card, Chip, Empty, ErrorBox, inputCls, labelCls, PageHeader, Working } from "@/components/ui";
 import { get, post } from "@/lib/client";
+import { TASK_FORCES } from "@/lib/task-forces";
 
-type Tutor = { email: string; name: string | null; role: "tutor" | "director"; active: number; added_at: string };
+type Tutor = { email: string; name: string | null; role: "tutor" | "director"; active: number; added_at: string; taskForce: string | null };
 
 type Req = { id: number; email: string; name: string | null; role: "tutor" | "director" };
 
@@ -65,6 +66,21 @@ export default function TutorsClient({ myEmail }: { myEmail: string }) {
     setBusy(true);
     try {
       await post("/api/admin/tutors", { email: t.email, name: t.name ?? "", role: t.role });
+      await load();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function placeIn(t: Tutor, key: string) {
+    setError(null);
+    setBusy(true);
+    try {
+      const res = await fetch("/api/task-forces", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: t.email, key: key || null }) });
+      const json = await res.json().catch(() => ({ error: "The server sent an unreadable reply." }));
+      if (!res.ok) throw new Error(json.error || "Request failed");
       await load();
     } catch (err) {
       setError((err as Error).message);
@@ -150,6 +166,7 @@ export default function TutorsClient({ myEmail }: { myEmail: string }) {
                 <th className="pr-4 font-semibold">Name</th>
                 <th className="pr-4 font-semibold">Role</th>
                 <th className="pr-4 font-semibold">Status</th>
+                <th className="pr-4 font-semibold">Task force</th>
                 <th className="pr-4 font-semibold">Added</th>
                 <th><span className="sr-only">Actions</span></th>
               </tr>
@@ -161,6 +178,13 @@ export default function TutorsClient({ myEmail }: { myEmail: string }) {
                   <td className="sm:table-cell sm:pr-4">{t.name ?? ""}</td>
                   <td className="sm:table-cell sm:pr-4"><Chip tone={t.role === "director" ? "gold" : "plain"}>{t.role === "director" ? "Director" : "Tutor"}</Chip></td>
                   <td className="sm:table-cell sm:pr-4">{t.active ? <Chip tone="green">Active</Chip> : <Chip>Inactive</Chip>}</td>
+                  <td className="sm:table-cell sm:pr-4">
+                    <label className="sr-only" htmlFor={`tf-${t.email}`}>Task force for {t.email}</label>
+                    <select id={`tf-${t.email}`} className={`${inputCls} min-h-10`} disabled={busy || !t.active} value={t.taskForce ?? ""} onChange={(e) => placeIn(t, e.target.value)}>
+                      <option value="">No task force</option>
+                      {TASK_FORCES.map((f) => <option key={f.key} value={f.key}>{f.name}</option>)}
+                    </select>
+                  </td>
                   <td className="hidden whitespace-nowrap sm:table-cell sm:pr-4">{t.added_at}</td>
                   <td className="ml-auto sm:table-cell sm:text-right">
                     {t.email !== myEmail && (

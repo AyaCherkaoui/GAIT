@@ -613,6 +613,47 @@ async function main() {
         await page.goto(BASE + "/");
         await page.getByRole("link", { name: /Resume 23:1\d/ }).waitFor(T);
       });
+      // Task forces: a new tutor picks one during onboarding, then sees it on Home.
+      for (const [n, w] of [[7, 1280], [8, 390]] as const) {
+        const nt = login(n, `newtutor${n}@example.test`, `Nell Newtutor${n}`);
+        await flow(`onboarding (new tutor, ${w}px): choose Tutor, pick a task force, land on Home`, cookie(nt), w, async (page) => {
+          await page.goto(BASE + "/welcome", { waitUntil: "networkidle" });
+          await page.getByText("Tutor", { exact: true }).first().click();
+          await page.getByRole("button", { name: "Continue" }).click({ noWaitAfter: true });
+          await page.getByRole("heading", { name: "Pick your task force" }).waitFor(T);
+          await page.getByText("needs 3 to run").first().waitFor(T);
+          if (await page.getByText("The director places experienced tutors here.").count() !== 1) throw new Error("RWC Scholars should have no Join button");
+          if (await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)) throw new Error("sideways scroll");
+          await page.getByRole("listitem").filter({ hasText: "Party Planners" }).getByRole("button", { name: "Join" }).click();
+          await page.getByText("Your task force", { exact: true }).waitFor(T);
+          await page.getByRole("button", { name: "Continue" }).click({ noWaitAfter: true });
+          await page.waitForURL(BASE + "/", T);
+        });
+      }
+      // Task forces on Home, the task list and the director's roster.
+      allow.run("planner@example.test", "Pia Planner", "tutor");
+      const planner = login(9, "planner@example.test", "Pia Planner");
+      db.prepare("INSERT INTO task_force_members (user_id, task_force_key) VALUES (?, 'party-planners')").run(planner.id);
+      db.prepare("INSERT INTO tasks (title, description, plan, related, user_id, task_force) VALUES (?, ?, ?, ?, ?, ?)").run("Book the hall", "d", JSON.stringify({ steps: ["a"], outline: "o", questionsToClarify: [] }), "[]", planner.id, "party-planners");
+      db.prepare("INSERT INTO tasks (title, description, plan, related, user_id) VALUES (?, ?, ?, ?, ?)").run("Old task", "d", JSON.stringify({ steps: ["a"], outline: "o", questionsToClarify: [] }), "[]", planner.id);
+      await flow("home (tutor in a task force): Your task force card shows members and latest task", cookie(planner), 1280, async (page) => {
+        await page.goto(BASE + "/");
+        await page.getByRole("heading", { name: "Your task force" }).waitFor(T);
+        await page.getByText("needs 3 to run").first().waitFor(T);
+        await page.getByText("Book the hall").first().waitFor(T);
+      });
+      await flow("task force page: tasks grouped by task force, older ones under Other tasks", cookie(planner), 1280, async (page) => {
+        await page.goto(BASE + "/taskforce");
+        await page.getByRole("heading", { name: "Party Planners" }).waitFor(T);
+        await page.getByRole("heading", { name: "Other tasks" }).waitFor(T);
+      });
+      await flow("tutors (director): roster places a tutor in a task force", cookie(director), 1280, async (page) => {
+        await page.goto(BASE + "/admin/tutors");
+        const sel = page.getByLabel("Task force for tutor@example.test");
+        await sel.waitFor(T);
+        await sel.selectOption("rwc-scholars").catch(() => { throw new Error("could not choose a task force"); });
+        await page.waitForFunction(() => (document.querySelector('select[id="tf-tutor@example.test"]') as HTMLSelectElement | null)?.value === "rwc-scholars", undefined, T);
+      });
     }
 
     // A student must not reach tutor pages.

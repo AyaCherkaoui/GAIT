@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { Chip, Empty } from "@/components/ui";
 import SessionStarter from "@/components/SessionStarter";
 import StudentHome from "@/components/StudentHome";
+import MyTaskForceCard from "@/components/MyTaskForceCard";
+import TaskForcePicker from "@/components/TaskForcePicker";
 import { fmtDate } from "@/components/format";
 import { getUser, type Role } from "@/lib/auth";
 import { getDb } from "@/lib/db";
@@ -99,6 +101,14 @@ function StaffHome({ role, userId }: { role: Role; userId: number }) {
           <blockquote className="pad flex-1 rounded-xl border border-stone-200 p-5 pl-[4.25rem] text-[17px] leading-[1.9rem] text-ink">{tipOfTheDay()}</blockquote>
         </section>
       </div>
+
+      {role === "tutor" && <MyTaskForceCard userId={userId} />}
+      {role === "tutor" && (
+        <section aria-labelledby="my-task-force" className="flex flex-col gap-3">
+          <h2 id="my-task-force" className={h2}>Task forces</h2>
+          <TaskForcePicker />
+        </section>
+      )}
 
       <section aria-labelledby="recent" className="flex flex-col gap-3">
         <div className="flex items-baseline justify-between gap-3">
