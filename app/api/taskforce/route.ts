@@ -11,8 +11,8 @@ const SYSTEM = `A writing-center tutor is working on a task force assignment (a 
 
 export async function GET(req: Request) {
   return handle(req, async (user) => {
-    const rows = getDb().prepare("SELECT id, created_at, title, description, plan, related FROM tasks WHERE user_id = ? ORDER BY id DESC LIMIT 50").all(user.id) as {
-      id: number; created_at: string; title: string; description: string; plan: string; related: string;
+    const rows = getDb().prepare("SELECT id, created_at, title, description, plan, related, task_force FROM tasks WHERE user_id = ? ORDER BY id DESC LIMIT 50").all(user.id) as {
+      id: number; created_at: string; title: string; description: string; plan: string; related: string; task_force: string | null;
     }[];
     return { tasks: rows.map((r) => ({ ...r, plan: JSON.parse(r.plan), related: JSON.parse(r.related || "[]") })) };
   });
@@ -33,8 +33,8 @@ export async function POST(req: Request) {
       related = (await smartSearch(`${title}. ${description}`.slice(0, 500)).catch(() => ({ hits: [] }))).hits;
     }
     const info = getDb()
-      .prepare("INSERT INTO tasks (title, description, plan, related, user_id) VALUES (?, ?, ?, ?, ?)")
-      .run(title, description, JSON.stringify(plan), JSON.stringify(related), user.id);
+      .prepare("INSERT INTO tasks (title, description, plan, related, user_id, task_force) VALUES (?, ?, ?, ?, ?, (SELECT task_force_key FROM task_force_members WHERE user_id = ?))")
+      .run(title, description, JSON.stringify(plan), JSON.stringify(related), user.id, user.id);
     return { id: Number(info.lastInsertRowid), plan, related };
   }, { ai: true });
 }

@@ -15,7 +15,12 @@ function cleanEmail(value: unknown): string {
 export async function GET(req: Request) {
   return handle(req, async (user) => {
     requireDirector(user);
-    const tutors = getDb().prepare("SELECT email, name, role, active, added_at FROM allowed_users ORDER BY added_at, email").all();
+    const tutors = getDb()
+      .prepare(
+        `SELECT a.email, a.name, a.role, a.active, a.added_at, m.task_force_key AS taskForce FROM allowed_users a
+         LEFT JOIN users u ON lower(u.email) = a.email LEFT JOIN task_force_members m ON m.user_id = u.id ORDER BY a.added_at, a.email`,
+      )
+      .all();
     const requests = getDb()
       .prepare(
         `SELECT u.id, u.email, u.name, u.requested_role AS role FROM users u

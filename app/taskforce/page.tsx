@@ -4,6 +4,7 @@ import Link from "next/link";
 import CopyButton from "@/components/CopyButton";
 import { Chip, Empty, ErrorBox, PageHeader, Working, btn2Cls, btnCls, inputCls, labelCls, submitOnCmdEnter } from "@/components/ui";
 import { get, post } from "@/lib/client";
+import { taskForce } from "@/lib/task-forces";
 import type { TaskRecord } from "@/lib/types";
 
 const h3 = "font-display text-lg font-semibold text-ink";
@@ -96,6 +97,16 @@ export default function TaskForcePage() {
 
   const setDone = (id: number, done: number[]) => setTasks((ts) => ts && ts.map((t) => (t.id === id ? { ...t, plan: { ...t.plan, done } } : t)));
 
+  // One cluster per task force; tasks from before a task force was picked go under "Other tasks".
+  const groups: { key: string | null; name: string; tasks: TaskRecord[] }[] = [];
+  for (const t of tasks ?? []) {
+    const key = taskForce(t.task_force)?.key ?? null;
+    let g = groups.find((x) => x.key === key);
+    if (!g) groups.push((g = { key, name: key ? taskForce(key)!.name : "Your tasks", tasks: [] }));
+    g.tasks.push(t);
+  }
+  if (groups.length > 1) for (const g of groups) if (g.key === null) g.name = "Other tasks";
+
   return (
     <div className="space-y-6">
       <PageHeader title="Task force">Turn an assignment into steps, an outline and questions to ask.</PageHeader>
@@ -117,29 +128,29 @@ export default function TaskForcePage() {
       <ErrorBox error={error} />
       {tasks === null && <p className="text-sm text-stone-600">Loading…</p>}
       {tasks && tasks.length === 0 && !loading && <Empty title="No tasks yet">Add a title and details above, then plan the task. Your plans will be saved here.</Empty>}
-      {tasks && tasks.length > 0 && (
-        <section aria-label="Your tasks" className="space-y-2">
-          <h2 className="font-display text-xl font-semibold text-ink">Your tasks</h2>
-          <ul className="divide-y divide-stone-200 rounded-lg border border-stone-200 bg-white">
-            {tasks.map((t) => {
-              const open = openId === t.id;
-              const n = (t.plan.done ?? []).length;
-              return (
-                <li key={t.id}>
-                  <div className="flex items-center justify-between gap-3 px-5 py-3 sm:px-6">
-                    <div className="min-w-0">
-                      <h3 className="break-words font-display text-xl font-semibold text-ink">{t.title || "Untitled task"}</h3>
-                      <p className="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-stone-600">{t.created_at.slice(0, 10)} <Chip tone={n === t.plan.steps.length && n > 0 ? "gold" : "plain"}>{n} of {t.plan.steps.length} steps done</Chip></p>
+      {groups.map((g) => (
+          <section key={g.key ?? "none"} aria-label={g.name} className="space-y-2">
+            <h2 className="font-display text-xl font-semibold text-ink">{g.name}</h2>
+            <ul className="divide-y divide-stone-200 rounded-lg border border-stone-200 bg-white">
+              {g.tasks.map((t) => {
+                const open = openId === t.id;
+                const n = (t.plan.done ?? []).length;
+                return (
+                  <li key={t.id}>
+                    <div className="flex items-center justify-between gap-3 px-5 py-3 sm:px-6">
+                      <div className="min-w-0">
+                        <h3 className="break-words font-display text-xl font-semibold text-ink">{t.title || "Untitled task"}</h3>
+                        <p className="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-stone-600">{t.created_at.slice(0, 10)} <Chip tone={n === t.plan.steps.length && n > 0 ? "gold" : "plain"}>{n} of {t.plan.steps.length} steps done</Chip></p>
+                      </div>
+                      <button className={`${btn2Cls} min-h-10 shrink-0`} aria-expanded={open} onClick={() => setOpenId(open ? null : t.id)}>{open ? "Hide" : "Reopen"}</button>
                     </div>
-                    <button className={`${btn2Cls} min-h-10 shrink-0`} aria-expanded={open} onClick={() => setOpenId(open ? null : t.id)}>{open ? "Hide" : "Reopen"}</button>
-                  </div>
-                  {open && <Plan t={t} onChange={(d) => setDone(t.id, d)} />}
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      )}
+                    {open && <Plan t={t} onChange={(d) => setDone(t.id, d)} />}
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+      ))}
     </div>
   );
 }
