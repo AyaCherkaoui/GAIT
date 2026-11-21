@@ -24,6 +24,7 @@ let picksMode: "empty" | "outOfRange" = "empty";
 let badTerms = false;
 let modelCalls = 0;
 let lastUserPrompt = "";
+let lastSystemPrompt = "";
 const fake = http.createServer((req, res) => {
   let raw = "";
   req.on("data", (c) => (raw += c));
@@ -31,9 +32,15 @@ const fake = http.createServer((req, res) => {
     modelCalls++;
     const body = JSON.parse(raw || "{}") as { messages?: { role: string; content: string }[] };
     const system = body.messages?.find((m) => m.role === "system")?.content ?? "";
+    lastSystemPrompt = system;
     lastUserPrompt = body.messages?.filter((m) => m.role === "user").map((m) => m.content).join("\n") ?? "";
     let content = "COACHING-REPLY";
     if (system.includes("Turn their question into")) content = JSON.stringify({ terms: badTerms ? [1, null, { x: 1 }, "thesis"] : ["thesis"] });
+    else if (system.includes("help a writing-center tutor prepare a follow-up"))
+      content = JSON.stringify({
+        email: "Hi", nextSteps: ["Revise your thesis."], focusAreas: [], aiPrompts: [], dontAskAi: [],
+        sessionNote: "Purpose: Worked on a thesis.", typeOutputs: [{ title: "Peer Tutor Session Log entry", text: "x" }],
+      });
     else if (system.includes("Pick up to 5")) content = JSON.stringify({ picks: picksMode === "empty" ? [] : [{ i: 99, reason: "x" }] });
     res.setHeader("content-type", "application/json");
     res.end(JSON.stringify({ message: { role: "assistant", content } }));
@@ -160,6 +167,21 @@ async function main() {
     const empty = (await r.json()) as { indexEmpty?: boolean };
     check("search: an empty index gives indexEmpty and no model call", r.status === 200 && empty.indexEmpty === true && modelCalls === before, `${r.status} ${JSON.stringify(empty)} calls ${before}->${modelCalls}`);
 
+    // Session types
+    const sessionBody = (sessionType: string) => ({ studentName: "Sam", course: "ENGL 101", sessionType, notes: { workedOn: "thesis", struggles: "focus", wentWell: "ideas" } });
+    r = await post("/api/session", sessionBody("regular"), directorC);
+    const made = (await r.json().catch(() => ({}))) as { id?: number };
+    check("session type: POST with sessionType regular is 200", r.status === 200 && typeof made.id === "number", String(r.status));
+    check("session type: the system prompt mentions the Session Log", lastSystemPrompt.includes("Session Log"));
+    r = await call(`/api/session/${made.id}`, {}, directorC);
+    const got1 = (await r.json().catch(() => ({}))) as { session?: { session_type?: string | null; outputs?: { typeOutputs?: unknown[] } } };
+    check("session type: GET returns session_type regular and the typeOutputs", got1.session?.session_type === "regular" && got1.session?.outputs?.typeOutputs?.length === 1, JSON.stringify(got1).slice(0, 200));
+    r = await post("/api/session", sessionBody("zzz"), directorC);
+    const made2 = (await r.json().catch(() => ({}))) as { id?: number };
+    r = await call(`/api/session/${made2.id}`, {}, directorC);
+    const got2 = (await r.json().catch(() => ({}))) as { session?: { session_type?: string | null } };
+    check("session type: an unknown sessionType zzz is stored as null", r.status === 200 && got2.session?.session_type === null, JSON.stringify(got2).slice(0, 200));
+
     // Layout
     const launchOpts = process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : { channel: "chrome" as const };
     let browser;
@@ -171,6 +193,10 @@ async function main() {
     fs.mkdirSync(shots, { recursive: true });
     const pages: { path: string; cookie?: string }[] = [
       { path: "/", cookie: directorC },
+      ...["walk-in", "email-feedback", "online", "regular", "writing-fellow"].map((id) => ({ path: `/types/${id}`, cookie: directorC })),
+      { path: "/session?type=email-feedback", cookie: directorC },
+      { path: "/practice?scenario=wf-conference", cookie: directorC },
+      { path: "/search?q=thesis", cookie: directorC },
       { path: "/history", cookie: directorC },
       { path: "/session", cookie: directorC },
       { path: `/session/${sid}`, cookie: t1 },
