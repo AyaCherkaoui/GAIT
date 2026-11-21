@@ -55,7 +55,7 @@ function RolePlay({ initialScenario }: { initialScenario: string }) {
         </div>
         <div className="space-y-2">
           {turns.map((t, i) => (
-            <p key={i} className={t.role === "student" ? "rounded bg-amber-50 p-2" : "rounded bg-indigo-50 p-2 text-right"}>
+            <p key={i} className={t.role === "student" ? "break-words rounded bg-amber-50 p-2" : "break-words rounded bg-indigo-50 p-2 text-right"}>
               <span className="font-medium">{t.role === "student" ? "Student" : "You"}:</span> {t.text}
             </p>
           ))}
