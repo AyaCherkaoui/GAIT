@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import SessionChecklist from "@/components/SessionChecklist";
 import Eng101Panel from "@/components/Eng101Panel";
 import SessionTimer, { elapsedMs, useLive } from "@/components/SessionTimer";
 import { Chip, PageHeader, btn2Cls, btnBlueCls, inputCls, labelCls } from "@/components/ui";
@@ -84,6 +85,8 @@ export default function LiveSession() {
           ))}
         </ol>
       </section>}
+
+      <SessionChecklist type={live.type} />
 
       <div>
         <label htmlFor="live-notes" className={labelCls}>Notes</label>

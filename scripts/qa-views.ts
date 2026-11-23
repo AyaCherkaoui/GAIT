@@ -184,6 +184,11 @@ async function main() {
     check("taskforce: ticked step is still ticked after reload", await page.getByRole("checkbox").first().isChecked());
     await snap("result");
   };
+  const basics: Step = async (page) => {
+    await page.getByText("RWC tutor desk").waitFor();
+    await page.getByRole("link", { name: "Title IX reporting form" }).waitFor();
+    await page.getByText("Draft: director to confirm").first().waitFor();
+  };
   const policies: Step = async (page, snap) => {
     await page.getByLabel("Course code", { exact: true }).fill("ENGL 101");
     await page.getByLabel("Professor", { exact: true }).fill("Dr. Rivera");
@@ -294,6 +299,7 @@ async function main() {
     { path: "/voice" },
     { path: "/policies", steps: policies },
     { path: "/ai-talk", steps: aiTalk },
+    { path: "/basics", steps: basics },
   ].map((v) => ({ ...v, path: v.path.replace(String(sid), c === "director" ? String(dsid) : String(sid)) }));
 
   const courses: Step = async (page) => {
@@ -566,6 +572,11 @@ async function main() {
         await page.waitForURL("**/session/live", T);
         await page.getByText("Draft: director to confirm").first().waitFor(T);
         await page.getByRole("timer").waitFor(T);
+        await page.getByRole("heading", { name: "Handbook checklist" }).waitFor(T);
+        const tick = page.getByRole("checkbox").first();
+        await tick.check();
+        if (!(await tick.isChecked())) throw new Error("checklist step did not tick");
+        await page.getByText("Open the appointment in Starfish").first().waitFor({ state: "attached", timeout: 10_000 });
         await page.clock.runFor(5 * 60_000 + 2000);
         const text = async () => (await page.getByRole("timer").textContent())?.trim();
         if (!/^5:0\d$/.test((await text()) || "")) throw new Error("timer reads " + (await text()) + " after 5 minutes");
