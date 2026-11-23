@@ -130,7 +130,7 @@ export default function TutorsClient({ myEmail }: { myEmail: string }) {
             </select>
           </div>
           <div className="flex items-end">
-            <button type="submit" className={`${btnCls} min-h-11 w-full sm:w-auto`} disabled={busy}>Add tutor</button>
+            <button type="submit" className={`${btnCls} min-h-11 w-full sm:w-auto`} disabled={busy}>{busy ? "Saving…" : "Add tutor"}</button>
           </div>
         </form>
       </Card>

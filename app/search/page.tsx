@@ -60,7 +60,7 @@ export default function SearchPage() {
   useEffect(() => {
     box.current?.focus();
     setRecent(readRecent());
-    get<{ docs: number }>("/api/search").then((j) => setDocs(j.docs)).catch(() => {});
+    get<{ docs: number }>("/api/search").then((j) => setDocs(j.docs)).catch((e) => setError((e as Error).message));
   }, []);
 
   async function run(question: string) {
