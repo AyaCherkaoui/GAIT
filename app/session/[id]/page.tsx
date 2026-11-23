@@ -94,7 +94,7 @@ export default function SessionDetail({ params }: { params: Promise<{ id: string
   if (!session) return <div className="space-y-4"><ErrorBox error={error} />{!error && <p className="text-sm text-stone-600">Loading…</p>}</div>;
   return (
     <div className="space-y-8">
-      <nav aria-label="Breadcrumb" className="-mb-4 text-sm text-stone-600">
+      <nav aria-label="Breadcrumb" className="-mb-2 text-sm text-stone-600">
         <Link href="/history" className={navCls}>← History</Link>
       </nav>
       <PageHeader title={`${session.student_name || "Student"} · ${session.course || "no course"}`}>{fmtDate(session.created_at)}</PageHeader>
