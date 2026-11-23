@@ -25,6 +25,10 @@ This is v0, a rough first draft that runs on one computer. Tutors sign in with G
 4. `npm run sync-aria`: the first run opens a Google sign-in (read-only Drive access) and saves the token to `.google-token.json`. Re-run it whenever ARIA changes.
 5. `npm run dev -- -p 3100` and open http://localhost:3100 (the port must match `APP_URL`). You sign in with Google first.
 
+## Task forces
+Tutors join one of seven RWC task forces (`lib/task-forces.ts`; a task force runs once it has `MIN_TO_RUN` members). Members live in `task_force_members` (one row per user, joined at `/welcome`, from the Home picker, or placed by the director in Admin). `app/api/task-forces` (GET list, POST join or move, DELETE leave, PUT director places someone by email; data helpers in `lib/task-force-data.ts`) enforces the seat cap in one transaction (409 when full). New `/taskforce` tasks carry the tutor's `tasks.task_force`; the page groups tasks by task force.
+ARIA files are tagged in `aria_doc_tags` (`lib/aria-tags.ts`): `npm run sync-aria` matches the Drive folder name first, else asks the fast model, and re-tags only new or changed files. `POST /api/aria/tag` (director only) sets or clears a tag and is never overwritten by sync. `/search` filters by task force and the ARIA Map can colour by task force; `/api/search/map` joins tags outside its cache.
+
 ## Roles
 On first sign-in a person picks Student, Tutor or Director at `/welcome` (`POST /api/me/role`, once; later calls are 409). That choice is only a request (`users.requested_role`); access always comes from `allowed_users`. Until the director approves it in Admin (`/admin/tutors`, Requests: `POST /api/admin/requests`), the person is a tutee and sees the student guide with a "waiting for the director" note. `DIRECTOR_EMAIL` and anyone already active in `allowed_users` skip the chooser.
 

@@ -30,10 +30,10 @@ export type Reflection = { learned: string; wantToImprove: string; wentWell: str
 export type SessionSummary = { id: number; created_at: string; student_name: string; course: string; reflection: Reflection | null; focus?: string };
 export type SessionRecord = SessionSummary & { notes: SessionNotes; outputs: SessionOutputs };
 
-export type Hit = { driveId: string; name: string; url: string; snippet: string; reason?: string };
+export type Hit = { driveId: string; name: string; url: string; snippet: string; reason?: string; taskForce?: string | null };
 
 export type TaskPlan = { steps: string[]; outline: string; questionsToClarify: string[]; done?: number[] };
-export type TaskRecord = { id: number; created_at: string; title: string; description: string; plan: TaskPlan; related: Hit[] };
+export type TaskRecord = { id: number; created_at: string; title: string; description: string; plan: TaskPlan; related: Hit[]; task_force?: string | null };
 
 export type Turn = { role: "student" | "tutor"; text: string };
 export type Feedback = { worked: string[]; missed: string[]; tryNext: string[] };

@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { btnCls, ErrorBox } from "@/components/ui";
+import TaskForcePicker from "@/components/TaskForcePicker";
 import { post } from "@/lib/client";
 
 type Choice = "student" | "tutor" | "director";
@@ -13,6 +14,8 @@ const OPTIONS: { value: Choice; title: string; text: string }[] = [
 export default function WelcomeClient() {
   const [choice, setChoice] = useState<Choice>("student");
   const [busy, setBusy] = useState(false);
+  const [step, setStep] = useState<"role" | "taskforce">("role");
+  const [mine, setMine] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function go(e: React.FormEvent) {
@@ -21,11 +24,30 @@ export default function WelcomeClient() {
     setError(null);
     try {
       await post("/api/me/role", { role: choice });
+      if (choice === "tutor") {
+        setStep("taskforce");
+        setBusy(false);
+        return;
+      }
       window.location.assign("/");
     } catch (err) {
       setError((err as Error).message);
       setBusy(false);
     }
+  }
+
+  if (step === "taskforce") {
+    return (
+      <div className="space-y-8">
+        <p className="font-display text-2xl font-semibold tracking-tight text-ink">Ink<span className="text-gold-400">.</span></p>
+        <div className="space-y-3">
+          <h1 className="font-display text-3xl font-semibold tracking-tight text-ink sm:text-4xl">Pick your task force</h1>
+          <p className="max-w-prose text-stone-700">Every tutor joins one task force. A task force needs 3 members to run. You can change this later from the home page.</p>
+        </div>
+        <TaskForcePicker onChange={setMine} />
+        <button type="button" className={`${btnCls} min-h-11 w-full px-8 sm:w-auto`} onClick={() => window.location.assign("/")}>{mine ? "Continue" : "Skip for now"}</button>
+      </div>
+    );
   }
 
   return (

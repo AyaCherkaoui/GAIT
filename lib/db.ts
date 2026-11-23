@@ -132,6 +132,20 @@ export function getDb(): DatabaseSync {
       link.run((find.get(r.user_id, first) as { id: number }).id, r.id);
     }
   }
+  // Task forces: one membership per person; ARIA file tags (source: folder, ai or director); the task force a task belongs to.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS task_force_members (
+      user_id INTEGER PRIMARY KEY REFERENCES users(id),
+      task_force_key TEXT NOT NULL,
+      joined_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS aria_doc_tags (
+      drive_id TEXT PRIMARY KEY,
+      task_force_key TEXT,
+      source TEXT NOT NULL
+    );
+  `);
+  if (!hasColumn("tasks", "task_force")) db.exec("ALTER TABLE tasks ADD COLUMN task_force TEXT");
   if (!hasColumn("users", "session_version")) db.exec("ALTER TABLE users ADD COLUMN session_version INTEGER NOT NULL DEFAULT 0");
   return db;
 }

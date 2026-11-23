@@ -455,6 +455,43 @@ async function main() {
     const helpAsDirector = await post(`/api/session/${secretSid}/help`, { question: "hi" }, frankC);
     check("the director cannot use the tutor's help route (404)", helpAsDirector.status === 404);
 
+    // 10b. Task forces: own membership only, caps, roles
+    const tfJoin = (cookie: string | undefined, key: unknown) => post("/api/task-forces", { key }, cookie);
+    check("signed out: GET /api/task-forces is 401", (await call("/api/task-forces")).status === 401);
+    check("signed out: POST /api/task-forces is 401", (await tfJoin(undefined, "party-planners")).status === 401);
+    check("a student (not asking to be a tutor) gets 403 joining a task force", (await tfJoin(daveC, "party-planners")).status === 403);
+    check("a tutor joins a task force", (await tfJoin(alice, "party-planners")).status === 200);
+    check("an unknown task force key is 400", (await tfJoin(alice, "nope")).status === 400);
+    check("RWC Scholars cannot be joined by a tutor (403)", (await tfJoin(alice, "rwc-scholars")).status === 403);
+    check("the director cannot join a task force (403)", (await tfJoin(carolC, "party-planners")).status === 403);
+    check("a body naming another person does not move them", (await post("/api/task-forces", { key: "social-media", userId: bob.id, email: "bob@augustana.edu" }, alice)).status === 200 && !db.prepare("SELECT 1 FROM task_force_members WHERE user_id = ?").get(bob.id));
+    check("one task force per person (joining again moves them)", (db.prepare("SELECT COUNT(*) AS n FROM task_force_members WHERE user_id = ?").get(a.id) as { n: number }).n === 1);
+    check("a tutor cannot place someone else (PUT is 403)", (await call("/api/task-forces", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "bob@augustana.edu", key: "party-planners" }) }, alice)).status === 403);
+    const curators: string[] = [];
+    for (const n of ["t3", "t4"]) {
+      db.prepare("INSERT INTO allowed_users (email, name, role) VALUES (?, ?, 'tutor')").run(`${n}@augustana.edu`, n);
+      curators.push(sessionCookieValue(signInFromGoogle({ sub: `g-${n}`, email: `${n}@augustana.edu`, email_verified: true, name: n })));
+    }
+    check("tutors fill ARIA Curators to its cap of 3", (await tfJoin(alice, "aria-curators")).status === 200 && (await tfJoin(bobC, "aria-curators")).status === 200 && (await tfJoin(curators[0], "aria-curators")).status === 200);
+    check("a full task force answers 409", (await tfJoin(curators[1], "aria-curators")).status === 409);
+    db.prepare("UPDATE allowed_users SET active = 0 WHERE email = 'bob@augustana.edu'").run();
+    check("a deactivated tutor frees their seat", (await tfJoin(curators[1], "aria-curators")).status === 200);
+    db.prepare("UPDATE allowed_users SET active = 1 WHERE email = 'bob@augustana.edu'").run();
+    r = await call("/api/task-forces", {}, carolC);
+    check("the list gives first name and last initial only", r.status === 200 && !(await r.clone().text()).includes("alice@") && (await r.text()).includes('"Alice B."'));
+    check("the director places a tutor in RWC Scholars", (await call("/api/task-forces", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "bob@augustana.edu", key: "rwc-scholars" }) }, carolC)).status === 200);
+    check("the director removes a tutor from their task force", (await call("/api/task-forces", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "bob@augustana.edu", key: null }) }, carolC)).status === 200 && !db.prepare("SELECT 1 FROM task_force_members WHERE user_id = ?").get(bob.id));
+
+    // 10c. Tagging an ARIA file: director only
+    db.prepare("INSERT OR REPLACE INTO aria_docs (drive_id, name, mime, url, modified, text) VALUES ('tagdoc', 'Tag test', 'text/plain', 'https://example.test/t', '2026-01-01', 'x')").run();
+    const tagPost = (cookie: string | undefined, body: unknown) => post("/api/aria/tag", body, cookie);
+    check("signed out: POST /api/aria/tag is 401", (await tagPost(undefined, { driveId: "tagdoc", key: "party-planners" })).status === 401);
+    check("a tutor cannot tag a file (403)", (await tagPost(alice, { driveId: "tagdoc", key: "party-planners" })).status === 403);
+    check("the director's tag with an unknown task force is 400", (await tagPost(carolC, { driveId: "tagdoc", key: "nope" })).status === 400);
+    check("the director's tag on an unknown file is 404", (await tagPost(carolC, { driveId: "missing", key: "party-planners" })).status === 404);
+    check("the director tags a file", (await tagPost(carolC, { driveId: "tagdoc", key: "party-planners" })).status === 200 && (db.prepare("SELECT task_force_key AS k, source FROM aria_doc_tags WHERE drive_id = 'tagdoc'").get() as { k: string; source: string }).source === "director");
+    check("the director clears a file's tag", (await tagPost(carolC, { driveId: "tagdoc", key: null })).status === 200 && (db.prepare("SELECT task_force_key AS k FROM aria_doc_tags WHERE drive_id = 'tagdoc'").get() as { k: string | null }).k === null);
+
     // 11. Logout ends the session on the server (#16)
     r = await call("/api/auth/logout", { method: "POST" });
     check("logout clears the cookie and goes to /login", /gait_session=;/.test(r.headers.get("set-cookie") ?? "") && (r.headers.get("location") ?? "").endsWith("/login"));
