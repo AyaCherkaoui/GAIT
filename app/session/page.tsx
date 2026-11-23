@@ -19,7 +19,7 @@ export default function SessionPage() {
   const [aiPolicy, setAiPolicy] = useState<AiPolicy>("unknown");
   const [voice, setVoice] = useVoiceFirst();
   const [onFile, setOnFile] = useState<string | null>(null);
-  const [restored, setRestored] = useState(false);
+  const [restored, setRestored] = useState<false | "live" | "draft">(false);
   const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +39,7 @@ export default function SessionPage() {
         if (Object.values(next).some((v) => v.trim())) {
           setF(next);
           if (d.aiPolicy && AI_POLICIES.includes(d.aiPolicy)) setAiPolicy(d.aiPolicy);
-          setRestored(true);
+          setRestored((d as { fromLive?: boolean }).fromLive ? "live" : "draft");
         }
       }
     } catch {
@@ -117,7 +117,7 @@ export default function SessionPage() {
       <form ref={formRef} onSubmit={generate} onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); formRef.current?.requestSubmit(); } }} className="space-y-4 rounded-xl border border-stone-200 bg-white p-5 sm:p-6">
         {restored && (
           <p role="status" className="flex flex-wrap items-center gap-x-3 rounded-md bg-gold-50 px-3 py-2 text-sm text-stone-800">
-            Draft restored.
+            {restored === "live" ? "These are the notes from your live session." : "These are your unsent notes from last time."}
             <button type="button" onClick={clearDraft} className="inline-flex min-h-10 items-center font-semibold text-indigo-700 underline underline-offset-4">Clear</button>
           </p>
         )}

@@ -53,7 +53,7 @@ function userWhere(where: string, param: string | number): User | null {
 
 function userRow(where: string, param: string | number): UserRow | null {
   return (getDb().prepare(
-    `SELECT u.id, u.email, u.name, u.picture, CASE WHEN a.active = 1 THEN a.role ELSE 'tutee' END AS role,
+    `SELECT u.id, u.email, COALESCE(NULLIF(trim(u.name), ''), NULLIF(trim(a.name), '')) AS name, u.picture, CASE WHEN a.active = 1 THEN a.role ELSE 'tutee' END AS role,
        (u.onboarded = 1 OR a.active = 1) AS onboarded, u.requested_role AS requestedRole, u.session_version AS sv
      FROM users u LEFT JOIN allowed_users a ON a.email = lower(u.email) WHERE ${where}`,
   ).get(param) as UserRow | undefined) ?? null;

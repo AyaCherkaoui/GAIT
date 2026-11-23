@@ -443,7 +443,7 @@ async function main() {
         await page.getByRole("button", { name: "Start", exact: true }).first().waitFor(T);
         await page.getByRole("heading", { name: "Pick up where you left off" }).waitFor(T);
         await page.getByRole("heading", { name: "Recent sessions" }).waitFor(T);
-        for (const l of ["Search ARIA", "Practice", "Task force"]) await page.getByRole("link", { name: new RegExp(l) }).first().waitFor(T);
+        for (const l of ["Search ARIA", "Practice", "Task planner"]) await page.getByRole("link", { name: new RegExp(l) }).first().waitFor(T);
         await page.getByRole("heading", { name: "Tip of the day" }).waitFor(T);
       });
       await flow("home (director): pending requests strip links to the tutor list", cookie(director), 1280, async (page) => {
@@ -485,7 +485,7 @@ async function main() {
         await page.fill("#workedOn", "Draft survives a reload.");
         await page.waitForTimeout(700);
         await page.reload();
-        await page.getByText("Draft restored.").waitFor(T);
+        await page.getByText("These are your unsent notes from last time.").waitFor(T);
         if ((await page.inputValue("#workedOn")) !== "Draft survives a reload.") throw new Error("draft text was not restored");
         await page.getByRole("button", { name: "Clear" }).click();
         if ((await page.inputValue("#workedOn")) !== "") throw new Error("Clear did not empty the form");
@@ -579,10 +579,41 @@ async function main() {
         await page.fill("#live-notes", "Worked on the thesis claim.");
         await page.getByRole("button", { name: "Finish and write it up" }).click();
         await page.waitForURL("**/session", T);
-        await page.getByText("Draft restored.").waitFor(T);
+        await page.getByText("These are the notes from your live session.").waitFor(T);
         if ((await page.inputValue("#studentName")) !== "Maya") throw new Error("first name was not prefilled");
         if (!(await page.inputValue("#workedOn")).includes("thesis claim")) throw new Error("notes were not prefilled");
       });
+      await flow("live session: Discard session asks first, then clears the timer, notes and draft", cookie(tutor), 1280, async (page) => {
+        await page.goto(BASE + "/");
+        await page.getByRole("radio", { name: /Normal tutoring/ }).click();
+        await page.fill("#start-name", "Lee");
+        await page.getByRole("button", { name: "Start", exact: true }).click();
+        await page.waitForURL("**/session/live", T);
+        await page.fill("#live-notes", "Notes to throw away.");
+        await page.getByRole("button", { name: "Discard session" }).click();
+        await page.getByRole("button", { name: "Keep going" }).click();
+        if ((await page.inputValue("#live-notes")) !== "Notes to throw away.") throw new Error("Keep going lost the notes");
+        await page.getByRole("button", { name: "Discard session" }).click();
+        await page.getByRole("button", { name: "Yes, discard it" }).click();
+        await page.waitForURL(BASE + "/", T);
+        const left = await page.evaluate(() => [localStorage.getItem("ink-live-session"), localStorage.getItem("ink-draft-session")]);
+        if (left[0] !== null || left[1] !== null) throw new Error("saved session data is still there: " + JSON.stringify(left));
+        await page.goto(BASE + "/session/live");
+        await page.getByText("No session is running.").waitFor(T);
+      });
+      for (const [who, c, isDirector] of [["tutor", cookie(tutor), false], ["director", cookie(director), true]] as const) {
+        await flow(`search with an empty index (${who}): one message, ${isDirector ? "with" : "no"} developer commands`, c, 1280, async (page) => {
+          await page.route("**/api/search", (r) => (r.request().method() === "POST" ? r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ hits: [], terms: [], indexEmpty: true, related: [] }) }) : r.continue()));
+          await page.goto(BASE + "/search");
+          await page.locator("#aria-q").fill("thesis help");
+          await page.keyboard.press("Enter");
+          await page.getByRole("alert").waitFor(T);
+          const body = await page.locator("body").innerText();
+          if (/Nothing matched/.test(body)) throw new Error("shows Nothing matched under the empty-index message");
+          if (isDirector !== /sync-aria/.test(body)) throw new Error(isDirector ? "director does not see the sync command" : "tutor sees a developer command");
+          if (!isDirector && !body.includes("The ARIA library is not loaded yet. Ask the director.")) throw new Error("tutor message missing");
+        });
+      }
       await flow("tutees: list, per-tutee timeline with type, focus and minutes, rename", cookie(tutor), 1280, async (page) => {
         await page.goto(BASE + "/tutees");
         await page.getByRole("link", { name: /Sam/ }).first().click();
@@ -653,6 +684,10 @@ async function main() {
         await sel.waitFor(T);
         await sel.selectOption("rwc-scholars").catch(() => { throw new Error("could not choose a task force"); });
         await page.waitForFunction(() => (document.querySelector('select[id="tf-tutor@example.test"]') as HTMLSelectElement | null)?.value === "rwc-scholars", undefined, T);
+        await page.getByRole("status").filter({ hasText: /^Saved:.*RWC Scholars/ }).waitFor(T);
+        const ov = page.getByRole("heading", { name: "Task forces" }).locator("xpath=ancestor::*[contains(@class,'rounded')][1]");
+        await ov.getByText("min 3 / max 4").first().waitFor(T);
+        await ov.getByText("Tutor Tina").waitFor(T);
       });
     }
 

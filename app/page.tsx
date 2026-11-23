@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 const QUICK = [
   ["/search", "Search ARIA", "Find the right handout fast."],
   ["/practice", "Practice", "Role-play a tricky session."],
-  ["/taskforce", "Task force", "Turn a task into steps."],
+  ["/taskforce", "Task planner", "Turn a task into steps."],
 ] as const;
 
 const TIPS = [
@@ -164,7 +164,7 @@ export default async function Home() {
   const user = await getUser();
   if (!user) redirect("/login");
   if (!user.onboarded) redirect("/welcome");
-  const first = (user.name || user.email).split(/[ @]/)[0];
+  const first = user.name?.trim().split(/\s+/)[0] || user.email.split("@")[0];
   return (
     <>
       <Hero role={user.role} name={first} />

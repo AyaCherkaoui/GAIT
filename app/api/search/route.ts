@@ -5,7 +5,7 @@ import { docCount, smartSearch } from "@/lib/search";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
-  return handle(req, async () => ({ docs: docCount() }));
+  return handle(req, async (user) => ({ docs: docCount(), director: user.role === "director" }));
 }
 
 export async function POST(req: Request) {

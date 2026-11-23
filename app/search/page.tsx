@@ -43,6 +43,7 @@ function Stage() {
 export default function SearchPage() {
   const [q, setQ] = useState("");
   const [docs, setDocs] = useState<number | null>(null);
+  const [director, setDirector] = useState(false);
   const [hits, setHits] = useState<Hit[] | null>(null);
   const [asked, setAsked] = useState("");
   const [recent, setRecent] = useState<string[]>([]);
@@ -62,7 +63,7 @@ export default function SearchPage() {
   useEffect(() => {
     box.current?.focus();
     setRecent(readRecent());
-    get<{ docs: number }>("/api/search").then((j) => setDocs(j.docs)).catch((e) => setError((e as Error).message));
+    get<{ docs: number; director?: boolean }>("/api/search").then((j) => { setDocs(j.docs); setDirector(!!j.director); }).catch((e) => setError((e as Error).message));
   }, []);
 
   async function run(question: string) {
@@ -79,7 +80,12 @@ export default function SearchPage() {
       const r = await post<{ hits: Hit[]; terms: string[]; indexEmpty: boolean; related?: string[] }>("/api/search", { q: text });
       setRelated(r.related || []);
       setFocusKey((k) => k + 1);
-      if (r.indexEmpty) setError("The ARIA index is empty. Run npm run sync-aria first (see AGENTS.md).");
+      if (r.indexEmpty) {
+        // Only the empty-index message: no "Nothing matched" under it.
+        setError(director ? "The ARIA index is empty. Run npm run sync-aria on this computer first (see AGENTS.md)." : "The ARIA library is not loaded yet. Ask the director.");
+        setHits(null);
+        return;
+      }
       setHits(r.hits);
       setAsked(text);
       setOpen(true);
@@ -210,7 +216,7 @@ export default function SearchPage() {
   return (
     <div className="sm:h-full">
       <h1 className="sr-only">ARIA search</h1>
-      <AriaMap picks={hits?.map((h) => h.driveId) ?? []} related={related} focusKey={focusKey} focusDoc={focusDoc} overlay={panel} taskForce={force} />
+      <AriaMap picks={hits?.map((h) => h.driveId) ?? []} related={related} focusKey={focusKey} focusDoc={focusDoc} overlay={panel} taskForce={force} director={director} />
     </div>
   );
 }

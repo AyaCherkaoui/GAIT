@@ -109,7 +109,7 @@ export default function TaskForcePage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Task force">Turn an assignment into steps, an outline and questions to ask.</PageHeader>
+      <PageHeader title="Task planner">Turn an assignment into steps, an outline and questions to ask.</PageHeader>
       <form onSubmit={plan} className="max-w-3xl space-y-4">
         <div>
           <label htmlFor="tf-title" className={labelCls}>Task title</label>

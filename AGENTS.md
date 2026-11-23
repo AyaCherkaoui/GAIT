@@ -8,7 +8,7 @@ This is v0, a rough first draft that runs on one computer. Tutors sign in with G
 ## What it does
 - **After session** (`/session`): the tutor's notes become an email draft, printable next steps (`/session/<id>/print`), and AI prompts the student can use that coach rather than write.
 - **ARIA search** (`/search`): searches the ARIA Google Drive folder. Claude turns the question into keywords, SQLite full-text search finds candidates, and Claude picks the best 5.
-- **Task force** (`/taskforce`): turns a task into steps, an outline, questions, and related ARIA files.
+- **Task planner** (`/taskforce`, nav label "Task planner"; not the volunteer task forces): turns a task into steps, an outline, questions, and related ARIA files.
 - **Practice** (`/practice`): role-play a tricky student with feedback afterwards, or take a 5-question refresher quiz.
 
 ## Setup

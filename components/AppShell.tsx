@@ -13,7 +13,7 @@ type NavGroup = readonly [title: string, items: readonly NavItem[]];
 
 const TUTOR_GROUPS: readonly NavGroup[] = [
   ["Today", [["/", "Home"], ["/session", "After session"], ["/history", "History"], ["/tutees", "Tutees"]]],
-  ["Tools", [["/search", "ARIA search"], ["/taskforce", "Task force"], ["/practice", "Practice"], ["/policies", "Policies"], ["/ai-talk", "AI talk"]]],
+  ["Tools", [["/search", "ARIA search"], ["/taskforce", "Task planner"], ["/practice", "Practice"], ["/policies", "Policies"], ["/ai-talk", "AI talk"]]],
   ["Learn", [["/news", "News"], ["/reading", "Reading"], ["/debrief", "Debrief"], ["/voice", "Voice-first"]]],
 ];
 const NAV: Record<Role, readonly NavGroup[]> = {
