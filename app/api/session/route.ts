@@ -3,6 +3,8 @@ import { askJson, UserFacingError } from "@/lib/claude";
 import { getDb } from "@/lib/db";
 import { listSessions } from "@/lib/sessions";
 import { getPolicy } from "@/lib/policies";
+import { isFocus, isSessionType } from "@/lib/session-types";
+import { findOrCreateTutee, firstNameOf, getTutee } from "@/lib/tutees";
 import { logUsage } from "@/lib/usage";
 import { AI_POLICIES, type AiPolicy, type SessionNotes, type SessionOutputs } from "@/lib/types";
 
@@ -66,6 +68,13 @@ export async function POST(req: Request) {
     if (courseCode) notes.courseCode = courseCode;
     const aiUse = str(raw.aiUse, 2000);
     if (aiUse) notes.aiUse = aiUse;
+    // Type, focus and minutes come from the live session starter; anything unexpected is dropped.
+    if (isSessionType(raw.type)) notes.type = raw.type;
+    if (Array.isArray(raw.focus)) {
+      const focus = raw.focus.filter(isFocus);
+      if (focus.length) notes.focus = focus;
+    }
+    if (typeof raw.minutes === "number" && Number.isInteger(raw.minutes) && raw.minutes >= 1 && raw.minutes <= 600) notes.minutes = raw.minutes;
     // The private concern is saved for the tutor only; it is deliberately left out of the prompt and every student-facing output.
     const privateConcern = str(raw.privateConcern, 4000);
     if (privateConcern) notes.privateConcern = privateConcern;
@@ -77,8 +86,18 @@ export async function POST(req: Request) {
     body.studentName = str(body.studentName, 200);
     // Only the first name goes to the model; "Last, First" and "First Last" both work.
     const fullName = body.studentName as string;
-    const firstName = (fullName.includes(",") ? fullName.split(",")[1] : fullName).trim().split(/\s+/)[0] || "(not given)";
+    const firstName = firstNameOf(fullName) || "(not given)";
     body.course = str(body.course, 300);
+    // The tutee: a picked one must be the tutor's own (404 otherwise); otherwise the first name finds or makes one.
+    let tuteeId: number | null = null;
+    if (body.tuteeId !== undefined && body.tuteeId !== null && body.tuteeId !== "") {
+      const t = getTutee(Number(body.tuteeId), user.id);
+      tuteeId = t.id;
+      if (!fullName.trim()) body.studentName = t.first_name;
+    } else if (firstNameOf(fullName)) {
+      tuteeId = findOrCreateTutee(user.id, firstNameOf(fullName));
+    }
+    if (tuteeId) notes.tutee_id = tuteeId;
     if (!notes.workedOn.trim() && !notes.struggles.trim()) {
       throw new UserFacingError("Add at least what you worked on or what the student struggled with.");
     }
@@ -99,8 +118,8 @@ AI use the student disclosed or the tutor noticed: ${notes.aiUse?.trim() || "(no
     });
     const outputs = sanitizeOutputs(generated, policy);
     const info = getDb()
-      .prepare("INSERT INTO sessions (student_name, course, notes, outputs, user_id) VALUES (?, ?, ?, ?, ?)")
-      .run(body.studentName as string, body.course as string, JSON.stringify(notes), JSON.stringify(outputs), user.id);
+      .prepare("INSERT INTO sessions (student_name, course, notes, outputs, user_id, tutee_id) VALUES (?, ?, ?, ?, ?, ?)")
+      .run(body.studentName as string, body.course as string, JSON.stringify(notes), JSON.stringify(outputs), user.id, tuteeId);
     logUsage("session", user.id);
     return { id: Number(info.lastInsertRowid), outputs };
   }, { ai: true });

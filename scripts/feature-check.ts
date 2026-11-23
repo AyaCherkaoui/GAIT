@@ -36,6 +36,8 @@ const fake = http.createServer((req, res) => {
     lastUserPrompt = body.messages?.filter((m) => m.role === "user").map((m) => m.content).join("\n") ?? "";
     let content = "COACHING-REPLY";
     if (system.includes("Turn their question into")) content = JSON.stringify({ terms: badTerms ? [1, null, { x: 1 }, "thesis"] : ["thesis"] });
+    else if (system.includes("propose the course units")) content = JSON.stringify({ units: [{ title: "Reading the prompt", goal: "Say what it asks.", minutes: 15 }] });
+    else if (system.includes("practice exercise")) content = JSON.stringify({ title: "Sample exercise", tasks: ["Say the prompt back in your own words."], tutorNote: "Listen for the task." });
     else if (system.includes("Pick up to 5")) content = JSON.stringify({ picks: picksMode === "empty" ? [] : [{ i: 99, reason: "x" }] });
     res.setHeader("content-type", "application/json");
     res.end(JSON.stringify({ message: { role: "assistant", content } }));
@@ -107,6 +109,9 @@ async function main() {
     db.prepare("INSERT INTO sessions (student_name, course, notes, outputs, user_id) VALUES (?, ?, ?, ?, ?)")
       .run("Sam", "ENGL 101", JSON.stringify(notes), JSON.stringify(outputs), tutor1.id).lastInsertRowid,
   );
+  const tuteeId = Number(db.prepare("INSERT INTO tutees (user_id, first_name) VALUES (?, 'Sam')").run(tutor1.id).lastInsertRowid);
+  db.prepare("UPDATE sessions SET tutee_id = ? WHERE id = ?").run(tuteeId, sid);
+  db.prepare("INSERT INTO courses (id, syllabus_text, units) VALUES (1, 'Syllabus', ?)").run(JSON.stringify([{ title: "Reading the prompt", goal: "Say what it asks.", minutes: 15 }]));
   const doc = db.prepare("INSERT INTO aria_docs (drive_id, name, mime, url, modified, text) VALUES (?, ?, ?, ?, ?, ?)");
   for (const [i, name] of ["Thesis basics", "Thesis templates", "Thesis reports"].entries()) {
     doc.run(`d${i}`, name, "text/plain", `https://example.test/${i}`, "2026-01-01", `A handout about the thesis, part ${i}.`);
@@ -164,6 +169,15 @@ async function main() {
     const empty = (await r.json()) as { indexEmpty?: boolean };
     check("search: an empty index gives indexEmpty and no model call", r.status === 200 && empty.indexEmpty === true && modelCalls === before, `${r.status} ${JSON.stringify(empty)} calls ${before}->${modelCalls}`);
 
+    // English 101
+    r = await post("/api/courses/propose", { syllabus: "Week 1: read the prompt." }, directorC);
+    const proposed = (await r.json()) as { units?: { title: string }[] };
+    check("courses: propose returns validated units", r.status === 200 && proposed.units?.[0]?.title === "Reading the prompt", `${r.status} ${JSON.stringify(proposed)}`);
+    r = await post("/api/courses/exercise", { unit: 0 }, t1);
+    const ex = (await r.json()) as { tasks?: string[] };
+    check("courses: an exercise is questions and tasks", r.status === 200 && Array.isArray(ex.tasks) && ex.tasks.length > 0 && lastSystemPrompt.includes("Never write model answers"), `${r.status} ${JSON.stringify(ex)}`);
+    check("courses: exercise for a missing unit is 400", (await post("/api/courses/exercise", { unit: 9 }, t1)).status === 400);
+
     // Layout
     const launchOpts = process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : { channel: "chrome" as const };
     let browser;
@@ -188,6 +202,10 @@ async function main() {
       { path: "/coach", cookie: t1 },
       { path: "/impact", cookie: directorC },
       { path: "/admin/sessions", cookie: directorC },
+      { path: "/admin/courses", cookie: directorC },
+      { path: "/session/live", cookie: t1 },
+      { path: "/tutees", cookie: t1 },
+      { path: `/tutees/${tuteeId}`, cookie: t1 },
       { path: `/admin/sessions/${sid}`, cookie: directorC },
       { path: "/login?error=not_allowed" },
     ];
