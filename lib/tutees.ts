@@ -1,12 +1,8 @@
 import { getDb } from "./db";
 import { NotFoundError, UserFacingError } from "./claude";
+import { firstNameOf } from "./names";
 import { parseReflection } from "./sessions";
 import type { TimelineEntry, Tutee } from "./types";
-
-/** "Last, First" and "First Last" both give the first name. */
-export function firstNameOf(full: string): string {
-  return (full.includes(",") ? full.split(",")[1] : full).trim().split(/\s+/)[0] ?? "";
-}
 
 export function findOrCreateTutee(userId: number, firstName: string): number {
   const db = getDb();
@@ -35,7 +31,7 @@ export function listTutees(userId: number): Tutee[] {
 
 export function renameTutee(id: number, userId: number, firstName: string) {
   getTutee(id, userId);
-  const name = firstName.trim().split(/\s+/)[0] ?? "";
+  const name = firstNameOf(firstName);
   if (!name) throw new UserFacingError("Add a first name.");
   try {
     getDb().prepare("UPDATE tutees SET first_name = ? WHERE id = ? AND user_id = ?").run(name, id, userId);

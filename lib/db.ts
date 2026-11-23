@@ -1,5 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
+import { firstNameOf } from "./names";
 
 let db: DatabaseSync | undefined;
 
@@ -119,14 +120,14 @@ export function getDb(): DatabaseSync {
   `);
   if (!hasColumn("sessions", "tutee_id")) db.exec("ALTER TABLE sessions ADD COLUMN tutee_id INTEGER REFERENCES tutees(id)");
   db.exec("CREATE INDEX IF NOT EXISTS sessions_tutee ON sessions (tutee_id)");
-  // One-time backfill from student_name (same "Last, First" split as the session route). Rows with no owner are skipped.
+  // One-time backfill from student_name (same name split as the session route, lib/names.ts). Rows with no owner are skipped.
   {
     const rows = db.prepare("SELECT id, user_id, student_name FROM sessions WHERE tutee_id IS NULL AND user_id IS NOT NULL AND trim(student_name) != ''").all() as { id: number; user_id: number; student_name: string }[];
     const add = db.prepare("INSERT OR IGNORE INTO tutees (user_id, first_name) VALUES (?, ?)");
     const find = db.prepare("SELECT id FROM tutees WHERE user_id = ? AND lower(first_name) = lower(?)");
     const link = db.prepare("UPDATE sessions SET tutee_id = ? WHERE id = ?");
     for (const r of rows) {
-      const first = (r.student_name.includes(",") ? r.student_name.split(",")[1] : r.student_name).trim().split(/\s+/)[0];
+      const first = firstNameOf(r.student_name);
       if (!first) continue;
       add.run(r.user_id, first);
       link.run((find.get(r.user_id, first) as { id: number }).id, r.id);

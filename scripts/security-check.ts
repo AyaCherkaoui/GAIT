@@ -58,6 +58,14 @@ async function main() {
   const { getDb } = await import("../lib/db");
   const { signInFromGoogle, sessionCookieValue, SignInRefused } = await import("../lib/auth");
   const { signToken } = await import("../lib/session-token");
+  const { firstNameOf } = await import("../lib/names");
+
+  // Student name parsing (lib/names.ts): suffixes are never a first name.
+  for (const [input, want] of [
+    ["Smith, Pat", "Pat"], ["Pat Smith", "Pat"], ["Pat", "Pat"], ["  Smith ,  Pat  Lee ", "Pat"],
+    ["Smith, Jr.", ""], ["Smith Jr., Pat", "Pat"], ["Smith, Pat, Jr.", "Pat"], ["Pat Smith Jr.", "Pat"],
+    ["Smith, III", ""], ["Smith II, Pat", "Pat"], ["Jr.", ""], ["", ""],
+  ] as const) check(`names: "${input}" gives "${want}"`, firstNameOf(input) === want, firstNameOf(input));
 
   const log = fs.openSync(path.join(dir, "server.log"), "w");
   const server = spawn("npx", ["next", "dev", "-p", String(PORT), ...(process.env.GAIT_DEV_ARGS?.split(" ").filter(Boolean) ?? [])], {

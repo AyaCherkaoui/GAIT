@@ -1,6 +1,7 @@
 import { handle, readJson, str } from "@/lib/api";
 import { UserFacingError } from "@/lib/claude";
-import { findOrCreateTutee, firstNameOf, listTutees } from "@/lib/tutees";
+import { firstNameOf } from "@/lib/names";
+import { findOrCreateTutee, listTutees } from "@/lib/tutees";
 
 export const dynamic = "force-dynamic";
 
