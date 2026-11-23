@@ -146,7 +146,7 @@ async function main() {
     if (!(await page.locator("#aria-q").evaluate((el) => el === document.activeElement))) throw new Error("search box is not focused on load");
     await page.getByRole("button", { name: "Templates for a thesis statement" }).waitFor();
     await page.locator("#aria-q").fill("thesis help");
-    await page.keyboard.press("Control+Enter");
+    await page.keyboard.press("Enter");
     await page.getByRole("link", { name: "Open", exact: true }).first().waitFor({ timeout: 30_000 });
     await page.getByText(/^Best \d+ for/).first().waitFor();
     await snap("result");

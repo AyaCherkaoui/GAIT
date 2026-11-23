@@ -101,7 +101,7 @@ export default function SearchPage() {
   }
 
   const pick = (h: Hit) => { setPicked(h.driveId); setFocusDoc({ id: h.driveId, key: Date.now() }); };
-  const chip = "rounded-full border border-stone-200 bg-stone-50 px-3 py-1.5 text-left text-sm text-ink transition hover:bg-stone-100";
+  const chip = "min-h-10 rounded-full border border-stone-200 bg-stone-50 px-3 py-1.5 text-left text-sm text-ink transition hover:bg-stone-100";
   const showIdeas = focused && !q.trim() && !loading;
 
   const panel = (
