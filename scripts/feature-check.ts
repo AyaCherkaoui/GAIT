@@ -23,6 +23,7 @@ const SECRET = randomBytes(32).toString("base64url");
 let picksMode: "empty" | "outOfRange" = "empty";
 let badTerms = false;
 let modelCalls = 0;
+let badOutputs = false;
 let lastUserPrompt = "";
 let lastSystemPrompt = "";
 const fake = http.createServer((req, res) => {
@@ -36,7 +37,19 @@ const fake = http.createServer((req, res) => {
     lastUserPrompt = body.messages?.filter((m) => m.role === "user").map((m) => m.content).join("\n") ?? "";
     let content = "COACHING-REPLY";
     if (system.includes("Turn their question into")) content = JSON.stringify({ terms: badTerms ? [1, null, { x: 1 }, "thesis"] : ["thesis"] });
-    else if (system.includes("propose the course units")) content = JSON.stringify({ units: [{ title: "Reading the prompt", goal: "Say what it asks.", minutes: 15 }] });
+    else if (system.includes("follow-up for a student after a tutoring session")) {
+      const long = "x".repeat(5000);
+      content = JSON.stringify(badOutputs
+        ? {
+            email: "Hi", sessionNote: "Note",
+            nextSteps: ["Good step", 7, null, "  ", { a: 1 }, long],
+            focusAreas: [{ skill: "Thesis", why: "Needs focus", miniLesson: "Say it" }, { skill: "No lesson" }, "text", null, { skill: 1, why: 2, miniLesson: 3 }],
+            aiPrompts: [{ prompt: "Quiz me. Don't rewrite it for me.", whyItHelps: "Coaches" }, { prompt: 5, whyItHelps: "x" }, { whyItHelps: "no prompt" }, { prompt: "No why" }, []],
+            dontAskAi: ["Write my conclusion", 3, {}, ""],
+            voiceFlags: ["A flag", false, [], " "],
+          }
+        : { email: "Hi", sessionNote: "Note", nextSteps: ["Step"], focusAreas: [], aiPrompts: [], dontAskAi: [], voiceFlags: [] });
+    } else if (system.includes("propose the course units")) content = JSON.stringify({ units: [{ title: "Reading the prompt", goal: "Say what it asks.", minutes: 15 }] });
     else if (system.includes("practice exercise")) content = JSON.stringify({ title: "Sample exercise", tasks: ["Say the prompt back in your own words."], tutorNote: "Listen for the task." });
     else if (system.includes("Pick up to 5")) content = JSON.stringify({ picks: picksMode === "empty" ? [] : [{ i: 99, reason: "x" }] });
     res.setHeader("content-type", "application/json");
@@ -141,6 +154,17 @@ async function main() {
     check("help: another tutor gets 404", (await post(`/api/session/${sid}/help`, { question: "hi" }, t2)).status === 404);
     check("help: signed out is 401", (await post(`/api/session/${sid}/help`, { question: "hi" })).status === 401);
     check("help: 2001 characters is 400", (await post(`/api/session/${sid}/help`, { question: "a".repeat(2001) }, t1)).status === 400);
+
+    // Session outputs: malformed items from the model are dropped, long text is cut
+    badOutputs = true;
+    r = await post("/api/session", { studentName: "Lee, Pat", course: "ENGL 101", notes: { workedOn: "Thesis work", struggles: "", wentWell: "", aiPolicy: "allowed" } }, t1);
+    const so = (await r.json().catch(() => ({}))) as { outputs?: { nextSteps: string[]; focusAreas: { skill: string }[]; aiPrompts: { prompt: string; whyItHelps: string }[]; dontAskAi: string[]; voiceFlags: string[] } };
+    badOutputs = false;
+    const oo = so.outputs;
+    check("session: malformed items are dropped from every list", r.status === 200 && !!oo
+      && oo.nextSteps.length === 2 && oo.nextSteps[0] === "Good step" && oo.focusAreas.length === 1 && oo.focusAreas[0].skill === "Thesis"
+      && oo.aiPrompts.length === 1 && oo.aiPrompts[0].whyItHelps === "Coaches" && oo.dontAskAi.join() === "Write my conclusion" && oo.voiceFlags.join() === "A flag", `${r.status} ${JSON.stringify(so)}`);
+    check("session: long items are cut", !!oo && oo.nextSteps[1].length <= 500, String(oo?.nextSteps[1]?.length));
 
     // Coach route
     r = await post("/api/coach", { messages: [{ role: "user", content: "Where do I start?" }] }, t1);

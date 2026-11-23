@@ -4,7 +4,8 @@ import { getDb } from "@/lib/db";
 import { listSessions } from "@/lib/sessions";
 import { getPolicy } from "@/lib/policies";
 import { isFocus, isSessionType } from "@/lib/session-types";
-import { findOrCreateTutee, firstNameOf, getTutee } from "@/lib/tutees";
+import { firstNameOf } from "@/lib/names";
+import { findOrCreateTutee, getTutee } from "@/lib/tutees";
 import { logUsage } from "@/lib/usage";
 import { AI_POLICIES, type AiPolicy, type SessionNotes, type SessionOutputs } from "@/lib/types";
 
@@ -31,15 +32,37 @@ The course AI policy is given in the notes. Never say or imply that the student 
 
 const VOICE_RULES = `\n\nVoice-first mode is ON. Keep suggestions in the writer's own phrasing and dialect; do not steer toward a "standard" register for its own sake. Fill voiceFlags with any feedback here that mainly standardizes English rather than clarifying meaning (else []).`;
 
-/** Makes the output safe to show the student: arrays are arrays, and the policy rules hold even if the model slips. */
+const MAX_ITEMS = 8;
+/** A non-empty string cut to max characters, or null. */
+function text(v: unknown, max: number): string | null {
+  return typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null;
+}
+function strList(v: unknown, max: number): string[] {
+  return (Array.isArray(v) ? v : []).map((x) => text(x, max)).filter((x): x is string => x !== null).slice(0, MAX_ITEMS);
+}
+/** Keeps only the items that have the expected shape; bad ones are dropped, long text is cut. */
+function items<T>(v: unknown, keep: (x: Record<string, unknown>) => T | null): T[] {
+  return (Array.isArray(v) ? v : [])
+    .map((x) => (x && typeof x === "object" && !Array.isArray(x) ? keep(x as Record<string, unknown>) : null))
+    .filter((x): x is T => x !== null)
+    .slice(0, MAX_ITEMS);
+}
+
+/** Makes the output safe to show the student: every item has the right shape, and the policy rules hold even if the model slips. */
 function sanitizeOutputs(o: SessionOutputs, policy: AiPolicy): SessionOutputs {
   const out: SessionOutputs = {
     ...o,
-    nextSteps: Array.isArray(o.nextSteps) ? o.nextSteps : [],
-    focusAreas: Array.isArray(o.focusAreas) ? o.focusAreas : [],
-    aiPrompts: Array.isArray(o.aiPrompts) ? o.aiPrompts : [],
-    dontAskAi: Array.isArray(o.dontAskAi) ? o.dontAskAi : [],
-    voiceFlags: Array.isArray(o.voiceFlags) ? o.voiceFlags.filter((x) => typeof x === "string" && x.trim()) : [],
+    nextSteps: strList(o.nextSteps, 500),
+    focusAreas: items(o.focusAreas, (x) => {
+      const skill = text(x.skill, 120), why = text(x.why, 600), miniLesson = text(x.miniLesson, 1500);
+      return skill && why && miniLesson ? { skill, why, miniLesson } : null;
+    }),
+    aiPrompts: items(o.aiPrompts, (x) => {
+      const prompt = text(x.prompt, 1500);
+      return prompt && typeof x.whyItHelps === "string" ? { prompt, whyItHelps: x.whyItHelps.trim().slice(0, 400) } : null;
+    }),
+    dontAskAi: strList(o.dontAskAi, 500),
+    voiceFlags: strList(o.voiceFlags, 500),
     email: typeof o.email === "string" ? o.email : "",
     sessionNote: typeof o.sessionNote === "string" ? o.sessionNote : "",
   };
