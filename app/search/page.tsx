@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { get, post } from "@/lib/client";
 import type { Hit } from "@/lib/types";
@@ -53,7 +53,9 @@ export default function SearchPage() {
   const [focused, setFocused] = useState(true);
   const [open, setOpen] = useState(true);
   const [picked, setPicked] = useState<string | null>(null);
-  const box = useRef<HTMLInputElement>(null);
+  const box = useRef<HTMLInputElement | null>(null);
+  // The map swaps the box into a new place when it learns the screen is narrow, so focus every time the box mounts.
+  const boxRef = useCallback((el: HTMLInputElement | null) => { box.current = el; el?.focus(); }, []);
 
   useEffect(() => {
     box.current?.focus();
@@ -113,7 +115,7 @@ export default function SearchPage() {
         <label htmlFor="aria-q" className="sr-only">Describe the file you are looking for</label>
         <input
           id="aria-q"
-          ref={box}
+          ref={boxRef}
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Escape" && q) { e.preventDefault(); clear(); } }}

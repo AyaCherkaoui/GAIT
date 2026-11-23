@@ -349,6 +349,15 @@ async function main() {
                   if (el instanceof HTMLInputElement && (el.type === "radio" || el.type === "checkbox" || el.type === "hidden")) continue;
                   const x = r.left + r.width / 2, y = r.top + Math.min(r.height / 2, 20);
                   if (x < 0 || y < 0 || x > innerWidth || y > innerHeight) continue;
+                  // A link scrolled out of view inside its own scroll box (the sidebar nav) is reachable by scrolling, not covered.
+                  let clipped = false;
+                  for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
+                    if (!/(auto|scroll)/.test(getComputedStyle(a).overflowY)) continue;
+                    const ar = a.getBoundingClientRect();
+                    if (y < ar.top || y > ar.bottom) clipped = true;
+                    break;
+                  }
+                  if (clipped) continue;
                   const top = document.elementFromPoint(x, y);
                   if (top && top !== el && !el.contains(top) && !top.contains(el)) blocked.push(`${(el.textContent || el.tagName).trim().slice(0, 24)} under ${top.tagName.toLowerCase()}`);
                 }
@@ -407,7 +416,7 @@ async function main() {
         await page.getByRole("heading", { name: "Pick up where you left off" }).waitFor(T);
         await page.getByRole("heading", { name: "Recent sessions" }).waitFor(T);
         for (const l of ["Search ARIA", "Practice", "Task force"]) await page.getByRole("link", { name: new RegExp(l) }).first().waitFor(T);
-        await page.getByText("Coaching tip.").waitFor(T);
+        await page.getByRole("heading", { name: "Tip of the day" }).waitFor(T);
       });
       await flow("home (director): pending requests strip links to the tutor list", cookie(director), 1280, async (page) => {
         await page.goto(BASE + "/");
