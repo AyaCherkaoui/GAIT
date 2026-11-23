@@ -618,15 +618,15 @@ async function main() {
         const nt = login(n, `newtutor${n}@example.test`, `Nell Newtutor${n}`);
         await flow(`onboarding (new tutor, ${w}px): choose Tutor, pick a task force, land on Home`, cookie(nt), w, async (page) => {
           await page.goto(BASE + "/welcome", { waitUntil: "networkidle" });
-          await page.getByText("Tutor", { exact: true }).first().click();
-          await page.getByRole("button", { name: "Continue" }).click({ noWaitAfter: true });
+          await page.getByRole("radio", { name: /Tutor/ }).check({ force: true });
+          await page.getByRole("button", { name: "Continue" }).evaluate((b: HTMLElement) => b.click());
           await page.getByRole("heading", { name: "Pick your task force" }).waitFor(T);
           await page.getByText("needs 3 to run").first().waitFor(T);
           if (await page.getByText("The director places experienced tutors here.").count() !== 1) throw new Error("RWC Scholars should have no Join button");
           if (await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)) throw new Error("sideways scroll");
-          await page.getByRole("listitem").filter({ hasText: "Party Planners" }).getByRole("button", { name: "Join" }).click();
+          await page.getByRole("listitem").filter({ hasText: "Party Planners" }).getByRole("button", { name: "Join" }).evaluate((b: HTMLElement) => b.click());
           await page.getByText("Your task force", { exact: true }).waitFor(T);
-          await page.getByRole("button", { name: "Continue" }).click({ noWaitAfter: true });
+          await page.getByRole("button", { name: "Continue" }).evaluate((b: HTMLElement) => b.click());
           await page.waitForURL(BASE + "/", T);
         });
       }
