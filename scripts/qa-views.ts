@@ -338,6 +338,23 @@ async function main() {
   };
   try {
     await waitForServer();
+    // next dev compiles each page and API route on its first request, which can take longer than a step's wait.
+    // Request every route once here, so the timed steps below measure the page and not the compiler.
+    {
+      const apis: string[] = [];
+      const walk = (d: string) => {
+        for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+          if (e.isDirectory()) walk(path.join(d, e.name));
+          else if (e.name === "route.ts") apis.push("/" + path.relative(path.join(process.cwd(), "app"), d).replace(/\[[^\]]+\]/g, "1"));
+        }
+      };
+      walk(path.join(process.cwd(), "app", "api"));
+      const dirCookie = roles.find((r) => r.name === "director")?.cookie;
+      const warm = (p: string, ck?: string) =>
+        fetch(BASE + p, { redirect: "manual", headers: ck ? { cookie: `gait_session=${ck}` } : {}, signal: AbortSignal.timeout(180_000) }).then((r) => r.arrayBuffer(), () => {});
+      for (const role of roles) for (const v of role.views) await warm(v.path, role.cookie);
+      for (const a of apis) await warm(a, dirCookie);
+    }
     const launchOpts = process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : { channel: "chrome" as const };
     const browser = await chromium.launch(launchOpts).catch((e) => {
       throw new Error(`Could not start Chrome. Install Google Chrome or set CHROME_PATH. (${(e as Error).message.split("\n")[0]})`);
@@ -618,7 +635,7 @@ async function main() {
           await page.goto(BASE + "/search");
           await page.locator("#aria-q").fill("thesis help");
           await page.keyboard.press("Enter");
-          await page.getByRole("alert").waitFor(T);
+          await page.getByRole("alert").filter({ hasText: /ARIA (index is empty|library is not loaded)/ }).waitFor(T);
           const body = await page.locator("body").innerText();
           if (/Nothing matched/.test(body)) throw new Error("shows Nothing matched under the empty-index message");
           if (isDirector !== /sync-aria/.test(body)) throw new Error(isDirector ? "director does not see the sync command" : "tutor sees a developer command");
@@ -714,6 +731,7 @@ async function main() {
   } finally {
     stop();
     fake.close();
+    try { fs.mkdirSync(shots, { recursive: true }); fs.copyFileSync(path.join(dir, "server.log"), path.join(shots, "server.log")); } catch { /* no log to keep */ }
     fs.rmSync(dir, { recursive: true, force: true });
   }
   console.log(failures ? `\n${failures} check(s) failed` : "\nAll qa views passed");
