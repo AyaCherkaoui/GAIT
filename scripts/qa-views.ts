@@ -147,12 +147,13 @@ async function main() {
     await page.getByRole("button", { name: "Templates for a thesis statement" }).waitFor();
     await page.locator("#aria-q").fill("thesis help");
     await page.keyboard.press("Control+Enter");
-    await page.getByRole("link", { name: "Open in Drive" }).first().waitFor({ timeout: 30_000 });
-    await page.getByText("Why it matched").first().waitFor();
+    await page.getByRole("link", { name: "Open", exact: true }).first().waitFor({ timeout: 30_000 });
+    await page.getByText(/^Best \d+ for/).first().waitFor();
     await snap("result");
     await page.locator("#aria-q").fill("zzzz qqqq nothing");
-    await page.getByRole("button", { name: "Find files" }).click();
-    await page.getByRole("heading", { name: "Nothing matched" }).or(page.getByRole("link", { name: "Open in Drive" }).first()).waitFor({ timeout: 30_000 });
+    await page.getByRole("button", { name: "Find", exact: true }).click();
+    await page.getByText(/^Nothing matched/).or(page.getByRole("link", { name: "Open", exact: true }).first()).waitFor({ timeout: 30_000 });
+    await page.locator("#aria-q").fill("");
     await page.getByRole("button", { name: "thesis help" }).waitFor();
     await snap("recent");
   };
