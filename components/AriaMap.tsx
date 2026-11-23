@@ -84,7 +84,7 @@ type Crumb = { topic: number | null; sub: number | null };
 
 export type FocusDoc = { id: string; key: number } | null;
 
-export default function AriaMap({ picks = [], related = [], focusKey = 0, focusDoc = null, overlay = null, taskForce = null }: { picks?: string[]; related?: string[]; focusKey?: number; focusDoc?: FocusDoc; overlay?: ReactNode; taskForce?: string | null }) {
+export default function AriaMap({ picks = [], related = [], focusKey = 0, focusDoc = null, overlay = null, taskForce = null, director = false }: { picks?: string[]; related?: string[]; focusKey?: number; focusDoc?: FocusDoc; overlay?: ReactNode; taskForce?: string | null; director?: boolean }) {
   const [data, setData] = useState<MapData | null | undefined>(undefined);
   const [tags, setTags] = useState<(string | null)[]>([]);
   const [byForce, setByForce] = useState(false);
@@ -136,7 +136,7 @@ export default function AriaMap({ picks = [], related = [], focusKey = 0, focusD
     const msg = error ? <>The map could not load: {error}</> : data === undefined ? (
       <span className="flex items-center gap-3"><span className="h-2 w-2 animate-ping rounded-full bg-gold-300" />Drawing the ARIA Map…</span>
     ) : (
-      <span>The map has not been built yet. Run <code className="rounded bg-stone-100 px-1.5 py-0.5">npm run build-aria-map</code> once on this computer.</span>
+      director ? <span>The map has not been built yet. Run <code className="rounded bg-stone-100 px-1.5 py-0.5">npm run build-aria-map</code> once on this computer.</span> : <span>The ARIA library is not loaded yet. Ask the director.</span>
     );
     return (
       <div className={narrow ? "space-y-4" : `relative h-full w-full overflow-hidden ${SKY}`}>

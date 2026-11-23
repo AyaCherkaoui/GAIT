@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { btn2Cls, btnBlueCls, btnCls, Card, Chip, Empty, ErrorBox, inputCls, labelCls, PageHeader, Working } from "@/components/ui";
 import { get, post } from "@/lib/client";
-import { TASK_FORCES } from "@/lib/task-forces";
+import { MIN_TO_RUN, TASK_FORCES } from "@/lib/task-forces";
 
 type Tutor = { email: string; name: string | null; role: "tutor" | "director"; active: number; added_at: string; taskForce: string | null };
 
@@ -18,6 +18,7 @@ export default function TutorsClient({ myEmail }: { myEmail: string }) {
   const [name, setName] = useState("");
   const [role, setRole] = useState<"tutor" | "director">("tutor");
   const [query, setQuery] = useState("");
+  const [saved, setSaved] = useState<string | null>(null);
 
   const load = useCallback(
     () => get<{ tutors: Tutor[]; requests: Req[] }>("/api/admin/tutors").then((j) => { setTutors(j.tutors); setRequests(j.requests); }).catch((e: Error) => { setError(e.message); setTutors([]); }),
@@ -76,12 +77,14 @@ export default function TutorsClient({ myEmail }: { myEmail: string }) {
 
   async function placeIn(t: Tutor, key: string) {
     setError(null);
+    setSaved(null);
     setBusy(true);
     try {
       const res = await fetch("/api/task-forces", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: t.email, key: key || null }) });
       const json = await res.json().catch(() => ({ error: "The server sent an unreadable reply." }));
       if (!res.ok) throw new Error(json.error || "Request failed");
       await load();
+      setSaved(`Saved: ${t.name || t.email} ${key ? `is in ${TASK_FORCES.find((f) => f.key === key)?.name ?? key}` : "has no task force"}.`);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -106,9 +109,10 @@ export default function TutorsClient({ myEmail }: { myEmail: string }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <PageHeader title="Tutors">Only people on this list can sign in. Deactivating someone ends their access at once.</PageHeader>
       <ErrorBox error={error} />
+      {saved && <p role="status" className="rounded-md bg-green-50 px-3 py-2 text-sm text-stone-800">{saved}</p>}
       {requests.length > 0 && (
         <Card title={`Requests (${requests.length})`} tone="note">
           <ul className="divide-y divide-gold-300/70">
@@ -127,7 +131,7 @@ export default function TutorsClient({ myEmail }: { myEmail: string }) {
           </ul>
         </Card>
       )}
-      <Card title="Add a tutor">
+      <div className="order-2 sm:order-none"><Card title="Add a tutor">
         <form onSubmit={add} noValidate className="grid gap-4 sm:grid-cols-2">
           <div>
             <label htmlFor="tutor-email" className={labelCls}>Email</label>
@@ -149,8 +153,24 @@ export default function TutorsClient({ myEmail }: { myEmail: string }) {
             <button type="submit" className={`${btnCls} min-h-11 w-full sm:w-auto`} disabled={busy}>{busy ? "Saving…" : "Add tutor"}</button>
           </div>
         </form>
-      </Card>
-      <Card title="Tutors">
+      </Card></div>
+      <div className="order-1 sm:order-none"><Card title="Task forces">
+        <ul className="grid gap-3 sm:grid-cols-2">
+          {TASK_FORCES.map((f) => {
+            const members = (tutors ?? []).filter((t) => t.active && t.taskForce === f.key).map((t) => t.name || t.email);
+            const n = members.length;
+            const status = n < MIN_TO_RUN ? `needs ${MIN_TO_RUN - n} more to run` : f.max !== null && n >= f.max ? "full" : "running";
+            return (
+              <li key={f.key} className="rounded-lg border border-stone-200 p-3">
+                <p className="font-semibold text-ink">{f.name}</p>
+                <p className="text-sm text-stone-600">{n} member{n === 1 ? "" : "s"} · min {MIN_TO_RUN}{f.max !== null ? ` / max ${f.max}` : ""} · {status}</p>
+                <p className="mt-1 break-words text-sm text-stone-700">{n ? members.join(", ") : "No members yet."}</p>
+              </li>
+            );
+          })}
+        </ul>
+      </Card></div>
+      <div className="order-1 sm:order-none"><Card title="Tutors">
         <div className="mb-4 max-w-sm">
           <label htmlFor="tutor-search" className={labelCls}>Search by name or email</label>
           <input id="tutor-search" type="search" className={inputCls} value={query} onChange={(e) => setQuery(e.target.value)} />
@@ -178,7 +198,7 @@ export default function TutorsClient({ myEmail }: { myEmail: string }) {
                   <td className="sm:table-cell sm:pr-4">{t.name ?? ""}</td>
                   <td className="sm:table-cell sm:pr-4"><Chip tone={t.role === "director" ? "gold" : "plain"}>{t.role === "director" ? "Director" : "Tutor"}</Chip></td>
                   <td className="sm:table-cell sm:pr-4">{t.active ? <Chip tone="green">Active</Chip> : <Chip>Inactive</Chip>}</td>
-                  <td className="sm:table-cell sm:pr-4">
+                  <td className="w-full sm:table-cell sm:w-auto sm:pr-4">
                     <label className="sr-only" htmlFor={`tf-${t.email}`}>Task force for {t.email}</label>
                     <select id={`tf-${t.email}`} className={`${inputCls} min-h-10`} disabled={busy || !t.active} value={t.taskForce ?? ""} onChange={(e) => placeIn(t, e.target.value)}>
                       <option value="">No task force</option>
@@ -196,7 +216,7 @@ export default function TutorsClient({ myEmail }: { myEmail: string }) {
             </tbody>
           </table>
         )}
-      </Card>
+      </Card></div>
     </div>
   );
 }

@@ -1,18 +1,21 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import Eng101Panel from "@/components/Eng101Panel";
 import SessionTimer, { elapsedMs, useLive } from "@/components/SessionTimer";
-import { Chip, PageHeader, btnBlueCls, inputCls, labelCls } from "@/components/ui";
+import { Chip, PageHeader, btn2Cls, btnBlueCls, inputCls, labelCls } from "@/components/ui";
 import { approachFor, DRAFT_CHIP } from "@/lib/approaches";
 import { readLocal, writeLocal } from "@/lib/local";
 import { typeLabel } from "@/lib/session-types";
+import { LIVE_KEY } from "@/components/SessionTimer";
 
 const DRAFT_KEY = "ink-draft-session";
 
 export default function LiveSession() {
   const router = useRouter();
   const { live, now, update, ready } = useLive();
+  const [confirming, setConfirming] = useState(false);
 
   if (!ready) return null;
   if (!live) {
@@ -45,9 +48,16 @@ export default function LiveSession() {
       sessionFocus: live.focus.join(", "),
       sessionMinutes: String(Math.max(1, Math.round(elapsedMs(live) / 60_000))),
       tuteeId: live.tuteeId ? String(live.tuteeId) : "",
+      fromLive: true,
     }));
-    writeLocal("ink-live-session", null);
+    writeLocal(LIVE_KEY, null);
     router.push("/session");
+  }
+
+  function discard() {
+    writeLocal(LIVE_KEY, null);
+    writeLocal(DRAFT_KEY, null);
+    router.push("/");
   }
 
   return (
@@ -80,7 +90,19 @@ export default function LiveSession() {
         <textarea id="live-notes" className={`${inputCls} ruled`} rows={5} value={live.notes} onChange={(e) => update((l) => ({ ...l, notes: e.target.value }))} />
       </div>
 
-      <button type="button" onClick={finish} className={btnBlueCls}>Finish and write it up</button>
+      <div className="flex flex-wrap items-center gap-3">
+        <button type="button" onClick={finish} className={btnBlueCls}>Finish and write it up</button>
+        {!confirming && <button type="button" onClick={() => setConfirming(true)} className={btn2Cls}>Discard session</button>}
+      </div>
+      {confirming && (
+        <div role="alertdialog" aria-labelledby="discard-q" className="space-y-3 rounded-xl border border-red-200 bg-red-50 p-4">
+          <p id="discard-q" className="text-sm text-stone-800">Discard this session? The timer and your notes will be deleted and cannot be brought back.</p>
+          <div className="flex flex-wrap gap-3">
+            <button type="button" onClick={discard} className={btn2Cls}>Yes, discard it</button>
+            <button type="button" onClick={() => setConfirming(false)} className={btn2Cls}>Keep going</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

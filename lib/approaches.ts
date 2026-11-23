@@ -95,18 +95,23 @@ const FOCUS: Record<FocusId, Approach> = {
   ] },
 };
 
+/** Steps in the order they start, so the minutes never go backwards (ties keep their order). */
+function byTime<T extends { at: number }>(steps: T[]): T[] {
+  return [...steps].sort((x, y) => x.at - y.at);
+}
+
 /** The draft approach for a type; for tutoring, the chosen focus areas are added after the base steps. */
 export function approachFor(type: SessionType, focus: FocusId[] = []): Approach {
   if (type === "eng101") return { title: "English 101", steps: [], tip: "Work through the units of the course." };
   const base = BASE[type];
-  if (type !== "tutoring" || !focus.length) return base;
+  if (type !== "tutoring" || !focus.length) return { ...base, steps: byTime(base.steps) };
   const extra = focus.map((f) => FOCUS[f]).filter(Boolean);
   return {
     ...base,
     tip: "Focus: " + extra.map((a) => a.title.toLowerCase()).join(", ") + ".",
-    steps: [
+    steps: byTime([
       ...base.steps,
       ...extra.flatMap((a) => a.steps.map((s) => ({ at: s.at + 15, text: `${a.title}: ${s.text}` }))),
-    ].sort((x, y) => x.at - y.at),
+    ]),
   };
 }
